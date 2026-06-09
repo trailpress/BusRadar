@@ -8,6 +8,7 @@ type Props = {
   vehicles: Vehicle[];
   selectedLine?: string;
   selectedVehicle?: Vehicle;
+  followedVehicleId?: string;
   showRouteForLine?: string;
   search: string;
   onSearch: (value: string) => void;
@@ -22,6 +23,7 @@ export function MapScreen({
   vehicles,
   selectedLine,
   selectedVehicle,
+  followedVehicleId,
   showRouteForLine,
   search,
   onSearch,
@@ -37,11 +39,18 @@ export function MapScreen({
         vehicles={vehicles}
         selectedLine={selectedLine}
         selectedVehicleId={selectedVehicle?.vehicleId}
+        followedVehicleId={followedVehicleId}
         showRouteForLine={showRouteForLine}
         onSelectVehicle={onSelectVehicle}
       />
       <AppHeader search={search} onSearch={onSearch} onRadar={onRadar} />
       <ServiceCard vehicles={vehicles} selectedLine={selectedLine} />
+      {followedVehicleId && (
+        <div className="follow-banner">
+          <strong>Seguendo vettura {followedVehicleId}</strong>
+          <span>La mappa resta centrata sul mezzo simulato</span>
+        </div>
+      )}
       {selectedVehicle && (
         <VehicleSheet
           vehicle={selectedVehicle}

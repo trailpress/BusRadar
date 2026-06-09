@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
-import { vehicles as seedVehicles } from './data/demoData';
+import { lines, vehicles as seedVehicles } from './data/demoData';
 import { advanceVehicles } from './services/simulation';
 import { LineDetailScreen } from './screens/LineDetailScreen';
 import { LinesScreen } from './screens/LinesScreen';
@@ -20,6 +20,7 @@ function App() {
   const [selectedLine, setSelectedLine] = useState<TransitLine>();
   const [lineFilter, setLineFilter] = useState<string>();
   const [showRouteForLine, setShowRouteForLine] = useState<string>();
+  const [followedVehicleId, setFollowedVehicleId] = useState<string>();
   const [toast, setToast] = useState<string>();
 
   useEffect(() => {
@@ -70,6 +71,7 @@ function App() {
     setActiveTab(tab);
     if (tab !== 'map') setSelectedVehicleId(undefined);
     if (tab !== 'lines') setSelectedLine(undefined);
+    if (tab !== 'map') setFollowedVehicleId(undefined);
   }
 
   if (selectedLine) {
@@ -89,6 +91,7 @@ function App() {
           vehicles={searchedVehicles}
           selectedLine={lineFilter}
           selectedVehicle={selectedVehicle}
+          followedVehicleId={followedVehicleId}
           showRouteForLine={showRouteForLine}
           search={search}
           onSearch={setSearch}
@@ -96,14 +99,19 @@ function App() {
           onSelectVehicle={openVehicle}
           onClearVehicle={() => setSelectedVehicleId(undefined)}
           onFollowVehicle={(vehicle) => {
-            setSelectedVehicleId(vehicle.vehicleId);
+            setSelectedVehicleId(undefined);
+            setFollowedVehicleId(vehicle.vehicleId);
             setLineFilter(vehicle.line);
+            setShowRouteForLine(vehicle.line);
             notify(`Segui vettura ${vehicle.vehicleId} attivo`);
           }}
           onShowRoute={(line) => {
+            const routeLine = lines.find((item) => item.id === line);
+            if (routeLine) setSelectedLine(routeLine);
             setShowRouteForLine(line);
             setLineFilter(line);
             setSelectedVehicleId(undefined);
+            setFollowedVehicleId(undefined);
             notify(`Percorso linea ${line} mostrato`);
           }}
         />

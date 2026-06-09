@@ -293,6 +293,31 @@ button {
   pointer-events: none;
 }
 
+.follow-banner {
+  position: absolute;
+  z-index: 620;
+  left: 14px;
+  right: 14px;
+  bottom: 174px;
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid rgba(47, 125, 255, 0.28);
+  border-radius: 15px;
+  background: rgba(8, 12, 18, 0.9);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(18px);
+}
+
+.follow-banner strong {
+  font-size: 13px;
+}
+
+.follow-banner span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .service-card {
   position: absolute;
   z-index: 550;

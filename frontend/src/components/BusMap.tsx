@@ -1,7 +1,7 @@
 import L from 'leaflet';
 import { Layers, LocateFixed } from 'lucide-react';
-import { useEffect, useMemo, useRef } from 'react';
-import { MapContainer, Marker, Polyline, Popup, useMap } from 'react-leaflet';
+import { useEffect, useMemo } from 'react';
+import { ImageOverlay, MapContainer, Marker, Polyline, Popup, useMap } from 'react-leaflet';
 import { routes, stops, userPosition } from '../data/demoData';
 import type { LatLng, Vehicle } from '../types';
 import { getLineColor } from '../utils/lineColors';
@@ -27,6 +27,7 @@ type Props = {
   vehicles: Vehicle[];
   selectedLine?: string;
   selectedVehicleId?: string;
+  followedVehicleId?: string;
   showRouteForLine?: string;
   onSelectVehicle: (vehicle: Vehicle) => void;
 };
@@ -68,12 +69,24 @@ function FitRoute({ line }: { line?: string }) {
   return null;
 }
 
-export function BusMap({ vehicles, selectedLine, selectedVehicleId, showRouteForLine, onSelectVehicle }: Props) {
+function FollowVehicle({ vehicle }: { vehicle?: Vehicle }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!vehicle) return;
+    map.flyTo([vehicle.lat, vehicle.lon], 14.8, { duration: 0.8 });
+  }, [map, vehicle?.lat, vehicle?.lon, vehicle?.vehicleId]);
+
+  return null;
+}
+
+export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, showRouteForLine, onSelectVehicle }: Props) {
   const visibleVehicles = useMemo(
     () => vehicles.filter((vehicle) => !selectedLine || vehicle.line === selectedLine),
     [vehicles, selectedLine],
   );
   const highlightedRoutes = routes.filter((route) => !selectedLine || route.line === selectedLine);
+  const followedVehicle = vehicles.find((vehicle) => vehicle.vehicleId === followedVehicleId);
 
   return (
     <div className="map-shell">
@@ -87,11 +100,17 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, showRouteFor
         attributionControl={false}
         className="bus-map"
       >
+        <ImageOverlay
+          url={`${import.meta.env.BASE_URL}assets/torino-diorama-map.png`}
+          bounds={bounds}
+          opacity={0.94}
+          zIndex={1}
+        />
         {cityGrid.map((road, index) => (
-          <Polyline key={`road-${index}`} positions={road.map(toLeafletPoint)} pathOptions={{ color: '#233145', weight: index === 4 ? 5 : 2, opacity: index === 4 ? 0.42 : 0.28 }} />
+          <Polyline key={`road-${index}`} positions={road.map(toLeafletPoint)} pathOptions={{ color: '#7d8ea6', weight: index === 4 ? 5 : 2, opacity: index === 4 ? 0.5 : 0.28 }} />
         ))}
         {highlightedRoutes.map((route) => (
-          <Polyline key={route.id} positions={route.path.map(toLeafletPoint)} pathOptions={{ color: getLineColor(route.line), weight: showRouteForLine === route.line ? 7 : 4, opacity: showRouteForLine === route.line ? 0.92 : 0.45 }} />
+          <Polyline key={route.id} positions={route.path.map(toLeafletPoint)} pathOptions={{ color: getLineColor(route.line), weight: showRouteForLine === route.line ? 8 : 4, opacity: showRouteForLine === route.line ? 0.95 : 0.62 }} />
         ))}
         {stops
           .filter((stop) => !selectedLine || stop.lines.includes(selectedLine))
@@ -112,7 +131,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, showRouteFor
           <Marker
             key={vehicle.vehicleId}
             position={[vehicle.lat, vehicle.lon]}
-            icon={createBusIcon(vehicle, vehicle.vehicleId === selectedVehicleId)}
+            icon={createBusIcon(vehicle, vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId)}
             eventHandlers={{ click: () => onSelectVehicle(vehicle) }}
           >
             <Popup>
@@ -126,6 +145,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, showRouteFor
         ))}
         <RecenterButton />
         <FitRoute line={showRouteForLine} />
+        <FollowVehicle vehicle={followedVehicle} />
       </MapContainer>
     </div>
   );

@@ -4,11 +4,7 @@
 .bus-map {
   width: 100%;
   height: 100%;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px),
-    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
-    radial-gradient(circle at 50% 42%, #101826, #030507 72%);
-  background-size: 44px 44px, 44px 44px, auto;
+  background: #edf1f3;
 }
 
 .leaflet-container {
@@ -21,7 +17,7 @@
 
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
-  background: rgba(16, 23, 34, 0.95);
+  background: rgba(16, 23, 34, 0.96);
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 16px 38px rgba(0, 0, 0, 0.42);
@@ -71,9 +67,10 @@
 .stop-marker {
   width: 10px;
   height: 10px;
-  border: 2px solid rgba(255, 255, 255, 0.75);
+  border: 2px solid rgba(255, 255, 255, 0.95);
   border-radius: 50%;
-  background: #9aa4b2;
+  background: #334155;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .user-marker {
