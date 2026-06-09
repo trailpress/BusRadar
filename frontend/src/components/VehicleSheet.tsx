@@ -2,6 +2,7 @@ import { Clock3, Gauge, LocateFixed, Route as RouteIcon, ShieldCheck, Star, X } 
 import { stops } from '../data/demoData';
 import { getNextStops } from '../services/simulation';
 import type { Vehicle } from '../types';
+import { notify } from '../utils/notify';
 import { LineBadge } from './LineBadge';
 
 type Props = {
@@ -19,7 +20,7 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
   return (
     <section className="vehicle-sheet" aria-label={`Dettaglio vettura ${vehicle.vehicleId}`}>
       <div className="detail-nav">
-        <button type="button" aria-label="Aggiungi ai preferiti">
+        <button type="button" aria-label="Aggiungi ai preferiti" onClick={() => notify(`Vettura ${vehicle.vehicleId} aggiunta ai preferiti demo`)}>
           <Star size={18} className={vehicle.favorite ? 'star-on' : ''} />
         </button>
         <strong>Dettagli vettura</strong>

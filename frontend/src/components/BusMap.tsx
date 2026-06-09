@@ -8,6 +8,7 @@ import { getLineColor } from '../utils/lineColors';
 import { toLeafletPoint } from '../utils/geo';
 import { IconButton } from './IconButton';
 import { LineBadge } from './LineBadge';
+import { notify } from '../utils/notify';
 
 const bounds: [number, number][] = [
   [45.0005, 7.613],
@@ -47,7 +48,7 @@ function RecenterButton() {
       <IconButton label="Centra posizione" onClick={() => map.flyTo([userPosition.lat, userPosition.lon], 13.5)}>
         <LocateFixed size={20} />
       </IconButton>
-      <IconButton label="Layer mappa">
+      <IconButton label="Layer mappa" onClick={() => notify('Layer demo: fermate e percorsi locali visibili')}>
         <Layers size={20} />
       </IconButton>
     </div>

@@ -4,6 +4,7 @@ import { BusMap } from '../components/BusMap';
 import { LineBadge } from '../components/LineBadge';
 import { routes, stops } from '../data/demoData';
 import type { TransitLine, Vehicle } from '../types';
+import { notify } from '../utils/notify';
 
 type Props = {
   line: TransitLine;
@@ -24,7 +25,7 @@ export function LineDetailScreen({ line, vehicles, onBack, onSelectVehicle }: Pr
           <ArrowLeft size={20} />
         </button>
         <strong>Linea {line.id}</strong>
-        <button className="back-button" type="button" aria-label="Preferiti">
+        <button className="back-button" type="button" aria-label="Preferiti" onClick={() => notify(`Linea ${line.id} aggiunta ai preferiti demo`)}>
           <Star size={19} />
         </button>
       </section>

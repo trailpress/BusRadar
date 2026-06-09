@@ -172,21 +172,40 @@ button {
 }
 
 .map-search {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 38px;
   height: 38px;
+  margin-left: auto;
+  padding: 0 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
+  border-radius: 999px;
   background: rgba(8, 12, 18, 0.82);
   color: #fff;
+  transition: width 180ms ease;
 }
 
 .map-search input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
+  width: 0;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
   opacity: 0;
+  transition: width 180ms ease, opacity 180ms ease;
+}
+
+.map-search:focus-within {
+  width: min(190px, 48vw);
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.map-search:focus-within input {
+  width: 100%;
+  opacity: 1;
 }
 
 .search-box {
@@ -254,6 +273,24 @@ button {
 .bottom-nav button.is-active {
   background: transparent;
   color: var(--primary);
+}
+
+.toast {
+  position: absolute;
+  z-index: 1200;
+  left: 18px;
+  right: 18px;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(16, 23, 34, 0.96);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+  pointer-events: none;
 }
 
 .service-card {

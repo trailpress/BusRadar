@@ -11,16 +11,19 @@ type Props = {
 
 export function VehiclesScreen({ vehicles, onSelectVehicle }: Props) {
   const [query, setQuery] = useState('');
+  const [mode, setMode] = useState<'service' | 'favorites'>('service');
   const normalized = query.trim().toLowerCase();
   const filtered = useMemo(
     () =>
-      vehicles.filter(
-        (vehicle) =>
-          vehicle.vehicleId.includes(normalized) ||
-          vehicle.line.includes(normalized) ||
-          vehicle.direction.toLowerCase().includes(normalized),
-      ),
-    [vehicles, normalized],
+      vehicles
+        .filter((vehicle) => mode === 'service' || vehicle.favorite)
+        .filter(
+          (vehicle) =>
+            vehicle.vehicleId.includes(normalized) ||
+            vehicle.line.includes(normalized) ||
+            vehicle.direction.toLowerCase().includes(normalized),
+        ),
+    [vehicles, normalized, mode],
   );
 
   return (
@@ -32,8 +35,8 @@ export function VehiclesScreen({ vehicles, onSelectVehicle }: Props) {
       </section>
       <SearchBox value={query} placeholder="Cerca vettura o numero" onChange={setQuery} />
       <div className="list-tabs">
-        <button className="is-active" type="button">In servizio <span>{vehicles.length + 116}</span></button>
-        <button type="button">Preferite</button>
+        <button className={mode === 'service' ? 'is-active' : ''} type="button" onClick={() => setMode('service')}>In servizio <span>{vehicles.length + 116}</span></button>
+        <button className={mode === 'favorites' ? 'is-active' : ''} type="button" onClick={() => setMode('favorites')}>Preferite</button>
       </div>
       <section className="list-section">
         {filtered.map((vehicle) => (

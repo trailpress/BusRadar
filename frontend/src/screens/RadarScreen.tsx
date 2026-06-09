@@ -6,6 +6,7 @@ import type { Vehicle } from '../types';
 import { distanceMeters } from '../utils/geo';
 import { formatDistance } from '../utils/format';
 import { LineBadge } from '../components/LineBadge';
+import { notify } from '../utils/notify';
 
 const radiusOptions = [
   { label: '500 m', value: 500 },
@@ -17,9 +18,10 @@ const radiusOptions = [
 type Props = {
   vehicles: Vehicle[];
   onSelectVehicle: (vehicle: Vehicle) => void;
+  onBack: () => void;
 };
 
-export function RadarScreen({ vehicles, onSelectVehicle }: Props) {
+export function RadarScreen({ vehicles, onSelectVehicle, onBack }: Props) {
   const [radius, setRadius] = useState(1000);
   const matches = useMemo(
     () =>
@@ -33,13 +35,13 @@ export function RadarScreen({ vehicles, onSelectVehicle }: Props) {
   return (
     <main className="screen panel-screen">
       <section className="screen-header">
-        <button className="plain-icon" type="button" aria-label="Indietro">
+        <button className="plain-icon" type="button" aria-label="Indietro" onClick={onBack}>
           <ArrowLeft size={20} />
         </button>
         <div>
           <h1>Radar</h1>
         </div>
-        <button className="plain-icon" type="button" aria-label="Informazioni">
+        <button className="plain-icon" type="button" aria-label="Informazioni" onClick={() => notify('Radar demo: posizione utente e mezzi sono simulati')}>
           <Info size={18} />
         </button>
       </section>
@@ -82,7 +84,7 @@ export function RadarScreen({ vehicles, onSelectVehicle }: Props) {
       </section>
 
       <section className="list-section">
-        <button className="radar-summary" type="button">
+        <button className="radar-summary" type="button" onClick={() => notify(`${matches.length} mezzi demo nel raggio selezionato`)}>
           <span><i /> {matches.length} mezzi nel raggio di {radiusOptions.find((option) => option.value === radius)?.label}</span>
           <small>Aggiornato ora</small>
         </button>

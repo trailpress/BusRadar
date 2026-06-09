@@ -4,6 +4,7 @@ import { lines } from '../data/demoData';
 import type { TransitLine, Vehicle } from '../types';
 import { LineBadge } from '../components/LineBadge';
 import { SearchBox } from '../components/SearchBox';
+import { notify } from '../utils/notify';
 
 type Props = {
   vehicles: Vehicle[];
@@ -43,7 +44,7 @@ export function LinesScreen({ vehicles, onSelectLine }: Props) {
       <SearchBox value={query} placeholder="Cerca linea" onChange={setQuery} />
       {favorites.length > 0 && (
         <section className="list-section">
-          <div className="section-heading"><h2>Preferite</h2><button type="button">Modifica</button></div>
+          <div className="section-heading"><h2>Preferite</h2><button type="button" onClick={() => notify('Modifica preferite: funzione demo')}>Modifica</button></div>
           {favorites.map(renderLine)}
         </section>
       )}
