@@ -122,19 +122,25 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  width: 176px;
-  height: 132px;
+  width: 132px;
+  height: 100px;
   transform: translateY(-14px);
   pointer-events: none;
   perspective: 260px;
 }
 
+.landmark-marker--district,
+.landmark-marker--local {
+  width: 104px;
+  height: 78px;
+}
+
 .landmark-marker b {
   position: absolute;
-  left: 5px;
-  bottom: 8px;
-  width: 88px;
-  height: 36px;
+  left: 4px;
+  bottom: 7px;
+  width: 66px;
+  height: 26px;
   border-radius: 50%;
   background:
     radial-gradient(circle at 38% 36%, rgba(255, 255, 255, 0.9), rgba(203, 213, 225, 0.96) 42%, rgba(100, 116, 139, 0.84) 100%);
@@ -152,7 +158,7 @@
   height: 82px;
   flex: 0 0 auto;
   margin-left: 8px;
-  margin-bottom: 30px;
+  margin-bottom: 24px;
   border: 0;
   background-image: var(--sprite-url);
   background-repeat: no-repeat;
@@ -165,21 +171,68 @@
   filter: drop-shadow(0 7px 9px rgba(15, 23, 42, 0.24));
 }
 
+.landmark-marker--district i {
+  width: 58px;
+  height: 58px;
+  margin-bottom: 18px;
+  transform: rotateX(5deg) rotateZ(-2deg) scale(0.96);
+}
+
+.landmark-marker--district b {
+  width: 48px;
+  height: 18px;
+}
+
+.landmark-marker--local i {
+  width: 42px;
+  height: 42px;
+  margin-left: 10px;
+  margin-bottom: 15px;
+  box-shadow:
+    8px 12px 0 rgba(71, 85, 105, 0.16),
+    0 14px 22px rgba(15, 23, 42, 0.28);
+}
+
+.landmark-marker--local b {
+  left: 8px;
+  width: 36px;
+  height: 14px;
+  opacity: 0.82;
+}
+
 .landmark-marker span {
   position: absolute;
-  left: 82px;
-  bottom: 34px;
-  max-width: 88px;
-  padding: 7px 9px;
+  left: 68px;
+  bottom: 31px;
+  max-width: 78px;
+  padding: 6px 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 9px;
   background: rgba(8, 12, 18, 0.9);
   color: #fff;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 900;
   line-height: 1.1;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.42);
   box-shadow: 0 10px 18px rgba(0, 0, 0, 0.34);
+}
+
+.landmark-marker--district span {
+  left: 55px;
+  bottom: 23px;
+  max-width: 72px;
+  font-size: 9.5px;
+}
+
+.landmark-marker--local span {
+  left: 45px;
+  bottom: 18px;
+  max-width: 70px;
+  font-size: 9px;
+}
+
+.landmark-marker--pin span {
+  display: none;
 }
 
 .user-marker {

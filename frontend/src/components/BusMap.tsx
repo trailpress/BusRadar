@@ -1,7 +1,7 @@
 import L from 'leaflet';
 import { Layers, LocateFixed } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import { landmarks, routes, stops, userPosition } from '../data/demoData';
 import type { Landmark, LatLng, MapLayerMode, Vehicle } from '../types';
 import { getLineColor } from '../utils/lineColors';
@@ -41,19 +41,21 @@ function createBusIcon(vehicle: Vehicle, selected: boolean) {
   });
 }
 
-function createLandmarkIcon(landmark: Landmark) {
+function createLandmarkIcon(landmark: Landmark, zoom: number) {
   const spriteIndex = landmark.spriteIndex ?? 0;
   const spriteCol = spriteIndex % 4;
   const spriteRow = Math.floor(spriteIndex / 4);
   const spriteX = `${spriteCol * 33.3333}%`;
   const spriteY = `${spriteRow * 50}%`;
   const spriteUrl = `${import.meta.env.BASE_URL}assets/diorama-landmarks-sheet-alpha.png`;
+  const tier = landmark.tier ?? 'district';
+  const showLabel = zoom >= (landmark.labelZoom ?? 15);
 
   return L.divIcon({
     className: '',
-    html: `<div class="landmark-marker landmark-marker--${landmark.type}"><b></b><i style="--sprite-url:url('${spriteUrl}');--sprite-x:${spriteX};--sprite-y:${spriteY}"></i><span>${landmark.name}</span></div>`,
-    iconSize: [176, 132],
-    iconAnchor: [44, 102],
+    html: `<div class="landmark-marker landmark-marker--${tier} landmark-marker--${showLabel ? 'label' : 'pin'} landmark-marker--${landmark.type}"><b></b><i style="--sprite-url:url('${spriteUrl}');--sprite-x:${spriteX};--sprite-y:${spriteY}"></i><span>${landmark.name}</span></div>`,
+    iconSize: tier === 'major' ? [138, 104] : [104, 78],
+    iconAnchor: tier === 'major' ? [34, 82] : [26, 62],
   });
 }
 
@@ -106,8 +108,21 @@ function FocusPoint({ point }: { point?: LatLng }) {
   return null;
 }
 
+function ZoomTracker({ onZoom }: { onZoom: (zoom: number) => void }) {
+  const map = useMapEvents({
+    zoomend: () => onZoom(map.getZoom()),
+  });
+
+  useEffect(() => {
+    onZoom(map.getZoom());
+  }, [map, onZoom]);
+
+  return null;
+}
+
 export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, showRouteForLine, onSelectVehicle }: Props) {
   const [mode, setMode] = useState<MapLayerMode>('standard');
+  const [zoom, setZoom] = useState(13);
   const visibleVehicles = useMemo(
     () => vehicles.filter((vehicle) => !selectedLine || vehicle.line === selectedLine),
     [vehicles, selectedLine],
@@ -115,6 +130,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const highlightedRoutes = routes.filter((route) => !selectedLine || route.line === selectedLine);
   const followedVehicle = vehicles.find((vehicle) => vehicle.vehicleId === followedVehicleId);
   const tileLayer = tileLayers[mode];
+  const visibleLandmarks = landmarks.filter((landmark) => zoom >= (landmark.minZoom ?? 13));
 
   return (
     <div className={`map-shell map-shell--${mode}`}>
@@ -171,8 +187,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           </Marker>
         ))}
         {mode === 'diorama' &&
-          landmarks.map((landmark) => (
-            <Marker key={landmark.id} position={[landmark.lat, landmark.lon]} icon={createLandmarkIcon(landmark)} interactive={false} />
+          visibleLandmarks.map((landmark) => (
+            <Marker key={landmark.id} position={[landmark.lat, landmark.lon]} icon={createLandmarkIcon(landmark, zoom)} interactive={false} />
           ))}
         <RecenterButton
           mode={mode}
@@ -187,6 +203,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         <FitRoute line={showRouteForLine} />
         <FollowVehicle vehicle={followedVehicle} />
         <FocusPoint point={focusPoint} />
+        <ZoomTracker onZoom={setZoom} />
       </MapContainer>
     </div>
   );

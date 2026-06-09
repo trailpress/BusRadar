@@ -57,6 +57,9 @@ export type Landmark = LatLng & {
   name: string;
   type: LandmarkType;
   spriteIndex?: number;
+  minZoom?: number;
+  labelZoom?: number;
+  tier?: 'major' | 'district' | 'local';
 };
 
 export type MapLayerMode = 'standard' | 'diorama';
