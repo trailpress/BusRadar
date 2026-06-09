@@ -3,7 +3,7 @@ import { Layers, LocateFixed } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import { landmarks, routes, stops, userPosition } from '../data/demoData';
-import type { Landmark, MapLayerMode, Vehicle } from '../types';
+import type { Landmark, LatLng, MapLayerMode, Vehicle } from '../types';
 import { getLineColor } from '../utils/lineColors';
 import { toLeafletPoint } from '../utils/geo';
 import { IconButton } from './IconButton';
@@ -20,6 +20,7 @@ type Props = {
   selectedLine?: string;
   selectedVehicleId?: string;
   followedVehicleId?: string;
+  focusPoint?: LatLng;
   showRouteForLine?: string;
   onSelectVehicle: (vehicle: Vehicle) => void;
 };
@@ -92,7 +93,18 @@ function FollowVehicle({ vehicle }: { vehicle?: Vehicle }) {
   return null;
 }
 
-export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, showRouteForLine, onSelectVehicle }: Props) {
+function FocusPoint({ point }: { point?: LatLng }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!point) return;
+    map.flyTo([point.lat, point.lon], 16, { duration: 0.9 });
+  }, [map, point?.lat, point?.lon]);
+
+  return null;
+}
+
+export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, showRouteForLine, onSelectVehicle }: Props) {
   const [mode, setMode] = useState<MapLayerMode>('diorama');
   const visibleVehicles = useMemo(
     () => vehicles.filter((vehicle) => !selectedLine || vehicle.line === selectedLine),
@@ -107,9 +119,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       <MapContainer
         center={[45.0706, 7.6867]}
         zoom={13}
-        minZoom={11}
-        maxZoom={16}
-        maxBounds={bounds}
+        minZoom={3}
+        maxZoom={19}
         zoomControl={false}
         attributionControl={false}
         className="bus-map"
@@ -170,6 +181,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         />
         <FitRoute line={showRouteForLine} />
         <FollowVehicle vehicle={followedVehicle} />
+        <FocusPoint point={focusPoint} />
       </MapContainer>
     </div>
   );

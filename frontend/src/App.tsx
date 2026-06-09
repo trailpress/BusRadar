@@ -9,7 +9,7 @@ import { MoreScreen } from './screens/MoreScreen';
 import { RadarScreen } from './screens/RadarScreen';
 import { StopsScreen } from './screens/StopsScreen';
 import { VehiclesScreen } from './screens/VehiclesScreen';
-import type { TabKey, TransitLine, Vehicle } from './types';
+import type { LatLng, Stop, TabKey, TransitLine, Vehicle } from './types';
 import { notify } from './utils/notify';
 
 function App() {
@@ -21,6 +21,7 @@ function App() {
   const [lineFilter, setLineFilter] = useState<string>();
   const [showRouteForLine, setShowRouteForLine] = useState<string>();
   const [followedVehicleId, setFollowedVehicleId] = useState<string>();
+  const [mapFocus, setMapFocus] = useState<LatLng>();
   const [toast, setToast] = useState<string>();
 
   useEffect(() => {
@@ -74,6 +75,16 @@ function App() {
     if (tab !== 'map') setFollowedVehicleId(undefined);
   }
 
+  function openStop(stop: Stop) {
+    setMapFocus({ lat: stop.lat, lon: stop.lon });
+    setSelectedVehicleId(undefined);
+    setFollowedVehicleId(undefined);
+    setLineFilter(undefined);
+    setShowRouteForLine(undefined);
+    setActiveTab('map');
+    notify(`Fermata ${stop.name} centrata sulla mappa`);
+  }
+
   if (selectedLine) {
     return (
       <div className="app-shell">
@@ -92,6 +103,7 @@ function App() {
           selectedLine={lineFilter}
           selectedVehicle={selectedVehicle}
           followedVehicleId={followedVehicleId}
+          focusPoint={mapFocus}
           showRouteForLine={showRouteForLine}
           search={search}
           onSearch={setSearch}
@@ -117,7 +129,7 @@ function App() {
         />
       )}
       {activeTab === 'lines' && <LinesScreen vehicles={vehicles} onSelectLine={openLine} />}
-      {activeTab === 'stops' && <StopsScreen />}
+      {activeTab === 'stops' && <StopsScreen onSelectStop={openStop} />}
       {activeTab === 'vehicles' && <VehiclesScreen vehicles={vehicles} onSelectVehicle={openVehicle} />}
       {activeTab === 'more' && <RadarScreen vehicles={vehicles} onSelectVehicle={openVehicle} onBack={() => setActiveTab('map')} />}
       {toast && <div className="toast">{toast}</div>}

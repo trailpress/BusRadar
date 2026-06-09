@@ -7,10 +7,6 @@
   background: #05070a;
 }
 
-.map-shell--standard .leaflet-tile-pane {
-  filter: saturate(0.75) brightness(0.78) invert(1) hue-rotate(180deg);
-}
-
 .map-shell--diorama .leaflet-tile-pane {
   filter: saturate(0.86) brightness(0.72) contrast(1.08);
 }

@@ -1,4 +1,4 @@
-import type { Vehicle } from '../types';
+import type { LatLng, Vehicle } from '../types';
 import { AppHeader } from '../components/AppHeader';
 import { BusMap } from '../components/BusMap';
 import { ServiceCard } from '../components/ServiceCard';
@@ -9,6 +9,7 @@ type Props = {
   selectedLine?: string;
   selectedVehicle?: Vehicle;
   followedVehicleId?: string;
+  focusPoint?: LatLng;
   showRouteForLine?: string;
   search: string;
   onSearch: (value: string) => void;
@@ -24,6 +25,7 @@ export function MapScreen({
   selectedLine,
   selectedVehicle,
   followedVehicleId,
+  focusPoint,
   showRouteForLine,
   search,
   onSearch,
@@ -40,6 +42,7 @@ export function MapScreen({
         selectedLine={selectedLine}
         selectedVehicleId={selectedVehicle?.vehicleId}
         followedVehicleId={followedVehicleId}
+        focusPoint={focusPoint}
         showRouteForLine={showRouteForLine}
         onSelectVehicle={onSelectVehicle}
       />

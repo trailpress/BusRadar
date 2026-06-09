@@ -1,8 +1,13 @@
 import { MapPinned } from 'lucide-react';
 import { stops } from '../data/demoData';
 import { LineBadge } from '../components/LineBadge';
+import type { Stop } from '../types';
 
-export function StopsScreen() {
+type Props = {
+  onSelectStop: (stop: Stop) => void;
+};
+
+export function StopsScreen({ onSelectStop }: Props) {
   return (
     <main className="screen panel-screen">
       <section className="screen-header">
@@ -13,7 +18,7 @@ export function StopsScreen() {
       </section>
       <section className="list-section">
         {stops.map((stop) => (
-          <div className="stop-row" key={stop.id}>
+          <button className="stop-row" key={stop.id} type="button" onClick={() => onSelectStop(stop)}>
             <MapPinned size={17} />
             <div>
               <strong>{stop.name}</strong>
@@ -22,7 +27,7 @@ export function StopsScreen() {
             <div className="stop-lines">
               {stop.lines.map((line) => <LineBadge key={line} line={line} size="sm" />)}
             </div>
-          </div>
+          </button>
         ))}
       </section>
     </main>
