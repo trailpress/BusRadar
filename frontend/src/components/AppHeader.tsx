@@ -15,7 +15,7 @@ export function AppHeader({ search, onSearch, onRadar }: Props) {
         </div>
         <div>
           <strong>BusRadar</strong>
-          <span>Torino</span>
+          <span>Torino · v0.2.1</span>
         </div>
         <button className="live-pill" type="button" onClick={onRadar}>
           <Activity size={14} />

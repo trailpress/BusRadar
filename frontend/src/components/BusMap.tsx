@@ -105,7 +105,7 @@ function FocusPoint({ point }: { point?: LatLng }) {
 }
 
 export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, showRouteForLine, onSelectVehicle }: Props) {
-  const [mode, setMode] = useState<MapLayerMode>('diorama');
+  const [mode, setMode] = useState<MapLayerMode>('standard');
   const visibleVehicles = useMemo(
     () => vehicles.filter((vehicle) => !selectedLine || vehicle.line === selectedLine),
     [vehicles, selectedLine],
