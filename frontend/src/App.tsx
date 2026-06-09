@@ -24,7 +24,7 @@ function App() {
   const [toast, setToast] = useState<string>();
 
   useEffect(() => {
-    const id = window.setInterval(() => setVehicles((current) => advanceVehicles(current)), 1800);
+    const id = window.setInterval(() => setVehicles((current) => advanceVehicles(current)), 1000);
     return () => window.clearInterval(id);
   }, []);
 

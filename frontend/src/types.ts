@@ -8,6 +8,7 @@ export type LatLng = {
 export type Vehicle = LatLng & {
   vehicleId: string;
   line: string;
+  lineId?: string;
   direction: string;
   speed: number;
   updatedAt: string;
@@ -48,3 +49,13 @@ export type Route = {
   path: LatLng[];
   stops: string[];
 };
+
+export type LandmarkType = 'tower' | 'station' | 'square' | 'factory' | 'park';
+
+export type Landmark = LatLng & {
+  id: string;
+  name: string;
+  type: LandmarkType;
+};
+
+export type MapLayerMode = 'standard' | 'diorama';

@@ -4,7 +4,27 @@
 .bus-map {
   width: 100%;
   height: 100%;
-  background: #edf1f3;
+  background: #05070a;
+}
+
+.map-shell--standard .leaflet-tile-pane {
+  filter: saturate(0.75) brightness(0.78) invert(1) hue-rotate(180deg);
+}
+
+.map-shell--diorama .leaflet-tile-pane {
+  filter: saturate(0.86) brightness(0.72) contrast(1.08);
+}
+
+.map-shell--diorama .leaflet-container::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 410;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.08), transparent 38%),
+    linear-gradient(180deg, rgba(5, 7, 10, 0.08), rgba(5, 7, 10, 0.32));
+  mix-blend-mode: screen;
 }
 
 .leaflet-container {
@@ -71,6 +91,80 @@
   border-radius: 50%;
   background: #334155;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.landmark-marker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transform: translateY(-10px);
+  pointer-events: none;
+}
+
+.landmark-marker i {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f7fafc, #cbd5e1);
+  box-shadow:
+    0 10px 20px rgba(0, 0, 0, 0.36),
+    inset 0 -5px 0 rgba(0, 0, 0, 0.08);
+}
+
+.landmark-marker i::before {
+  content: "";
+  width: 12px;
+  height: 14px;
+  border-radius: 3px 3px 1px 1px;
+  background: #111827;
+  clip-path: polygon(50% 0, 100% 72%, 76% 72%, 76% 100%, 24% 100%, 24% 72%, 0 72%);
+}
+
+.landmark-marker--station i::before {
+  width: 14px;
+  height: 10px;
+  border-radius: 3px;
+  clip-path: none;
+}
+
+.landmark-marker--square i::before {
+  width: 13px;
+  height: 13px;
+  border-radius: 2px;
+  clip-path: none;
+}
+
+.landmark-marker--factory i::before {
+  width: 15px;
+  height: 12px;
+  clip-path: polygon(0 100%, 0 35%, 24% 50%, 24% 35%, 50% 50%, 50% 35%, 100% 62%, 100% 100%);
+}
+
+.landmark-marker--park i::before {
+  width: 14px;
+  height: 14px;
+  border-radius: 50% 50% 45% 45%;
+  clip-path: polygon(50% 0, 88% 42%, 68% 42%, 95% 78%, 58% 78%, 58% 100%, 42% 100%, 42% 78%, 5% 78%, 32% 42%, 12% 42%);
+}
+
+.landmark-marker span {
+  max-width: 92px;
+  padding: 5px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(8, 12, 18, 0.82);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.42);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
 }
 
 .user-marker {

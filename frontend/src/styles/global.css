@@ -903,6 +903,12 @@ button {
   background: rgba(16, 23, 34, 0.82);
 }
 
+.icon-button.is-active {
+  border-color: rgba(47, 125, 255, 0.44);
+  background: rgba(47, 125, 255, 0.2);
+  color: #fff;
+}
+
 .line-map-panel {
   height: min(560px, calc(100vh - 260px));
   margin: 12px 0 0;

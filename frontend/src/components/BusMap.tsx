@@ -1,9 +1,9 @@
 import L from 'leaflet';
 import { Layers, LocateFixed } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
-import { ImageOverlay, MapContainer, Marker, Polyline, Popup, useMap } from 'react-leaflet';
-import { routes, stops, userPosition } from '../data/demoData';
-import type { LatLng, Vehicle } from '../types';
+import { useEffect, useMemo, useState } from 'react';
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
+import { landmarks, routes, stops, userPosition } from '../data/demoData';
+import type { Landmark, MapLayerMode, Vehicle } from '../types';
 import { getLineColor } from '../utils/lineColors';
 import { toLeafletPoint } from '../utils/geo';
 import { IconButton } from './IconButton';
@@ -15,14 +15,6 @@ const bounds: [number, number][] = [
   [45.126, 7.738],
 ];
 
-const cityGrid: LatLng[][] = [
-  [{ lat: 45.045, lon: 7.632 }, { lat: 45.057, lon: 7.658 }, { lat: 45.067, lon: 7.681 }, { lat: 45.078, lon: 7.714 }],
-  [{ lat: 45.029, lon: 7.646 }, { lat: 45.052, lon: 7.665 }, { lat: 45.072, lon: 7.681 }, { lat: 45.091, lon: 7.699 }],
-  [{ lat: 45.018, lon: 7.704 }, { lat: 45.049, lon: 7.69 }, { lat: 45.079, lon: 7.676 }, { lat: 45.11, lon: 7.665 }],
-  [{ lat: 45.082, lon: 7.632 }, { lat: 45.074, lon: 7.661 }, { lat: 45.065, lon: 7.69 }, { lat: 45.056, lon: 7.722 }],
-  [{ lat: 45.006, lon: 7.622 }, { lat: 45.038, lon: 7.65 }, { lat: 45.071, lon: 7.686 }, { lat: 45.122, lon: 7.709 }],
-];
-
 type Props = {
   vehicles: Vehicle[];
   selectedLine?: string;
@@ -30,6 +22,17 @@ type Props = {
   followedVehicleId?: string;
   showRouteForLine?: string;
   onSelectVehicle: (vehicle: Vehicle) => void;
+};
+
+const tileLayers: Record<MapLayerMode, { url: string; attribution: string }> = {
+  standard: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors',
+  },
+  diorama: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  },
 };
 
 function createBusIcon(vehicle: Vehicle, selected: boolean) {
@@ -42,14 +45,23 @@ function createBusIcon(vehicle: Vehicle, selected: boolean) {
   });
 }
 
-function RecenterButton() {
+function createLandmarkIcon(landmark: Landmark) {
+  return L.divIcon({
+    className: '',
+    html: `<div class="landmark-marker landmark-marker--${landmark.type}"><i></i><span>${landmark.name}</span></div>`,
+    iconSize: [120, 42],
+    iconAnchor: [22, 34],
+  });
+}
+
+function RecenterButton({ mode, onToggleMode }: { mode: MapLayerMode; onToggleMode: () => void }) {
   const map = useMap();
   return (
     <div className="map-floating-controls">
       <IconButton label="Centra posizione" onClick={() => map.flyTo([userPosition.lat, userPosition.lon], 13.5)}>
         <LocateFixed size={20} />
       </IconButton>
-      <IconButton label="Layer mappa" onClick={() => notify('Layer demo: fermate e percorsi locali visibili')}>
+      <IconButton label="Layer mappa" active={mode === 'diorama'} onClick={onToggleMode}>
         <Layers size={20} />
       </IconButton>
     </div>
@@ -81,15 +93,17 @@ function FollowVehicle({ vehicle }: { vehicle?: Vehicle }) {
 }
 
 export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, showRouteForLine, onSelectVehicle }: Props) {
+  const [mode, setMode] = useState<MapLayerMode>('diorama');
   const visibleVehicles = useMemo(
     () => vehicles.filter((vehicle) => !selectedLine || vehicle.line === selectedLine),
     [vehicles, selectedLine],
   );
   const highlightedRoutes = routes.filter((route) => !selectedLine || route.line === selectedLine);
   const followedVehicle = vehicles.find((vehicle) => vehicle.vehicleId === followedVehicleId);
+  const tileLayer = tileLayers[mode];
 
   return (
-    <div className="map-shell">
+    <div className={`map-shell map-shell--${mode}`}>
       <MapContainer
         center={[45.0706, 7.6867]}
         zoom={13}
@@ -100,15 +114,12 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         attributionControl={false}
         className="bus-map"
       >
-        <ImageOverlay
-          url={`${import.meta.env.BASE_URL}assets/torino-diorama-map.png`}
-          bounds={bounds}
-          opacity={0.94}
-          zIndex={1}
+        <TileLayer
+          key={mode}
+          url={tileLayer.url}
+          attribution={tileLayer.attribution}
+          opacity={mode === 'diorama' ? 0.92 : 1}
         />
-        {cityGrid.map((road, index) => (
-          <Polyline key={`road-${index}`} positions={road.map(toLeafletPoint)} pathOptions={{ color: '#7d8ea6', weight: index === 4 ? 5 : 2, opacity: index === 4 ? 0.5 : 0.28 }} />
-        ))}
         {highlightedRoutes.map((route) => (
           <Polyline key={route.id} positions={route.path.map(toLeafletPoint)} pathOptions={{ color: getLineColor(route.line), weight: showRouteForLine === route.line ? 8 : 4, opacity: showRouteForLine === route.line ? 0.95 : 0.62 }} />
         ))}
@@ -143,7 +154,20 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
             </Popup>
           </Marker>
         ))}
-        <RecenterButton />
+        {mode === 'diorama' &&
+          landmarks.map((landmark) => (
+            <Marker key={landmark.id} position={[landmark.lat, landmark.lon]} icon={createLandmarkIcon(landmark)} interactive={false} />
+          ))}
+        <RecenterButton
+          mode={mode}
+          onToggleMode={() => {
+            setMode((current) => {
+              const next = current === 'diorama' ? 'standard' : 'diorama';
+              notify(next === 'diorama' ? 'Layer Diorama attivo' : 'Layer Standard attivo');
+              return next;
+            });
+          }}
+        />
         <FitRoute line={showRouteForLine} />
         <FollowVehicle vehicle={followedVehicle} />
       </MapContainer>
