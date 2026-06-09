@@ -8,7 +8,7 @@
 }
 
 .map-shell--diorama .leaflet-tile-pane {
-  filter: saturate(0.86) brightness(0.72) contrast(1.08);
+  filter: saturate(1.08) brightness(1.03) contrast(1.02);
 }
 
 .map-shell--diorama .leaflet-container::after {
@@ -18,9 +18,9 @@
   z-index: 410;
   pointer-events: none;
   background:
-    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.08), transparent 38%),
-    linear-gradient(180deg, rgba(5, 7, 10, 0.08), rgba(5, 7, 10, 0.32));
-  mix-blend-mode: screen;
+    radial-gradient(circle at 50% 42%, rgba(47, 125, 255, 0.08), transparent 38%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(47, 125, 255, 0.06));
+  mix-blend-mode: multiply;
 }
 
 .leaflet-container {

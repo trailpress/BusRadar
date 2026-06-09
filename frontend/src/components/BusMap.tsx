@@ -31,8 +31,8 @@ const tileLayers: Record<MapLayerMode, { url: string; attribution: string }> = {
     attribution: '&copy; OpenStreetMap contributors',
   },
   diorama: {
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors',
   },
 };
 
@@ -129,7 +129,9 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           key={mode}
           url={tileLayer.url}
           attribution={tileLayer.attribution}
-          opacity={mode === 'diorama' ? 0.92 : 1}
+          opacity={1}
+          updateWhenZooming={false}
+          keepBuffer={4}
         />
         {highlightedRoutes.map((route) => (
           <Polyline key={route.id} positions={route.path.map(toLeafletPoint)} pathOptions={{ color: getLineColor(route.line), weight: showRouteForLine === route.line ? 8 : 4, opacity: showRouteForLine === route.line ? 0.95 : 0.62 }} />
