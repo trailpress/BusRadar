@@ -34,9 +34,7 @@ body,
 }
 
 body {
-  background:
-    radial-gradient(circle at 18% 10%, rgba(47, 125, 255, 0.16), transparent 28%),
-    linear-gradient(180deg, #07101c 0%, #05070a 58%);
+  background: #000;
 }
 
 button,
@@ -52,10 +50,22 @@ button {
   position: relative;
   width: 100%;
   height: 100%;
-  max-width: 980px;
+  max-width: 430px;
   margin: 0 auto;
   background: var(--bg);
   overflow: hidden;
+}
+
+.app-shell::before {
+  content: "9:41";
+  position: absolute;
+  z-index: 1000;
+  top: max(8px, env(safe-area-inset-top));
+  left: 18px;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 12px;
+  font-weight: 800;
+  pointer-events: none;
 }
 
 .screen {
@@ -66,10 +76,8 @@ button {
 
 .panel-screen {
   overflow-y: auto;
-  padding: max(18px, env(safe-area-inset-top)) 16px 104px;
-  background:
-    linear-gradient(180deg, rgba(47, 125, 255, 0.11), transparent 220px),
-    var(--bg);
+  padding: max(48px, env(safe-area-inset-top)) 13px 92px;
+  background: #05070a;
 }
 
 .map-screen {
@@ -79,23 +87,25 @@ button {
 .app-header {
   position: absolute;
   z-index: 600;
-  top: max(12px, env(safe-area-inset-top));
-  left: 14px;
-  right: 14px;
-  display: grid;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  background: var(--glass);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(24px);
+  top: max(36px, env(safe-area-inset-top));
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .brand-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex: 1;
 }
 
 .brand-row strong,
@@ -116,6 +126,17 @@ button {
   color: var(--muted);
 }
 
+.brand-row > div:nth-child(2) strong {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.brand-row > div:nth-child(2) span {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+}
+
 .brand-mark,
 .header-icon,
 .row-icon,
@@ -131,17 +152,41 @@ button {
   box-shadow: 0 10px 24px rgba(47, 125, 255, 0.32);
 }
 
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+}
+
 .live-pill {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 34px;
-  padding: 0 12px;
+  min-height: 28px;
+  padding: 0 9px;
   border: 1px solid rgba(61, 220, 132, 0.26);
   border-radius: 999px;
   background: rgba(61, 220, 132, 0.12);
   color: var(--success);
+}
+
+.map-search {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  background: rgba(8, 12, 18, 0.82);
+  color: #fff;
+}
+
+.map-search input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
 }
 
 .search-box {
@@ -172,16 +217,16 @@ button {
 .bottom-nav {
   position: absolute;
   z-index: 800;
-  left: 12px;
-  right: 12px;
-  bottom: max(12px, env(safe-area-inset-bottom));
+  left: 10px;
+  right: 10px;
+  bottom: max(10px, env(safe-area-inset-bottom));
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 4px;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 26px;
-  background: rgba(16, 23, 34, 0.9);
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background: rgba(8, 12, 18, 0.92);
   box-shadow: var(--shadow);
   backdrop-filter: blur(24px);
 }
@@ -191,7 +236,7 @@ button {
   place-items: center;
   gap: 4px;
   min-width: 0;
-  min-height: 54px;
+  min-height: 50px;
   border: 0;
   border-radius: 18px;
   background: transparent;
@@ -207,20 +252,21 @@ button {
 }
 
 .bottom-nav button.is-active {
-  background: rgba(47, 125, 255, 0.16);
-  color: #ffffff;
+  background: transparent;
+  color: var(--primary);
 }
 
 .service-card {
   position: absolute;
   z-index: 550;
   left: 14px;
-  right: 14px;
-  bottom: 96px;
-  padding: 14px;
+  right: auto;
+  bottom: 92px;
+  width: min(250px, calc(100% - 28px));
+  padding: 12px;
   border: 1px solid var(--border);
-  border-radius: 22px;
-  background: rgba(16, 23, 34, 0.84);
+  border-radius: 16px;
+  background: rgba(8, 12, 18, 0.88);
   box-shadow: var(--shadow);
   backdrop-filter: blur(22px);
 }
@@ -235,84 +281,119 @@ button {
 
 .service-card > div {
   color: var(--success);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
 }
 
-.service-card strong {
-  display: block;
-  margin: 7px 0 10px;
-  font-size: 22px;
+.service-card > div strong {
+  margin: 0;
+  font-size: 12px;
 }
 
 .service-card footer {
   justify-content: space-between;
+  margin-top: 8px;
   color: var(--muted);
   font-size: 12px;
 }
 
 .vehicle-sheet {
   position: absolute;
-  z-index: 900;
-  left: 10px;
-  right: 10px;
-  bottom: max(90px, calc(82px + env(safe-area-inset-bottom)));
-  max-height: min(480px, calc(100% - 150px));
+  z-index: 950;
+  inset: 0;
+  max-height: none;
   overflow-y: auto;
-  padding: 9px 14px 14px;
-  border: 1px solid var(--border);
-  border-radius: 28px;
-  background: rgba(21, 29, 42, 0.96);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(26px);
+  padding: max(56px, env(safe-area-inset-top)) 16px 98px;
+  border: 0;
+  border-radius: 0;
+  background: #05070a;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
-.sheet-handle {
-  width: 42px;
-  height: 4px;
-  margin: 0 auto 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.22);
+.detail-nav {
+  display: grid;
+  grid-template-columns: 36px 1fr 36px;
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.detail-nav strong {
+  text-align: center;
+  font-size: 13px;
+}
+
+.detail-nav button,
+.plain-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
 }
 
 .sheet-title {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .sheet-title strong {
   display: block;
-  font-size: 26px;
+  font-size: 30px;
+  line-height: 1;
 }
 
-.sheet-close {
-  margin-left: auto;
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  font-size: 24px;
-  line-height: 1;
+.direction-block {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.direction-block strong {
+  font-size: 17px;
+}
+
+.direction-block span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.bus-photo {
+  height: 132px;
+  margin: 4px 0 12px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(17, 24, 35, 0.9), rgba(5, 7, 10, 0.9));
+}
+
+.bus-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
 .metric-grid,
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 9px;
-  margin: 14px 0;
+  gap: 8px;
+  margin: 12px 0;
 }
 
 .metric-grid div,
 .stats-grid div,
 .info-card {
   min-width: 0;
-  padding: 12px;
+  padding: 10px;
   border: 1px solid var(--border);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.045);
+  border-radius: 13px;
+  background: rgba(14, 20, 29, 0.9);
 }
 
 .metric-grid div,
@@ -324,32 +405,70 @@ button {
 .metric-grid strong,
 .stats-grid strong {
   overflow-wrap: anywhere;
-  font-size: 14px;
+  font-size: 13px;
+}
+
+.metric-grid span,
+.stats-grid span {
+  font-size: 10px;
 }
 
 .next-stops {
   display: grid;
-  gap: 8px;
+  gap: 0;
   margin: 12px 0;
+  padding: 10px 0;
+  border-radius: 16px;
+  background: rgba(14, 20, 29, 0.9);
 }
 
 .next-stops div {
-  display: flex;
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px 1fr auto auto;
   align-items: center;
-  gap: 9px;
-  min-height: 28px;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
 }
 
 .next-stops i {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
+  background: #c7d0dd;
+  box-shadow: 0 0 0 2px rgba(199, 208, 221, 0.25);
+}
+
+.next-stops div::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(199, 208, 221, 0.32);
+}
+
+.next-stops div.is-current i {
   background: var(--primary);
+  box-shadow: 0 0 0 4px rgba(47, 125, 255, 0.2);
+}
+
+.next-stops strong {
+  font-size: 12px;
+}
+
+.next-stops div span,
+.next-stops em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
 }
 
 .sheet-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 9px;
 }
 
@@ -359,9 +478,9 @@ button {
   justify-content: center;
   gap: 8px;
   min-width: 0;
-  min-height: 46px;
+  min-height: 48px;
   border: 0;
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--primary);
   font-weight: 800;
 }
@@ -375,25 +494,39 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .screen-header h1 {
-  font-size: 36px;
-  line-height: 1.05;
+  font-size: 20px;
+  line-height: 1.1;
 }
 
 .list-section {
   display: grid;
-  gap: 10px;
-  margin-top: 16px;
+  gap: 7px;
+  margin-top: 14px;
 }
 
 .list-section h2 {
   margin: 8px 2px 2px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
   text-transform: uppercase;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-heading button {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .line-row,
@@ -401,13 +534,13 @@ button {
 .stop-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  min-height: 68px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: rgba(21, 29, 42, 0.78);
+  min-height: 56px;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 10px;
+  background: rgba(15, 21, 30, 0.92);
   text-align: left;
 }
 
@@ -437,6 +570,55 @@ button {
   font-size: 13px;
 }
 
+.vehicle-speed {
+  display: grid;
+  justify-items: end;
+  flex: 0 0 auto;
+}
+
+.vehicle-speed strong {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.vehicle-speed span {
+  font-size: 10px;
+}
+
+.list-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 14px 0 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.list-tabs button {
+  min-height: 38px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.list-tabs button.is-active {
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.list-tabs span {
+  display: inline-flex;
+  min-width: 22px;
+  justify-content: center;
+  margin-left: 4px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--primary);
+  font-size: 9px;
+}
+
 .row-meta {
   display: grid;
   justify-items: end;
@@ -458,7 +640,7 @@ button {
   min-width: 34px;
   height: 28px;
   padding: 0 9px;
-  border-radius: 10px;
+  border-radius: 6px;
   background: var(--line-color);
   color: #fff;
   font-weight: 900;
@@ -474,37 +656,51 @@ button {
 }
 
 .line-badge--lg {
-  min-width: 44px;
-  height: 38px;
-  border-radius: 14px;
+  min-width: 42px;
+  height: 42px;
+  border-radius: 8px;
   font-size: 18px;
 }
 
 .radar-panel {
   display: grid;
   justify-items: center;
-  gap: 14px;
-  padding: 18px;
-  border: 1px solid var(--border);
-  border-radius: 28px;
-  background: linear-gradient(180deg, rgba(21, 29, 42, 0.88), rgba(16, 23, 34, 0.72));
+  gap: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.radar-location {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 11px;
+  background: rgba(15, 21, 30, 0.92);
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .radar-scope {
   position: relative;
-  width: min(290px, 78vw);
+  width: min(318px, 82vw);
   aspect-ratio: 1;
   border-radius: 50%;
   overflow: hidden;
   background:
-    radial-gradient(circle, rgba(61, 220, 132, 0.12), transparent 60%),
-    #07101c;
+    radial-gradient(circle, rgba(47, 125, 255, 0.34), transparent 8%),
+    repeating-radial-gradient(circle, rgba(47, 125, 255, 0.14) 0 24px, rgba(47, 125, 255, 0.06) 24px 48px),
+    #05070a;
 }
 
 .radar-ring {
   position: absolute;
   inset: 16%;
-  border: 1px solid rgba(61, 220, 132, 0.28);
+  border: 1px solid rgba(47, 125, 255, 0.14);
   border-radius: 50%;
 }
 
@@ -519,7 +715,7 @@ button {
 .radar-sweep {
   position: absolute;
   inset: 0;
-  background: conic-gradient(from 30deg, rgba(61, 220, 132, 0.38), transparent 82deg);
+  background: conic-gradient(from 30deg, rgba(47, 125, 255, 0.22), transparent 82deg);
   animation: sweep 4s linear infinite;
 }
 
@@ -534,21 +730,52 @@ button {
 .radar-center {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: var(--primary);
 }
 
 .radar-dot {
   transform: translate(-50%, -50%) rotate(var(--angle)) translateY(calc(var(--distance) * -1)) rotate(calc(var(--angle) * -1));
-  width: 30px;
-  height: 30px;
-  border: 2px solid rgba(255, 255, 255, 0.65);
-  border-radius: 50%;
-  background: var(--primary);
+  width: 31px;
+  height: 31px;
+  border: 0;
+  border-radius: 7px;
+  background: #2f7dff;
   font-size: 11px;
   font-weight: 900;
+}
+
+.radar-summary {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-height: 62px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 12px;
+  background: rgba(15, 21, 30, 0.94);
+  text-align: left;
+}
+
+.radar-summary span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.radar-summary i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.radar-summary small {
+  color: var(--muted);
 }
 
 .radius-tabs,
@@ -557,17 +784,17 @@ button {
   grid-auto-flow: column;
   gap: 6px;
   width: 100%;
-  padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.05);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .radius-tabs button,
 .segmented-tabs button {
   min-height: 38px;
   border: 0;
-  border-radius: 13px;
+  border-radius: 8px;
   background: transparent;
   color: var(--muted);
   font-weight: 800;
@@ -579,17 +806,28 @@ button {
   color: #fff;
 }
 
+.segmented-tabs button.is-active {
+  border-bottom: 2px solid var(--primary);
+  border-radius: 0;
+  background: transparent;
+}
+
 .line-detail {
   overflow-y: auto;
-  padding: max(16px, env(safe-area-inset-top)) 14px 104px;
+  padding: max(48px, env(safe-area-inset-top)) 0 92px;
   background: var(--bg);
 }
 
 .line-detail-top {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin: 0 12px 10px;
+}
+
+.line-detail-top > strong {
+  font-size: 16px;
 }
 
 .back-button,
@@ -604,11 +842,11 @@ button {
 }
 
 .line-map-panel {
-  height: 330px;
-  margin: 14px 0;
+  height: min(560px, calc(100vh - 260px));
+  margin: 12px 0 0;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 26px;
+  border: 0;
+  border-radius: 0;
 }
 
 .line-map-panel .map-floating-controls,
@@ -618,6 +856,21 @@ button {
 
 .stats-grid {
   grid-template-columns: repeat(2, 1fr);
+  margin: 0 12px 12px;
+}
+
+.route-endpoint {
+  position: absolute;
+  right: 18px;
+  bottom: 184px;
+  z-index: 620;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(8, 12, 18, 0.86);
+  font-size: 11px;
 }
 
 .stop-lines {
@@ -645,28 +898,17 @@ button {
 
 @media (min-width: 760px) {
   .app-shell {
-    height: min(100%, 960px);
-    max-height: 960px;
-    border-inline: 1px solid var(--border);
-  }
-
-  .app-header,
-  .service-card,
-  .vehicle-sheet {
-    left: 28px;
-    right: auto;
-    width: 390px;
-  }
-
-  .vehicle-sheet {
-    bottom: 104px;
+    height: min(100%, 932px);
+    max-height: 932px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 34px;
   }
 
   .bottom-nav {
-    left: 50%;
-    right: auto;
-    width: min(520px, calc(100% - 32px));
-    transform: translateX(-50%);
+    left: 10px;
+    right: 10px;
+    width: auto;
+    transform: none;
   }
 }
 

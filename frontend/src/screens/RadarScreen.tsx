@@ -1,4 +1,4 @@
-import { BusFront, Crosshair, Radar } from 'lucide-react';
+import { ArrowLeft, BusFront, Crosshair, Info, Navigation } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useMemo, useState } from 'react';
 import { userPosition } from '../data/demoData';
@@ -33,16 +33,19 @@ export function RadarScreen({ vehicles, onSelectVehicle }: Props) {
   return (
     <main className="screen panel-screen">
       <section className="screen-header">
+        <button className="plain-icon" type="button" aria-label="Indietro">
+          <ArrowLeft size={20} />
+        </button>
         <div>
-          <span>Centro simulato</span>
           <h1>Radar</h1>
         </div>
-        <div className="header-icon">
-          <Radar size={24} />
-        </div>
+        <button className="plain-icon" type="button" aria-label="Informazioni">
+          <Info size={18} />
+        </button>
       </section>
 
       <section className="radar-panel">
+        <div className="radar-location"><Navigation size={14} /> Centro: La mia posizione</div>
         <div className="radar-scope">
           <div className="radar-ring ring-1" />
           <div className="radar-ring ring-2" />
@@ -76,12 +79,14 @@ export function RadarScreen({ vehicles, onSelectVehicle }: Props) {
             </button>
           ))}
         </div>
-        <strong>{matches.length} mezzi trovati</strong>
-        <span className="muted">Raggio {radiusOptions.find((option) => option.value === radius)?.label} da Torino centro demo.</span>
       </section>
 
       <section className="list-section">
-        {matches.map(({ vehicle, distance }) => (
+        <button className="radar-summary" type="button">
+          <span><i /> {matches.length} mezzi nel raggio di {radiusOptions.find((option) => option.value === radius)?.label}</span>
+          <small>Aggiornato ora</small>
+        </button>
+        {matches.slice(0, 4).map(({ vehicle, distance }) => (
           <button className="vehicle-row" key={vehicle.vehicleId} type="button" onClick={() => onSelectVehicle(vehicle)}>
             <div className="row-icon">
               <BusFront size={18} />

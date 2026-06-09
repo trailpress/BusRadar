@@ -1,4 +1,4 @@
-import { BusFront, Clock3, Radio } from 'lucide-react';
+import { Clock3, Radio } from 'lucide-react';
 import type { Vehicle } from '../types';
 import { pluralizeBus } from '../utils/format';
 
@@ -14,18 +14,14 @@ export function ServiceCard({ vehicles, selectedLine }: Props) {
   return (
     <aside className="service-card">
       <div>
-        <Radio size={16} />
-        <span>Demo live</span>
+        <Radio size={14} />
+        <strong>{pluralizeBus(count)} in servizio</strong>
       </div>
-      <strong>{pluralizeBus(count)} in servizio</strong>
       <footer>
+        <span>Ultimo aggiornamento: 09:41:23</span>
         <span>
-          <BusFront size={14} />
-          {selectedLine ? `Linea ${selectedLine}` : 'Tutte le linee'}
-        </span>
-        <span>
-          <Clock3 size={14} />
-          media {averageSpeed} km/h
+          <Clock3 size={13} />
+          {averageSpeed} km/h
         </span>
       </footer>
     </aside>

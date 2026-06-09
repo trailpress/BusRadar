@@ -15,6 +15,7 @@ export type Vehicle = LatLng & {
   reliability: number;
   progress: number;
   routeId: string;
+  nextStop?: string;
   favorite?: boolean;
 };
 

@@ -1,4 +1,4 @@
-import { ArrowLeft, Clock3, MapPinned, Route as RouteIcon, Timer, TramFront } from 'lucide-react';
+import { ArrowLeft, Clock3, MapPinned, Route as RouteIcon, Star, Timer, TramFront } from 'lucide-react';
 import { useState } from 'react';
 import { BusMap } from '../components/BusMap';
 import { LineBadge } from '../components/LineBadge';
@@ -13,7 +13,7 @@ type Props = {
 };
 
 export function LineDetailScreen({ line, vehicles, onBack, onSelectVehicle }: Props) {
-  const [tab, setTab] = useState<'details' | 'route' | 'stops'>('details');
+  const [tab, setTab] = useState<'details' | 'route' | 'stops'>('route');
   const route = routes.find((item) => item.id === line.routeId);
   const lineStops = route?.stops.map((stopId) => stops.find((stop) => stop.id === stopId)).filter(Boolean) ?? [];
 
@@ -23,11 +23,10 @@ export function LineDetailScreen({ line, vehicles, onBack, onSelectVehicle }: Pr
         <button className="back-button" type="button" onClick={onBack} aria-label="Torna indietro">
           <ArrowLeft size={20} />
         </button>
-        <LineBadge line={line.id} size="lg" />
-        <div>
-          <span>Direzione</span>
-          <strong>{line.direction}</strong>
-        </div>
+        <strong>Linea {line.id}</strong>
+        <button className="back-button" type="button" aria-label="Preferiti">
+          <Star size={19} />
+        </button>
       </section>
 
       <div className="segmented-tabs">
@@ -40,19 +39,9 @@ export function LineDetailScreen({ line, vehicles, onBack, onSelectVehicle }: Pr
         <BusMap vehicles={vehicles} selectedLine={line.id} showRouteForLine={line.id} onSelectVehicle={onSelectVehicle} />
       </section>
 
-      {tab === 'details' && (
-        <section className="stats-grid">
-          <div><RouteIcon size={18} /><strong>{line.stats.lengthKm} km</strong><span>Lunghezza</span></div>
-          <div><Timer size={18} /><strong>{line.stats.durationMin} min</strong><span>Percorrenza</span></div>
-          <div><TramFront size={18} /><strong>{line.stats.tripsToday}</strong><span>Corse oggi</span></div>
-          <div><Clock3 size={18} /><strong>{line.stats.firstRun} / {line.stats.lastRun}</strong><span>Primo / ultimo</span></div>
-        </section>
-      )}
-
       {tab === 'route' && (
         <section className="list-section">
-          <h2>Percorso demo</h2>
-          <p className="muted">Tracciato locale simulato, pronto per essere sostituito da geometrie GTFS shapes.</p>
+          <div className="route-endpoint"><LineBadge line={line.id} /> {line.direction}</div>
         </section>
       )}
 
@@ -67,6 +56,12 @@ export function LineDetailScreen({ line, vehicles, onBack, onSelectVehicle }: Pr
           ))}
         </section>
       )}
+      <section className="stats-grid">
+        <div><RouteIcon size={18} /><strong>{line.stats.lengthKm} km</strong><span>Lunghezza</span></div>
+        <div><Timer size={18} /><strong>{line.stats.durationMin} min</strong><span>Tempo</span></div>
+        <div><TramFront size={18} /><strong>{line.stats.tripsToday}</strong><span>Corse oggi</span></div>
+        <div><Clock3 size={18} /><strong>{line.stats.firstRun} / {line.stats.lastRun}</strong><span>Primo / Ultimo</span></div>
+      </section>
     </main>
   );
 }

@@ -1,13 +1,13 @@
-import { BusFront, CircleDot, Map, Menu, RadioTower } from 'lucide-react';
+import { BusFront, CircleDot, Map, Radar, Route } from 'lucide-react';
 import type { ElementType } from 'react';
 import type { TabKey } from '../types';
 
 const tabs: Array<{ key: TabKey; label: string; icon: ElementType }> = [
   { key: 'map', label: 'Mappa', icon: Map },
-  { key: 'lines', label: 'Linee', icon: RadioTower },
+  { key: 'lines', label: 'Linee', icon: Route },
   { key: 'stops', label: 'Fermate', icon: CircleDot },
   { key: 'vehicles', label: 'Vetture', icon: BusFront },
-  { key: 'more', label: 'Altro', icon: Menu },
+  { key: 'more', label: 'Radar', icon: Radar },
 ];
 
 type Props = {

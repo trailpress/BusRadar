@@ -1,5 +1,4 @@
-import { Activity, Radar } from 'lucide-react';
-import { SearchBox } from './SearchBox';
+import { Activity, Radar, Search } from 'lucide-react';
 
 type Props = {
   search: string;
@@ -23,7 +22,10 @@ export function AppHeader({ search, onSearch, onRadar }: Props) {
           Live
         </button>
       </div>
-      <SearchBox value={search} placeholder="Cerca linea o vettura" onChange={onSearch} />
+      <label className="map-search" aria-label="Cerca linea o vettura">
+        <Search size={18} />
+        <input value={search} placeholder="Cerca" onChange={(event) => onSearch(event.target.value)} />
+      </label>
     </header>
   );
 }

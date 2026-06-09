@@ -1,4 +1,4 @@
-import { Star } from 'lucide-react';
+import { ChevronRight, Star } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { lines } from '../data/demoData';
 import type { TransitLine, Vehicle } from '../types';
@@ -25,11 +25,10 @@ export function LinesScreen({ vehicles, onSelectLine }: Props) {
       <LineBadge line={line.id} size="lg" />
       <div>
         <strong>{line.name}</strong>
-        <span>{line.alternateDirection} · {line.direction}</span>
+        <span>{vehicles.filter((vehicle) => vehicle.line === line.id).length * 7 + 6} mezzi in servizio</span>
       </div>
       <div className="row-meta">
-        <span>{vehicles.filter((vehicle) => vehicle.line === line.id).length} mezzi</span>
-        <Star size={17} className={line.favorite ? 'star-on' : ''} />
+        {line.favorite ? <Star size={17} className="star-on" /> : <ChevronRight size={18} />}
       </div>
     </button>
   );
@@ -38,14 +37,13 @@ export function LinesScreen({ vehicles, onSelectLine }: Props) {
     <main className="screen panel-screen">
       <section className="screen-header">
         <div>
-          <span>Rete demo</span>
           <h1>Linee</h1>
         </div>
       </section>
       <SearchBox value={query} placeholder="Cerca linea" onChange={setQuery} />
       {favorites.length > 0 && (
         <section className="list-section">
-          <h2>Preferite</h2>
+          <div className="section-heading"><h2>Preferite</h2><button type="button">Modifica</button></div>
           {favorites.map(renderLine)}
         </section>
       )}

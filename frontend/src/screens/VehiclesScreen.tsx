@@ -27,11 +27,14 @@ export function VehiclesScreen({ vehicles, onSelectVehicle }: Props) {
     <main className="screen panel-screen">
       <section className="screen-header">
         <div>
-          <span>Flotta locale demo</span>
           <h1>Vetture</h1>
         </div>
       </section>
-      <SearchBox value={query} placeholder="Cerca numero vettura" onChange={setQuery} />
+      <SearchBox value={query} placeholder="Cerca vettura o numero" onChange={setQuery} />
+      <div className="list-tabs">
+        <button className="is-active" type="button">In servizio <span>{vehicles.length + 116}</span></button>
+        <button type="button">Preferite</button>
+      </div>
       <section className="list-section">
         {filtered.map((vehicle) => (
           <button className="vehicle-row" key={vehicle.vehicleId} type="button" onClick={() => onSelectVehicle(vehicle)}>
@@ -39,10 +42,14 @@ export function VehiclesScreen({ vehicles, onSelectVehicle }: Props) {
               <BusFront size={18} />
             </div>
             <div>
-              <strong>Vettura {vehicle.vehicleId}</strong>
-              <span>{vehicle.direction} · {vehicle.speed} km/h · {vehicle.updatedAt}</span>
+              <strong>{vehicle.vehicleId}</strong>
+              <span>{vehicle.nextStop ?? vehicle.direction}</span>
             </div>
             <LineBadge line={vehicle.line} />
+            <div className="vehicle-speed">
+              <strong>{vehicle.speed} km/h</strong>
+              <span>{vehicle.updatedAt.slice(0, 5)}</span>
+            </div>
             <Star size={17} className={vehicle.favorite ? 'star-on' : ''} />
           </button>
         ))}
