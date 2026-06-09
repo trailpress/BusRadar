@@ -50,13 +50,12 @@ export type Route = {
   stops: string[];
 };
 
-export type LandmarkType = 'tower' | 'station' | 'square' | 'factory' | 'park';
+export type LandmarkType = 'tower' | 'station' | 'square' | 'factory' | 'park' | 'stadium' | 'hospital' | 'market' | 'bridge' | 'campus' | 'church';
 
 export type Landmark = LatLng & {
   id: string;
   name: string;
   type: LandmarkType;
-  spriteIndex?: number;
   minZoom?: number;
   labelZoom?: number;
   tier?: 'major' | 'district' | 'local';

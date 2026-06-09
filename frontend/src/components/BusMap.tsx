@@ -42,20 +42,20 @@ function createBusIcon(vehicle: Vehicle, selected: boolean) {
 }
 
 function createLandmarkIcon(landmark: Landmark, zoom: number) {
-  const spriteIndex = landmark.spriteIndex ?? 0;
-  const spriteCol = spriteIndex % 4;
-  const spriteRow = Math.floor(spriteIndex / 4);
-  const spriteX = `${spriteCol * 33.3333}%`;
-  const spriteY = `${spriteRow * 50}%`;
-  const spriteUrl = `${import.meta.env.BASE_URL}assets/diorama-landmarks-sheet-alpha.png`;
   const tier = landmark.tier ?? 'district';
   const showLabel = zoom >= (landmark.labelZoom ?? 15);
+  const shortName = landmark.name
+    .split(' ')
+    .map((word) => word[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return L.divIcon({
     className: '',
-    html: `<div class="landmark-marker landmark-marker--${tier} landmark-marker--${showLabel ? 'label' : 'pin'} landmark-marker--${landmark.type}"><b></b><i style="--sprite-url:url('${spriteUrl}');--sprite-x:${spriteX};--sprite-y:${spriteY}"></i><span>${landmark.name}</span></div>`,
-    iconSize: tier === 'major' ? [138, 104] : [104, 78],
-    iconAnchor: tier === 'major' ? [34, 82] : [26, 62],
+    html: `<div class="landmark-marker landmark-marker--${tier} landmark-marker--${showLabel ? 'label' : 'pin'} landmark-marker--${landmark.type}"><i><em>${shortName}</em></i><span>${landmark.name}</span></div>`,
+    iconSize: tier === 'major' ? [96, 76] : [74, 58],
+    iconAnchor: tier === 'major' ? [24, 58] : [18, 44],
   });
 }
 
