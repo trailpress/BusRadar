@@ -49,9 +49,9 @@ function createBusIcon(vehicle: Vehicle, selected: boolean) {
 function createLandmarkIcon(landmark: Landmark) {
   return L.divIcon({
     className: '',
-    html: `<div class="landmark-marker landmark-marker--${landmark.type}"><i></i><span>${landmark.name}</span></div>`,
-    iconSize: [120, 42],
-    iconAnchor: [22, 34],
+    html: `<div class="landmark-marker landmark-marker--${landmark.type}"><b></b><i></i><span>${landmark.name}</span></div>`,
+    iconSize: [150, 108],
+    iconAnchor: [36, 86],
   });
 }
 
@@ -116,6 +116,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
 
   return (
     <div className={`map-shell map-shell--${mode}`}>
+      <div className="map-mode-label">{mode === 'diorama' ? 'Diorama 3D demo' : 'Mappa standard'}</div>
       <MapContainer
         center={[45.0706, 7.6867]}
         zoom={13}

@@ -18,9 +18,15 @@
   z-index: 410;
   pointer-events: none;
   background:
-    radial-gradient(circle at 50% 42%, rgba(47, 125, 255, 0.08), transparent 38%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(47, 125, 255, 0.06));
+    repeating-linear-gradient(34deg, rgba(47, 125, 255, 0.08) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(124deg, rgba(61, 220, 132, 0.06) 0 1px, transparent 1px 42px),
+    radial-gradient(circle at 50% 42%, rgba(47, 125, 255, 0.16), transparent 36%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(47, 125, 255, 0.08));
   mix-blend-mode: multiply;
+}
+
+.map-shell--diorama .leaflet-overlay-pane path {
+  filter: drop-shadow(0 0 7px rgba(47, 125, 255, 0.38));
 }
 
 .leaflet-container {
@@ -29,6 +35,28 @@
 
 .leaflet-control-container {
   display: none;
+}
+
+.map-mode-label {
+  position: absolute;
+  z-index: 690;
+  left: 14px;
+  bottom: 176px;
+  padding: 7px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 900;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.18);
+  pointer-events: none;
+}
+
+.map-shell--diorama .map-mode-label {
+  border-color: rgba(47, 125, 255, 0.28);
+  background: rgba(8, 12, 18, 0.88);
+  color: #ffffff;
 }
 
 .leaflet-popup-content-wrapper,
@@ -94,73 +122,138 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  transform: translateY(-10px);
+  width: 150px;
+  height: 108px;
+  transform: translateY(-14px);
   pointer-events: none;
+  perspective: 260px;
+}
+
+.landmark-marker b {
+  position: absolute;
+  left: 2px;
+  bottom: 5px;
+  width: 68px;
+  height: 28px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 38% 36%, rgba(255, 255, 255, 0.85), rgba(203, 213, 225, 0.92) 42%, rgba(100, 116, 139, 0.88) 100%);
+  box-shadow:
+    0 16px 22px rgba(15, 23, 42, 0.32),
+    inset 0 -5px 0 rgba(15, 23, 42, 0.18);
+  transform: rotateX(62deg) rotateZ(-12deg);
 }
 
 .landmark-marker i {
   position: relative;
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 46px;
+  height: 58px;
   flex: 0 0 auto;
-  border: 2px solid rgba(255, 255, 255, 0.78);
-  border-radius: 10px;
-  background: linear-gradient(180deg, #f7fafc, #cbd5e1);
+  margin-left: 13px;
+  margin-bottom: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  border-radius: 12px 12px 8px 8px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.18), transparent 36%),
+    linear-gradient(180deg, #f8fafc, #cbd5e1 56%, #94a3b8);
   box-shadow:
-    0 10px 20px rgba(0, 0, 0, 0.36),
-    inset 0 -5px 0 rgba(0, 0, 0, 0.08);
+    11px 15px 0 rgba(71, 85, 105, 0.34),
+    0 18px 28px rgba(15, 23, 42, 0.36),
+    inset -9px 0 0 rgba(15, 23, 42, 0.1),
+    inset 0 -8px 0 rgba(15, 23, 42, 0.08);
+  transform: rotateX(7deg) rotateZ(-2deg);
 }
 
 .landmark-marker i::before {
   content: "";
-  width: 12px;
-  height: 14px;
+  width: 22px;
+  height: 28px;
   border-radius: 3px 3px 1px 1px;
-  background: #111827;
+  background: linear-gradient(180deg, #1d4ed8, #111827);
   clip-path: polygon(50% 0, 100% 72%, 76% 72%, 76% 100%, 24% 100%, 24% 72%, 0 72%);
 }
 
+.landmark-marker--tower i {
+  height: 76px;
+  width: 38px;
+  border-radius: 18px 18px 8px 8px;
+}
+
+.landmark-marker--tower i::after {
+  content: "";
+  position: absolute;
+  top: -17px;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  border-radius: 50%;
+  background: radial-gradient(circle, #93c5fd, #2563eb 68%, #1e3a8a);
+  box-shadow: 0 0 14px rgba(47, 125, 255, 0.55);
+  transform: translateX(-50%);
+}
+
 .landmark-marker--station i::before {
-  width: 14px;
-  height: 10px;
-  border-radius: 3px;
+  width: 27px;
+  height: 18px;
+  border-radius: 4px;
   clip-path: none;
 }
 
 .landmark-marker--square i::before {
-  width: 13px;
-  height: 13px;
+  width: 25px;
+  height: 25px;
   border-radius: 2px;
   clip-path: none;
 }
 
+.landmark-marker--square i {
+  width: 54px;
+  height: 42px;
+}
+
 .landmark-marker--factory i::before {
-  width: 15px;
-  height: 12px;
+  width: 29px;
+  height: 22px;
   clip-path: polygon(0 100%, 0 35%, 24% 50%, 24% 35%, 50% 50%, 50% 35%, 100% 62%, 100% 100%);
 }
 
+.landmark-marker--factory i {
+  width: 58px;
+  height: 48px;
+}
+
 .landmark-marker--park i::before {
-  width: 14px;
-  height: 14px;
+  width: 30px;
+  height: 30px;
   border-radius: 50% 50% 45% 45%;
   clip-path: polygon(50% 0, 88% 42%, 68% 42%, 95% 78%, 58% 78%, 58% 100%, 42% 100%, 42% 78%, 5% 78%, 32% 42%, 12% 42%);
+  background: linear-gradient(180deg, #22c55e, #166534);
+}
+
+.landmark-marker--park i {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.2), transparent 38%),
+    linear-gradient(180deg, #bbf7d0, #4ade80 58%, #15803d);
 }
 
 .landmark-marker span {
-  max-width: 92px;
-  padding: 5px 7px;
+  position: absolute;
+  left: 63px;
+  bottom: 24px;
+  max-width: 84px;
+  padding: 6px 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(8, 12, 18, 0.82);
+  border-radius: 9px;
+  background: rgba(8, 12, 18, 0.9);
   color: #fff;
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 900;
   line-height: 1.1;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.42);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.34);
 }
 
 .user-marker {

@@ -61,6 +61,15 @@ function App() {
     notify(`Vettura ${vehicle.vehicleId} aperta`);
   }
 
+  function trackVehicleFromRadar(vehicle: Vehicle) {
+    setSelectedVehicleId(undefined);
+    setFollowedVehicleId(vehicle.vehicleId);
+    setLineFilter(vehicle.line);
+    setShowRouteForLine(vehicle.line);
+    setActiveTab('map');
+    notify(`Linea ${vehicle.line} in movimento sul radar`);
+  }
+
   function openLine(line: TransitLine) {
     setSelectedLine(line);
     setLineFilter(line.id);
@@ -131,7 +140,7 @@ function App() {
       {activeTab === 'lines' && <LinesScreen vehicles={vehicles} onSelectLine={openLine} />}
       {activeTab === 'stops' && <StopsScreen onSelectStop={openStop} />}
       {activeTab === 'vehicles' && <VehiclesScreen vehicles={vehicles} onSelectVehicle={openVehicle} />}
-      {activeTab === 'more' && <RadarScreen vehicles={vehicles} onSelectVehicle={openVehicle} onBack={() => setActiveTab('map')} />}
+      {activeTab === 'more' && <RadarScreen vehicles={vehicles} onSelectVehicle={trackVehicleFromRadar} onBack={() => setActiveTab('map')} />}
       {toast && <div className="toast">{toast}</div>}
       <BottomNav active={activeTab} onChange={handleTabChange} />
     </div>
