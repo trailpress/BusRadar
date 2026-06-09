@@ -56,6 +56,7 @@ export type Landmark = LatLng & {
   id: string;
   name: string;
   type: LandmarkType;
+  spriteIndex?: number;
 };
 
 export type MapLayerMode = 'standard' | 'diorama';

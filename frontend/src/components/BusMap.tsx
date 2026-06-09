@@ -10,11 +10,6 @@ import { IconButton } from './IconButton';
 import { LineBadge } from './LineBadge';
 import { notify } from '../utils/notify';
 
-const bounds: [number, number][] = [
-  [45.0005, 7.613],
-  [45.126, 7.738],
-];
-
 type Props = {
   vehicles: Vehicle[];
   selectedLine?: string;
@@ -47,11 +42,18 @@ function createBusIcon(vehicle: Vehicle, selected: boolean) {
 }
 
 function createLandmarkIcon(landmark: Landmark) {
+  const spriteIndex = landmark.spriteIndex ?? 0;
+  const spriteCol = spriteIndex % 4;
+  const spriteRow = Math.floor(spriteIndex / 4);
+  const spriteX = `${spriteCol * 33.3333}%`;
+  const spriteY = `${spriteRow * 50}%`;
+  const spriteUrl = `${import.meta.env.BASE_URL}assets/diorama-landmarks-sheet-alpha.png`;
+
   return L.divIcon({
     className: '',
-    html: `<div class="landmark-marker landmark-marker--${landmark.type}"><b></b><i></i><span>${landmark.name}</span></div>`,
-    iconSize: [150, 108],
-    iconAnchor: [36, 86],
+    html: `<div class="landmark-marker landmark-marker--${landmark.type}"><b></b><i style="--sprite-url:url('${spriteUrl}');--sprite-x:${spriteX};--sprite-y:${spriteY}"></i><span>${landmark.name}</span></div>`,
+    iconSize: [176, 132],
+    iconAnchor: [44, 102],
   });
 }
 
@@ -87,8 +89,8 @@ function FollowVehicle({ vehicle }: { vehicle?: Vehicle }) {
 
   useEffect(() => {
     if (!vehicle) return;
-    map.flyTo([vehicle.lat, vehicle.lon], 14.8, { duration: 0.8 });
-  }, [map, vehicle?.lat, vehicle?.lon, vehicle?.vehicleId]);
+    map.flyTo([vehicle.lat, vehicle.lon], Math.max(map.getZoom(), 14.2), { duration: 0.65 });
+  }, [map, vehicle?.vehicleId]);
 
   return null;
 }

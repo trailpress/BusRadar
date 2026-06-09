@@ -122,8 +122,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  width: 150px;
-  height: 108px;
+  width: 176px;
+  height: 132px;
   transform: translateY(-14px);
   pointer-events: none;
   perspective: 260px;
@@ -131,13 +131,13 @@
 
 .landmark-marker b {
   position: absolute;
-  left: 2px;
-  bottom: 5px;
-  width: 68px;
-  height: 28px;
+  left: 5px;
+  bottom: 8px;
+  width: 88px;
+  height: 36px;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 38% 36%, rgba(255, 255, 255, 0.85), rgba(203, 213, 225, 0.92) 42%, rgba(100, 116, 139, 0.88) 100%);
+    radial-gradient(circle at 38% 36%, rgba(255, 255, 255, 0.9), rgba(203, 213, 225, 0.96) 42%, rgba(100, 116, 139, 0.84) 100%);
   box-shadow:
     0 16px 22px rgba(15, 23, 42, 0.32),
     inset 0 -5px 0 rgba(15, 23, 42, 0.18);
@@ -148,103 +148,29 @@
   position: relative;
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 58px;
+  width: 82px;
+  height: 82px;
   flex: 0 0 auto;
-  margin-left: 13px;
-  margin-bottom: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.92);
-  border-radius: 12px 12px 8px 8px;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.18), transparent 36%),
-    linear-gradient(180deg, #f8fafc, #cbd5e1 56%, #94a3b8);
+  margin-left: 8px;
+  margin-bottom: 30px;
+  border: 0;
+  background-image: var(--sprite-url);
+  background-repeat: no-repeat;
+  background-size: 400% 300%;
+  background-position: var(--sprite-x) var(--sprite-y);
   box-shadow:
-    11px 15px 0 rgba(71, 85, 105, 0.34),
-    0 18px 28px rgba(15, 23, 42, 0.36),
-    inset -9px 0 0 rgba(15, 23, 42, 0.1),
-    inset 0 -8px 0 rgba(15, 23, 42, 0.08);
-  transform: rotateX(7deg) rotateZ(-2deg);
-}
-
-.landmark-marker i::before {
-  content: "";
-  width: 22px;
-  height: 28px;
-  border-radius: 3px 3px 1px 1px;
-  background: linear-gradient(180deg, #1d4ed8, #111827);
-  clip-path: polygon(50% 0, 100% 72%, 76% 72%, 76% 100%, 24% 100%, 24% 72%, 0 72%);
-}
-
-.landmark-marker--tower i {
-  height: 76px;
-  width: 38px;
-  border-radius: 18px 18px 8px 8px;
-}
-
-.landmark-marker--tower i::after {
-  content: "";
-  position: absolute;
-  top: -17px;
-  left: 50%;
-  width: 22px;
-  height: 22px;
-  border: 2px solid rgba(255, 255, 255, 0.92);
-  border-radius: 50%;
-  background: radial-gradient(circle, #93c5fd, #2563eb 68%, #1e3a8a);
-  box-shadow: 0 0 14px rgba(47, 125, 255, 0.55);
-  transform: translateX(-50%);
-}
-
-.landmark-marker--station i::before {
-  width: 27px;
-  height: 18px;
-  border-radius: 4px;
-  clip-path: none;
-}
-
-.landmark-marker--square i::before {
-  width: 25px;
-  height: 25px;
-  border-radius: 2px;
-  clip-path: none;
-}
-
-.landmark-marker--square i {
-  width: 54px;
-  height: 42px;
-}
-
-.landmark-marker--factory i::before {
-  width: 29px;
-  height: 22px;
-  clip-path: polygon(0 100%, 0 35%, 24% 50%, 24% 35%, 50% 50%, 50% 35%, 100% 62%, 100% 100%);
-}
-
-.landmark-marker--factory i {
-  width: 58px;
-  height: 48px;
-}
-
-.landmark-marker--park i::before {
-  width: 30px;
-  height: 30px;
-  border-radius: 50% 50% 45% 45%;
-  clip-path: polygon(50% 0, 88% 42%, 68% 42%, 95% 78%, 58% 78%, 58% 100%, 42% 100%, 42% 78%, 5% 78%, 32% 42%, 12% 42%);
-  background: linear-gradient(180deg, #22c55e, #166534);
-}
-
-.landmark-marker--park i {
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.2), transparent 38%),
-    linear-gradient(180deg, #bbf7d0, #4ade80 58%, #15803d);
+    12px 18px 0 rgba(71, 85, 105, 0.2),
+    0 20px 28px rgba(15, 23, 42, 0.34);
+  transform: rotateX(5deg) rotateZ(-2deg) scale(1.04);
+  filter: drop-shadow(0 7px 9px rgba(15, 23, 42, 0.24));
 }
 
 .landmark-marker span {
   position: absolute;
-  left: 63px;
-  bottom: 24px;
-  max-width: 84px;
-  padding: 6px 8px;
+  left: 82px;
+  bottom: 34px;
+  max-width: 88px;
+  padding: 7px 9px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 9px;
   background: rgba(8, 12, 18, 0.9);
