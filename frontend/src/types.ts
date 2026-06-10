@@ -56,6 +56,7 @@ export type Landmark = LatLng & {
   id: string;
   name: string;
   type: LandmarkType;
+  asset?: string;
   minZoom?: number;
   labelZoom?: number;
   tier?: 'major' | 'district' | 'local';

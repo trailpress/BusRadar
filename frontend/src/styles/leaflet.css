@@ -192,6 +192,66 @@
   display: none;
 }
 
+.landmark-marker--asset i {
+  left: 0;
+  bottom: 0;
+  display: block;
+  width: 68px;
+  height: 68px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  filter: drop-shadow(0 9px 10px rgba(15, 23, 42, 0.24));
+}
+
+.landmark-marker--asset i::after,
+.landmark-marker--asset i::before {
+  content: none;
+}
+
+.landmark-marker--asset img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.landmark-marker--asset.landmark-marker--major i {
+  width: 82px;
+  height: 82px;
+}
+
+.landmark-marker--asset.landmark-marker--district i {
+  width: 62px;
+  height: 62px;
+}
+
+.landmark-marker--asset.landmark-marker--local i {
+  width: 50px;
+  height: 50px;
+}
+
+.landmark-marker--asset span {
+  left: 62px;
+  bottom: 20px;
+}
+
+.landmark-marker--asset.landmark-marker--major span {
+  left: 76px;
+  bottom: 26px;
+}
+
+.landmark-marker--asset.landmark-marker--district span {
+  left: 56px;
+  bottom: 20px;
+}
+
+.landmark-marker--asset.landmark-marker--local span {
+  left: 46px;
+  bottom: 15px;
+}
+
 .landmark-marker--tower {
   --landmark: #60a5fa;
   --landmark-dark: #2563eb;
@@ -325,6 +385,40 @@
   border-radius: 50% 50% 0 0;
   background: var(--landmark-dark);
   transform: translateX(-50%);
+}
+
+.landmark-marker--asset i {
+  left: 0;
+  bottom: 0;
+  display: block;
+  width: 68px;
+  height: 68px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  clip-path: none;
+  filter: drop-shadow(0 9px 10px rgba(15, 23, 42, 0.24));
+}
+
+.landmark-marker--asset i::after,
+.landmark-marker--asset i::before {
+  content: none;
+}
+
+.landmark-marker--asset.landmark-marker--major i {
+  width: 82px;
+  height: 82px;
+}
+
+.landmark-marker--asset.landmark-marker--district i {
+  width: 62px;
+  height: 62px;
+}
+
+.landmark-marker--asset.landmark-marker--local i {
+  width: 50px;
+  height: 50px;
 }
 
 .landmark-marker span {
