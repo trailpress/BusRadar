@@ -119,44 +119,46 @@
   --landmark: #2563eb;
   --landmark-soft: #eff6ff;
   position: relative;
-  width: 34px;
-  height: 44px;
+  width: 30px;
+  height: 30px;
   pointer-events: none;
+}
+
+.landmark-marker--asset {
+  width: 56px;
+  height: 56px;
 }
 
 .landmark-marker i {
   position: absolute;
-  left: 50%;
-  bottom: 10px;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 25px;
-  height: 25px;
   border: 2px solid #ffffff;
-  border-radius: 50% 50% 50% 4px;
+  border-radius: 9px;
   background: var(--landmark);
-  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.24);
-  transform: translateX(-50%) rotate(-45deg);
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.32),
+    0 3px 8px rgba(15, 23, 42, 0.24);
 }
 
 .landmark-marker i::after {
   content: "";
   position: absolute;
-  inset: 5px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
+  inset: 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.88);
 }
 
 .landmark-marker i em {
   position: relative;
   z-index: 1;
   color: var(--landmark);
-  font-size: 7px;
+  font-size: 8px;
   font-style: normal;
   font-weight: 900;
   letter-spacing: 0;
-  transform: rotate(45deg);
 }
 
 .landmark-marker--tower {
@@ -210,18 +212,14 @@
 }
 
 .landmark-marker--asset i {
-  left: 50%;
-  bottom: 8px;
+  inset: 0;
   display: block;
-  width: 52px;
-  height: 52px;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
   clip-path: none;
   filter: drop-shadow(0 5px 8px rgba(15, 23, 42, 0.22));
-  transform: translateX(-50%);
 }
 
 .landmark-marker--asset i::after,
@@ -237,19 +235,19 @@
 }
 
 .landmark-marker--asset.landmark-marker--major i {
-  width: 58px;
-  height: 58px;
+  width: 56px;
+  height: 56px;
 }
 
 .landmark-marker--asset.landmark-marker--district i {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
 }
 
 .landmark-marker span {
   position: absolute;
   left: 50%;
-  bottom: -2px;
+  top: 32px;
   max-width: 96px;
   padding: 2px 5px;
   border: 1px solid rgba(15, 23, 42, 0.08);

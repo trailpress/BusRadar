@@ -45,6 +45,7 @@ function createLandmarkIcon(landmark: Landmark, zoom: number) {
   const tier = landmark.tier ?? 'district';
   const showLabel = zoom >= (landmark.labelZoom ?? 15);
   const useImageAsset = landmark.display === 'image' && Boolean(landmark.asset);
+  const iconSize: [number, number] = useImageAsset ? [56, 56] : [30, 30];
   const shortName = landmark.name
     .split(' ')
     .map((word) => word[0])
@@ -55,9 +56,15 @@ function createLandmarkIcon(landmark: Landmark, zoom: number) {
   return L.divIcon({
     className: '',
     html: `<div class="landmark-marker ${useImageAsset ? 'landmark-marker--asset' : 'landmark-marker--poi'} landmark-marker--${tier} landmark-marker--${showLabel ? 'label' : 'pin'} landmark-marker--${landmark.type}"><i>${useImageAsset ? `<img src="${import.meta.env.BASE_URL}${landmark.asset}" alt="" />` : `<em>${shortName}</em>`}</i><span>${landmark.name}</span></div>`,
-    iconSize: useImageAsset ? [76, 72] : [34, 44],
-    iconAnchor: useImageAsset ? [38, 64] : [17, 34],
+    iconSize,
+    iconAnchor: [iconSize[0] / 2, iconSize[1] / 2],
   });
+}
+
+function getLandmarkMinZoom(landmark: Landmark) {
+  const tier = landmark.tier ?? 'district';
+  const cap = tier === 'major' ? 12 : tier === 'district' ? 13.2 : 14.8;
+  return Math.min(landmark.minZoom ?? cap, cap);
 }
 
 function RecenterButton({ mode, onToggleMode }: { mode: MapLayerMode; onToggleMode: () => void }) {
@@ -122,7 +129,7 @@ function ZoomTracker({ onZoom }: { onZoom: (zoom: number) => void }) {
 }
 
 export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, showRouteForLine, onSelectVehicle }: Props) {
-  const [mode, setMode] = useState<MapLayerMode>('standard');
+  const [mode, setMode] = useState<MapLayerMode>('diorama');
   const [zoom, setZoom] = useState(13);
   const visibleVehicles = useMemo(
     () => vehicles.filter((vehicle) => !selectedLine || vehicle.line === selectedLine),
@@ -131,7 +138,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const highlightedRoutes = routes.filter((route) => !selectedLine || route.line === selectedLine);
   const followedVehicle = vehicles.find((vehicle) => vehicle.vehicleId === followedVehicleId);
   const tileLayer = tileLayers[mode];
-  const visibleLandmarks = landmarks.filter((landmark) => zoom >= (landmark.minZoom ?? 13));
+  const visibleLandmarks = landmarks.filter((landmark) => zoom >= getLandmarkMinZoom(landmark));
 
   return (
     <div className={`map-shell map-shell--${mode}`}>
@@ -142,6 +149,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         minZoom={3}
         maxZoom={19}
         zoomControl={false}
+        markerZoomAnimation={false}
         attributionControl={false}
         className="bus-map"
       >
