@@ -18,10 +18,8 @@
   z-index: 410;
   pointer-events: none;
   background:
-    repeating-linear-gradient(34deg, rgba(47, 125, 255, 0.08) 0 1px, transparent 1px 34px),
-    repeating-linear-gradient(124deg, rgba(61, 220, 132, 0.06) 0 1px, transparent 1px 42px),
-    radial-gradient(circle at 50% 42%, rgba(47, 125, 255, 0.16), transparent 36%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(47, 125, 255, 0.08));
+    radial-gradient(circle at 50% 42%, rgba(47, 125, 255, 0.08), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(47, 125, 255, 0.04));
   mix-blend-mode: multiply;
 }
 
@@ -118,91 +116,112 @@
 }
 
 .landmark-marker {
-  --landmark: #2f7dff;
-  --landmark-dark: #1d4ed8;
-  --landmark-face: #dbeafe;
+  --landmark: #2563eb;
+  --landmark-soft: #eff6ff;
   position: relative;
-  width: 96px;
-  height: 76px;
+  width: 34px;
+  height: 44px;
   pointer-events: none;
-}
-
-.landmark-marker--district,
-.landmark-marker--local {
-  width: 74px;
-  height: 58px;
 }
 
 .landmark-marker i {
   position: absolute;
-  left: 7px;
-  bottom: 4px;
+  left: 50%;
+  bottom: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border: 2px solid rgba(255, 255, 255, 0.92);
-  border-radius: 9px 9px 6px 6px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.55), transparent 44%),
-    linear-gradient(180deg, var(--landmark-face), var(--landmark));
-  box-shadow:
-    0 9px 0 -5px rgba(15, 23, 42, 0.28),
-    0 10px 18px rgba(15, 23, 42, 0.24),
-    inset -7px -6px 0 rgba(15, 23, 42, 0.12);
+  width: 25px;
+  height: 25px;
+  border: 2px solid #ffffff;
+  border-radius: 50% 50% 50% 4px;
+  background: var(--landmark);
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.24);
+  transform: translateX(-50%) rotate(-45deg);
 }
 
 .landmark-marker i::after {
   content: "";
   position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: -7px;
-  height: 7px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.22);
-  filter: blur(1px);
+  inset: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .landmark-marker i em {
-  place-items: center;
-  color: #0f172a;
-  font-size: 9px;
+  position: relative;
+  z-index: 1;
+  color: var(--landmark);
+  font-size: 7px;
   font-style: normal;
-  font-weight: 1000;
+  font-weight: 900;
   letter-spacing: 0;
-  opacity: 0.78;
+  transform: rotate(45deg);
 }
 
-.landmark-marker--district i {
-  width: 27px;
-  height: 27px;
-  border-radius: 8px 8px 5px 5px;
+.landmark-marker--tower {
+  --landmark: #2563eb;
 }
 
-.landmark-marker--local i {
-  width: 20px;
-  height: 20px;
-  border-width: 1.5px;
-  border-radius: 6px;
+.landmark-marker--station {
+  --landmark: #0ea5e9;
 }
 
-.landmark-marker--local i em {
-  display: none;
+.landmark-marker--park {
+  --landmark: #16a34a;
+}
+
+.landmark-marker--factory {
+  --landmark: #ea580c;
+}
+
+.landmark-marker--stadium {
+  --landmark: #7c3aed;
+}
+
+.landmark-marker--hospital {
+  --landmark: #dc2626;
+}
+
+.landmark-marker--hospital i em {
+  font-size: 0;
+}
+
+.landmark-marker--hospital i em::before {
+  content: "+";
+  font-size: 13px;
+  line-height: 1;
+}
+
+.landmark-marker--market {
+  --landmark: #ca8a04;
+}
+
+.landmark-marker--bridge {
+  --landmark: #64748b;
+}
+
+.landmark-marker--campus {
+  --landmark: #0891b2;
+}
+
+.landmark-marker--church {
+  --landmark: #b45309;
 }
 
 .landmark-marker--asset i {
-  left: 0;
-  bottom: 0;
+  left: 50%;
+  bottom: 8px;
   display: block;
-  width: 68px;
-  height: 68px;
+  width: 52px;
+  height: 52px;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  filter: drop-shadow(0 9px 10px rgba(15, 23, 42, 0.24));
+  clip-path: none;
+  filter: drop-shadow(0 5px 8px rgba(15, 23, 42, 0.22));
+  transform: translateX(-50%);
 }
 
 .landmark-marker--asset i::after,
@@ -218,238 +237,32 @@
 }
 
 .landmark-marker--asset.landmark-marker--major i {
-  width: 82px;
-  height: 82px;
+  width: 58px;
+  height: 58px;
 }
 
 .landmark-marker--asset.landmark-marker--district i {
-  width: 62px;
-  height: 62px;
-}
-
-.landmark-marker--asset.landmark-marker--local i {
-  width: 50px;
-  height: 50px;
-}
-
-.landmark-marker--asset span {
-  left: 62px;
-  bottom: 20px;
-}
-
-.landmark-marker--asset.landmark-marker--major span {
-  left: 76px;
-  bottom: 26px;
-}
-
-.landmark-marker--asset.landmark-marker--district span {
-  left: 56px;
-  bottom: 20px;
-}
-
-.landmark-marker--asset.landmark-marker--local span {
-  left: 46px;
-  bottom: 15px;
-}
-
-.landmark-marker--tower {
-  --landmark: #60a5fa;
-  --landmark-dark: #2563eb;
-  --landmark-face: #eff6ff;
-}
-
-.landmark-marker--tower i {
-  width: 27px;
-  height: 44px;
-  left: 11px;
-  border-radius: 14px 14px 6px 6px;
-}
-
-.landmark-marker--tower i::before {
-  content: "";
-  position: absolute;
-  top: -12px;
-  left: 50%;
-  width: 4px;
-  height: 15px;
-  border-radius: 999px;
-  background: var(--landmark-dark);
-  transform: translateX(-50%);
-}
-
-.landmark-marker--station {
-  --landmark: #38bdf8;
-  --landmark-dark: #0369a1;
-  --landmark-face: #e0f2fe;
-}
-
-.landmark-marker--station i {
-  width: 42px;
-  border-radius: 14px 14px 6px 6px;
-}
-
-.landmark-marker--park {
-  --landmark: #4ade80;
-  --landmark-dark: #15803d;
-  --landmark-face: #dcfce7;
-}
-
-.landmark-marker--park i {
-  border-radius: 50% 50% 44% 44%;
-}
-
-.landmark-marker--factory {
-  --landmark: #f97316;
-  --landmark-dark: #c2410c;
-  --landmark-face: #ffedd5;
-}
-
-.landmark-marker--factory i {
-  border-radius: 4px 4px 6px 6px;
-  clip-path: polygon(0 100%, 0 34%, 24% 48%, 24% 34%, 50% 48%, 50% 34%, 100% 60%, 100% 100%);
-}
-
-.landmark-marker--stadium {
-  --landmark: #a78bfa;
-  --landmark-dark: #6d28d9;
-  --landmark-face: #ede9fe;
-}
-
-.landmark-marker--stadium i {
-  width: 42px;
-  height: 26px;
-  border-radius: 50%;
-}
-
-.landmark-marker--hospital {
-  --landmark: #f87171;
-  --landmark-dark: #b91c1c;
-  --landmark-face: #fee2e2;
-}
-
-.landmark-marker--hospital i em {
-  font-size: 0;
-}
-
-.landmark-marker--hospital i em::before {
-  content: "+";
-  font-size: 18px;
-  line-height: 1;
-}
-
-.landmark-marker--market {
-  --landmark: #facc15;
-  --landmark-dark: #a16207;
-  --landmark-face: #fef9c3;
-}
-
-.landmark-marker--market i {
-  border-radius: 5px 5px 8px 8px;
-}
-
-.landmark-marker--bridge {
-  --landmark: #94a3b8;
-  --landmark-dark: #475569;
-  --landmark-face: #f8fafc;
-}
-
-.landmark-marker--bridge i {
-  width: 44px;
-  height: 20px;
-  border-radius: 999px 999px 7px 7px;
-}
-
-.landmark-marker--campus {
-  --landmark: #22c55e;
-  --landmark-dark: #15803d;
-  --landmark-face: #dcfce7;
-}
-
-.landmark-marker--church {
-  --landmark: #fbbf24;
-  --landmark-dark: #b45309;
-  --landmark-face: #fff7ed;
-}
-
-.landmark-marker--church i {
-  border-radius: 16px 16px 6px 6px;
-}
-
-.landmark-marker--church i::before {
-  content: "";
-  position: absolute;
-  top: -7px;
-  left: 50%;
-  width: 14px;
-  height: 10px;
-  border-radius: 50% 50% 0 0;
-  background: var(--landmark-dark);
-  transform: translateX(-50%);
-}
-
-.landmark-marker--asset i {
-  left: 0;
-  bottom: 0;
-  display: block;
-  width: 68px;
-  height: 68px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  clip-path: none;
-  filter: drop-shadow(0 9px 10px rgba(15, 23, 42, 0.24));
-}
-
-.landmark-marker--asset i::after,
-.landmark-marker--asset i::before {
-  content: none;
-}
-
-.landmark-marker--asset.landmark-marker--major i {
-  width: 82px;
-  height: 82px;
-}
-
-.landmark-marker--asset.landmark-marker--district i {
-  width: 62px;
-  height: 62px;
-}
-
-.landmark-marker--asset.landmark-marker--local i {
-  width: 50px;
-  height: 50px;
+  width: 48px;
+  height: 48px;
 }
 
 .landmark-marker span {
   position: absolute;
-  left: 46px;
-  bottom: 14px;
-  max-width: 86px;
-  padding: 5px 7px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(8, 12, 18, 0.84);
-  color: #fff;
-  font-size: 9.5px;
-  font-weight: 900;
-  line-height: 1.1;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.42);
-  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.34);
-}
-
-.landmark-marker--district span {
-  left: 38px;
-  bottom: 10px;
-  max-width: 72px;
-  font-size: 9px;
-}
-
-.landmark-marker--local span {
-  left: 31px;
-  bottom: 6px;
-  max-width: 70px;
+  left: 50%;
+  bottom: -2px;
+  max-width: 96px;
+  padding: 2px 5px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #172033;
   font-size: 8.5px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  transform: translateX(-50%);
 }
 
 .landmark-marker--pin span {

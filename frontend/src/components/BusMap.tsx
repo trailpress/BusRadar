@@ -44,6 +44,7 @@ function createBusIcon(vehicle: Vehicle, selected: boolean) {
 function createLandmarkIcon(landmark: Landmark, zoom: number) {
   const tier = landmark.tier ?? 'district';
   const showLabel = zoom >= (landmark.labelZoom ?? 15);
+  const useImageAsset = landmark.display === 'image' && Boolean(landmark.asset);
   const shortName = landmark.name
     .split(' ')
     .map((word) => word[0])
@@ -53,9 +54,9 @@ function createLandmarkIcon(landmark: Landmark, zoom: number) {
 
   return L.divIcon({
     className: '',
-    html: `<div class="landmark-marker ${landmark.asset ? 'landmark-marker--asset' : ''} landmark-marker--${tier} landmark-marker--${showLabel ? 'label' : 'pin'} landmark-marker--${landmark.type}"><i>${landmark.asset ? `<img src="${import.meta.env.BASE_URL}${landmark.asset}" alt="" />` : `<em>${shortName}</em>`}</i><span>${landmark.name}</span></div>`,
-    iconSize: landmark.asset ? [118, 98] : tier === 'major' ? [96, 76] : [74, 58],
-    iconAnchor: landmark.asset ? [34, 78] : tier === 'major' ? [24, 58] : [18, 44],
+    html: `<div class="landmark-marker ${useImageAsset ? 'landmark-marker--asset' : 'landmark-marker--poi'} landmark-marker--${tier} landmark-marker--${showLabel ? 'label' : 'pin'} landmark-marker--${landmark.type}"><i>${useImageAsset ? `<img src="${import.meta.env.BASE_URL}${landmark.asset}" alt="" />` : `<em>${shortName}</em>`}</i><span>${landmark.name}</span></div>`,
+    iconSize: useImageAsset ? [76, 72] : [34, 44],
+    iconAnchor: useImageAsset ? [38, 64] : [17, 34],
   });
 }
 
