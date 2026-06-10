@@ -44,6 +44,7 @@ export const landmarks: Landmark[] = [
   { id: 'allianz-stadium', name: 'Stadio Nord', lat: 45.1096, lon: 7.6413, type: 'stadium', tier: 'district', minZoom: 14.8, labelZoom: 15.8 },
   { id: 'venaria', name: 'Venaria', lat: 45.1342, lon: 7.6317, type: 'tower', tier: 'district', minZoom: 14.8, labelZoom: 15.8 },
   { id: 'piazza-solferino', name: 'Piazza Solferino', lat: 45.0679, lon: 7.6754, type: 'square', asset: 'assets/landmarks/piazza-solferino.png', tier: 'local', minZoom: 15.4, labelZoom: 16.2 },
+  { id: 'museo-egizio', name: 'Museo Egizio', lat: 45.0684, lon: 7.6843, type: 'campus', asset: 'assets/landmarks/museo-egizio.png', tier: 'local', minZoom: 15.4, labelZoom: 16.2 },
   { id: 'piazza-carignano', name: 'Piazza Carignano', lat: 45.0688, lon: 7.6858, type: 'square', asset: 'assets/landmarks/piazza-carignano.png', tier: 'local', minZoom: 15.5, labelZoom: 16.3 },
   { id: 'piazza-carlo-felice', name: 'Piazza Carlo Felice', lat: 45.0633, lon: 7.6797, type: 'park', asset: 'assets/landmarks/piazza-carlo-felice.png', tier: 'local', minZoom: 15.5, labelZoom: 16.3 },
   { id: 'piazza-carlo-alberto', name: 'Piazza Carlo Alberto', lat: 45.0687, lon: 7.6875, type: 'square', asset: 'assets/landmarks/piazza-carlo-alberto.png', tier: 'local', minZoom: 15.6, labelZoom: 16.4 },
