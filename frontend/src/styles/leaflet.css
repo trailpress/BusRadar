@@ -115,6 +115,101 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
+.leaflet-marker-pane {
+  will-change: transform;
+}
+
+.diorama-landmark {
+  --lm-size: 44px;
+  --lm-opacity: 1;
+  position: relative;
+  width: var(--lm-size);
+  height: calc(var(--lm-size) * 1.18);
+  opacity: var(--lm-opacity);
+  pointer-events: auto;
+  transform: translateZ(0);
+  transition: opacity 160ms ease, filter 160ms ease;
+}
+
+.diorama-landmark i {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--lm-size) * 0.12);
+  display: grid;
+  place-items: center;
+  width: var(--lm-size);
+  height: var(--lm-size);
+  transform: translateX(-50%) perspective(120px) rotateX(7deg);
+  transform-origin: 50% 90%;
+}
+
+.diorama-landmark--image i::after {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 4%;
+  height: 14%;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.18);
+  filter: blur(4px);
+  z-index: -1;
+}
+
+.diorama-landmark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: translateZ(0);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.diorama-landmark--pin i {
+  border: 2px solid #ffffff;
+  border-radius: 9px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.24);
+}
+
+.diorama-landmark span {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--lm-size) * 0.78);
+  max-width: 112px;
+  padding: 3px 7px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #172033;
+  font-size: 9px;
+  font-weight: 850;
+  line-height: 1.05;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.14);
+  transform: translateX(-50%);
+}
+
+.diorama-landmark--lod-low span {
+  display: none;
+}
+
+.diorama-landmark--lod-low {
+  filter: saturate(0.95);
+}
+
+.diorama-landmark--lod-high span,
+.diorama-landmark.is-active span {
+  background: rgba(255, 255, 255, 0.94);
+  font-size: 9.5px;
+}
+
 .landmark-marker {
   --landmark: #2563eb;
   --landmark-soft: #eff6ff;

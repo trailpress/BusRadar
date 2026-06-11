@@ -3,12 +3,13 @@ import { Layers, LocateFixed } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import { landmarks, routes, stops, userPosition } from '../data/demoData';
-import type { Landmark, LatLng, MapLayerMode, Vehicle } from '../types';
+import type { LatLng, MapLayerMode, Vehicle } from '../types';
 import { getLineColor } from '../utils/lineColors';
 import { toLeafletPoint } from '../utils/geo';
 import { IconButton } from './IconButton';
 import { LineBadge } from './LineBadge';
 import { notify } from '../utils/notify';
+import { DioramaLayer } from './map/DioramaLayer';
 
 type Props = {
   vehicles: Vehicle[];
@@ -39,33 +40,6 @@ function createBusIcon(vehicle: Vehicle, selected: boolean) {
     iconSize: [42, 42],
     iconAnchor: [21, 21],
   });
-}
-
-function createLandmarkIcon(landmark: Landmark, zoom: number) {
-  const tier = landmark.tier ?? 'district';
-  const showLabel = zoom >= (landmark.labelZoom ?? 15);
-  const useImageAsset = landmark.display === 'image' && Boolean(landmark.asset);
-  const imageSize = tier === 'major' ? 86 : tier === 'district' ? 72 : 58;
-  const iconSize: [number, number] = useImageAsset ? [imageSize, imageSize] : [30, 30];
-  const shortName = landmark.name
-    .split(' ')
-    .map((word) => word[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-
-  return L.divIcon({
-    className: '',
-    html: `<div class="landmark-marker ${useImageAsset ? 'landmark-marker--asset' : 'landmark-marker--poi'} landmark-marker--${tier} landmark-marker--${showLabel ? 'label' : 'pin'} landmark-marker--${landmark.type}"><i>${useImageAsset ? `<img src="${import.meta.env.BASE_URL}${landmark.asset}" alt="" />` : `<em>${shortName}</em>`}</i><span>${landmark.name}</span></div>`,
-    iconSize,
-    iconAnchor: useImageAsset ? [iconSize[0] / 2, iconSize[1] * 0.82] : [iconSize[0] / 2, iconSize[1] / 2],
-  });
-}
-
-function getLandmarkMinZoom(landmark: Landmark) {
-  const tier = landmark.tier ?? 'district';
-  const cap = tier === 'major' ? 12 : tier === 'district' ? 13 : 14.4;
-  return Math.min(landmark.minZoom ?? cap, cap);
 }
 
 function RecenterButton({ mode, onToggleMode }: { mode: MapLayerMode; onToggleMode: () => void }) {
@@ -139,7 +113,6 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const highlightedRoutes = routes.filter((route) => !selectedLine || route.line === selectedLine);
   const followedVehicle = vehicles.find((vehicle) => vehicle.vehicleId === followedVehicleId);
   const tileLayer = tileLayers[mode];
-  const visibleLandmarks = landmarks.filter((landmark) => zoom >= getLandmarkMinZoom(landmark));
 
   return (
     <div className={`map-shell map-shell--${mode}`}>
@@ -150,7 +123,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         minZoom={3}
         maxZoom={18}
         zoomControl={false}
-        markerZoomAnimation={false}
+        markerZoomAnimation
         attributionControl={false}
         className="bus-map"
       >
@@ -167,6 +140,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         {highlightedRoutes.map((route) => (
           <Polyline key={route.id} positions={route.path.map(toLeafletPoint)} pathOptions={{ color: getLineColor(route.line), weight: showRouteForLine === route.line ? 8 : 4, opacity: showRouteForLine === route.line ? 0.95 : 0.62 }} />
         ))}
+        {mode === 'diorama' && <DioramaLayer landmarks={landmarks} zoom={zoom} />}
         {stops
           .filter((stop) => !selectedLine || stop.lines.includes(selectedLine))
           .map((stop) => (
@@ -198,10 +172,6 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
             </Popup>
           </Marker>
         ))}
-        {mode === 'diorama' &&
-          visibleLandmarks.map((landmark) => (
-            <Marker key={landmark.id} position={[landmark.lat, landmark.lon]} icon={createLandmarkIcon(landmark, zoom)} interactive={false} />
-          ))}
         <RecenterButton
           mode={mode}
           onToggleMode={() => {

@@ -55,6 +55,7 @@ export type LandmarkType = 'tower' | 'station' | 'square' | 'factory' | 'park' |
 export type Landmark = LatLng & {
   id: string;
   name: string;
+  shortName?: string;
   type: LandmarkType;
   asset?: string;
   display?: 'image' | 'pin';
