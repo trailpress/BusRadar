@@ -121,10 +121,11 @@
 
 .diorama-landmark {
   --lm-size: 44px;
+  --lm-box: 132px;
   --lm-opacity: 1;
   position: relative;
-  width: var(--lm-size) !important;
-  height: calc(var(--lm-size) * 1.18) !important;
+  width: var(--lm-box) !important;
+  height: calc(var(--lm-size) * 1.52) !important;
   overflow: visible;
   contain: layout paint;
   opacity: var(--lm-opacity);
@@ -136,7 +137,7 @@
 .diorama-landmark i {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--lm-size) * 0.12);
+  bottom: calc(var(--lm-size) * 0.18);
   display: grid;
   place-items: center;
   width: var(--lm-size) !important;
@@ -151,8 +152,8 @@
   position: absolute;
   left: 18%;
   right: 18%;
-  bottom: 4%;
-  height: 14%;
+  bottom: 1%;
+  height: 16%;
   border-radius: 50%;
   background: rgba(15, 23, 42, 0.18);
   filter: blur(4px);
@@ -175,10 +176,10 @@
   width: var(--lm-size) !important;
   height: var(--lm-size) !important;
   border: 2px solid #ffffff;
-  border-radius: 8px;
+  border-radius: 9px;
   background: #2563eb;
   color: #ffffff;
-  font-size: 9px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 900;
   box-shadow: 0 3px 8px rgba(15, 23, 42, 0.24);
@@ -187,14 +188,14 @@
 .diorama-landmark span {
   position: absolute;
   left: 50%;
-  top: calc(var(--lm-size) * 0.78);
-  max-width: 112px;
-  padding: 3px 7px;
+  top: calc(var(--lm-size) * 0.88);
+  max-width: 128px;
+  padding: 4px 8px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.88);
   color: #172033;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 850;
   line-height: 1.05;
   text-align: center;
@@ -218,7 +219,7 @@
 .diorama-landmark--lod-high span,
 .diorama-landmark.is-active span {
   background: rgba(255, 255, 255, 0.94);
-  font-size: 9.5px;
+  font-size: 10.5px;
 }
 
 .landmark-marker {

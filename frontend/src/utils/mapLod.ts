@@ -39,8 +39,8 @@ export function getLandmarkLod(landmark: Landmark, zoom: number, active = false)
   if (zoom < 15) {
     return {
       visible: isMajor,
-      size: 22,
-      opacity: 0.78,
+      size: 30,
+      opacity: 0.86,
       renderMode: 'pin',
       labelMode: active ? 'full' : 'none',
       label: active ? landmark.name : '',
@@ -49,12 +49,12 @@ export function getLandmarkLod(landmark: Landmark, zoom: number, active = false)
   }
 
   if (zoom < 17) {
-    const size = isMajor ? 26 : isDistrict ? 22 : 0;
+    const size = isMajor ? 48 : isDistrict ? 32 : 0;
     return {
       visible: size > 0,
       size,
-      opacity: isMajor ? 0.92 : 0.82,
-      renderMode: active ? 'image' : 'pin',
+      opacity: isMajor ? 0.96 : 0.88,
+      renderMode: isMajor || active ? 'image' : 'pin',
       labelMode: active ? 'full' : 'short',
       label: active ? landmark.name : landmark.shortName ?? landmark.name,
       className: 'lod-mid',
@@ -63,7 +63,7 @@ export function getLandmarkLod(landmark: Landmark, zoom: number, active = false)
 
   return {
     visible: true,
-    size: active ? 52 : isMajor ? 42 : isDistrict ? 36 : 30,
+    size: active ? 74 : isMajor ? 62 : isDistrict ? 52 : 42,
     opacity: 1,
     renderMode: 'image',
     labelMode: active ? 'full' : 'full',
