@@ -34,7 +34,7 @@ export function DioramaLayer({ landmarks, zoom }: Props) {
         const point = map.project(L.latLng(landmark.lat, landmark.lon), Math.round(zoom));
         return { landmark, lod, point, active, index };
       })
-      .filter((item) => item.lod.visible)
+      .filter((item) => item.lod.visible && item.landmark.display === 'image' && Boolean(item.landmark.asset))
       .sort((a, b) => {
         if (a.active !== b.active) return a.active ? -1 : 1;
         const priorityDiff = getTierPriority(b.landmark) - getTierPriority(a.landmark);
