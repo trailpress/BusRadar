@@ -121,6 +121,7 @@
 
 .diorama-landmark {
   --lm-size: 44px;
+  --lm-visual-w: var(--lm-size);
   --lm-box: 132px;
   --lm-opacity: 1;
   position: relative;
@@ -140,10 +141,10 @@
   bottom: calc(var(--lm-size) * 0.18);
   display: grid;
   place-items: center;
-  width: var(--lm-size) !important;
+  width: var(--lm-visual-w) !important;
   height: var(--lm-size) !important;
   overflow: visible;
-  transform: translateX(-50%) perspective(120px) rotateX(7deg);
+  transform: translateX(-50%) perspective(160px) rotateX(5deg);
   transform-origin: 50% 90%;
 }
 
@@ -164,7 +165,7 @@
   display: block;
   width: 100% !important;
   height: 100% !important;
-  max-width: var(--lm-size) !important;
+  max-width: var(--lm-visual-w) !important;
   max-height: var(--lm-size) !important;
   object-fit: contain;
   transform: translateZ(0);
@@ -188,19 +189,19 @@
 .diorama-landmark span {
   position: absolute;
   left: 50%;
-  top: calc(var(--lm-size) * 0.88);
-  max-width: 128px;
-  padding: 4px 8px;
+  top: calc(var(--lm-size) * 0.82);
+  max-width: 138px;
+  padding: 3px 7px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.82);
   color: #172033;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 850;
   line-height: 1.05;
   text-align: center;
   white-space: nowrap;
-  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.14);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
   transform: translateX(-50%);
 }
 

@@ -50,8 +50,9 @@ export function DioramaLandmark({ landmark, zoom, active, onSelect }: Props) {
 
   const icon = useMemo(() => {
     const size = lod.size || 1;
-    const boxWidth = lod.labelMode === 'none' ? Math.round(size * 1.45) : Math.max(132, Math.round(size * 2.55));
-    const boxHeight = Math.round(size * 1.52);
+    const visualWidth = useImage ? Math.round(size * 1.36) : size;
+    const boxWidth = lod.labelMode === 'none' ? Math.max(80, Math.round(visualWidth * 1.28)) : Math.max(156, Math.round(visualWidth * 1.34));
+    const boxHeight = lod.labelMode === 'none' ? Math.round(size * 1.22) : Math.round(size * 1.5);
     const labelHtml = lod.labelMode === 'none' ? '' : `<span>${lod.label}</span>`;
     const visualHtml = useImage
       ? `<img src="${assetUrl}" alt="" loading="eager" decoding="async" />`
@@ -59,9 +60,9 @@ export function DioramaLandmark({ landmark, zoom, active, onSelect }: Props) {
 
     return L.divIcon({
       className: '',
-      html: `<div class="diorama-landmark ${useImage ? 'diorama-landmark--image' : 'diorama-landmark--pin'} diorama-landmark--${landmark.tier ?? 'district'} diorama-landmark--${lod.className} ${active ? 'is-active' : ''}" style="--lm-size:${size}px;--lm-box:${boxWidth}px;--lm-opacity:${lod.opacity}"><i>${visualHtml}</i>${labelHtml}</div>`,
+      html: `<div class="diorama-landmark ${useImage ? 'diorama-landmark--image' : 'diorama-landmark--pin'} diorama-landmark--${landmark.tier ?? 'district'} diorama-landmark--${lod.className} ${active ? 'is-active' : ''}" style="--lm-size:${size}px;--lm-visual-w:${visualWidth}px;--lm-box:${boxWidth}px;--lm-opacity:${lod.opacity}"><i>${visualHtml}</i>${labelHtml}</div>`,
       iconSize: [boxWidth, boxHeight],
-      iconAnchor: [boxWidth / 2, useImage ? Math.round(size * 0.95) : Math.round(size * 0.76)],
+      iconAnchor: [boxWidth / 2, useImage ? Math.round(size * 0.88) : Math.round(size * 0.72)],
     });
   }, [active, assetUrl, landmark.name, landmark.tier, lod.className, lod.label, lod.labelMode, lod.opacity, lod.renderMode, lod.size, useImage]);
 
