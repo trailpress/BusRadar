@@ -50,7 +50,7 @@ export function DioramaLandmark({ landmark, zoom, active, onSelect }: Props) {
 
   const icon = useMemo(() => {
     const size = lod.size || 1;
-    const visualWidth = useImage ? Math.round(size * 1.36) : size;
+    const visualWidth = useImage ? Math.round(size * 1.48) : size;
     const boxWidth = lod.labelMode === 'none' ? Math.max(80, Math.round(visualWidth * 1.28)) : Math.max(156, Math.round(visualWidth * 1.34));
     const boxHeight = lod.labelMode === 'none' ? Math.round(size * 1.22) : Math.round(size * 1.5);
     const labelHtml = lod.labelMode === 'none' ? '' : `<span>${lod.label}</span>`;
