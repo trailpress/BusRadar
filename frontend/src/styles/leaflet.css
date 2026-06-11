@@ -8,7 +8,7 @@
 }
 
 .map-shell--diorama .leaflet-tile-pane {
-  filter: saturate(1.08) brightness(1.03) contrast(1.02);
+  filter: saturate(1.2) brightness(1.06) contrast(0.96);
 }
 
 .map-shell--diorama .leaflet-container::after {
@@ -18,9 +18,9 @@
   z-index: 410;
   pointer-events: none;
   background:
-    radial-gradient(circle at 50% 42%, rgba(47, 125, 255, 0.08), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(47, 125, 255, 0.04));
-  mix-blend-mode: multiply;
+    radial-gradient(circle at 50% 42%, rgba(47, 125, 255, 0.14), transparent 38%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(47, 125, 255, 0.08));
+  mix-blend-mode: soft-light;
 }
 
 .map-shell--diorama .leaflet-overlay-pane path {
@@ -125,8 +125,18 @@
 }
 
 .landmark-marker--asset {
-  width: 56px;
-  height: 56px;
+  width: 58px;
+  height: 58px;
+}
+
+.landmark-marker--asset.landmark-marker--major {
+  width: 86px;
+  height: 86px;
+}
+
+.landmark-marker--asset.landmark-marker--district {
+  width: 72px;
+  height: 72px;
 }
 
 .landmark-marker i {
@@ -219,7 +229,7 @@
   background: transparent;
   box-shadow: none;
   clip-path: none;
-  filter: drop-shadow(0 5px 8px rgba(15, 23, 42, 0.22));
+  filter: drop-shadow(0 8px 10px rgba(15, 23, 42, 0.28));
 }
 
 .landmark-marker--asset i::after,
@@ -235,13 +245,13 @@
 }
 
 .landmark-marker--asset.landmark-marker--major i {
-  width: 56px;
-  height: 56px;
+  width: 86px;
+  height: 86px;
 }
 
 .landmark-marker--asset.landmark-marker--district i {
-  width: 56px;
-  height: 56px;
+  width: 72px;
+  height: 72px;
 }
 
 .landmark-marker span {

@@ -45,7 +45,8 @@ function createLandmarkIcon(landmark: Landmark, zoom: number) {
   const tier = landmark.tier ?? 'district';
   const showLabel = zoom >= (landmark.labelZoom ?? 15);
   const useImageAsset = landmark.display === 'image' && Boolean(landmark.asset);
-  const iconSize: [number, number] = useImageAsset ? [56, 56] : [30, 30];
+  const imageSize = tier === 'major' ? 86 : tier === 'district' ? 72 : 58;
+  const iconSize: [number, number] = useImageAsset ? [imageSize, imageSize] : [30, 30];
   const shortName = landmark.name
     .split(' ')
     .map((word) => word[0])
@@ -63,7 +64,7 @@ function createLandmarkIcon(landmark: Landmark, zoom: number) {
 
 function getLandmarkMinZoom(landmark: Landmark) {
   const tier = landmark.tier ?? 'district';
-  const cap = tier === 'major' ? 12 : tier === 'district' ? 13.2 : 14.8;
+  const cap = tier === 'major' ? 12 : tier === 'district' ? 13 : 14.4;
   return Math.min(landmark.minZoom ?? cap, cap);
 }
 
