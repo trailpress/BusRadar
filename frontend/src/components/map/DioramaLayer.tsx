@@ -18,8 +18,9 @@ function getTierPriority(landmark: Landmark) {
 
 function getCollisionRadius(size: number, zoom: number, active: boolean) {
   if (active) return 0;
-  const zoomRelief = zoom >= 17 ? 0.54 : zoom >= 15 ? 0.68 : 0.82;
-  return size * zoomRelief;
+  const visualWidth = size * 1.48;
+  const zoomRelief = zoom >= 17 ? 0.72 : zoom >= 15 ? 0.86 : 1;
+  return visualWidth * zoomRelief;
 }
 
 export function DioramaLayer({ landmarks, zoom }: Props) {
@@ -30,7 +31,7 @@ export function DioramaLayer({ landmarks, zoom }: Props) {
       .map((landmark, index) => {
         const active = landmark.id === activeId;
         const lod = getLandmarkLod(landmark, zoom, active);
-        const point = map.project(L.latLng(landmark.lat, landmark.lon), zoom);
+        const point = map.project(L.latLng(landmark.lat, landmark.lon), Math.round(zoom));
         return { landmark, lod, point, active, index };
       })
       .filter((item) => item.lod.visible)

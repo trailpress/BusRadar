@@ -144,7 +144,8 @@
   width: var(--lm-visual-w) !important;
   height: var(--lm-size) !important;
   overflow: visible;
-  transform: translateX(-50%) perspective(180px) rotateX(4deg);
+  filter: drop-shadow(0 12px 9px rgba(15, 23, 42, 0.18));
+  transform: translateX(-50%) perspective(220px) rotateX(12deg) scaleY(0.92);
   transform-origin: 50% 90%;
 }
 
@@ -153,11 +154,11 @@
   position: absolute;
   left: 18%;
   right: 18%;
-  bottom: 1%;
-  height: 16%;
+  bottom: 8%;
+  height: 10%;
   border-radius: 50%;
-  background: rgba(15, 23, 42, 0.18);
-  filter: blur(4px);
+  background: rgba(15, 23, 42, 0.22);
+  filter: blur(6px);
   z-index: -1;
 }
 
@@ -211,7 +212,7 @@
 }
 
 .diorama-landmark--lod-low i {
-  transform: translateX(-50%);
+  transform: translateX(-50%) perspective(220px) rotateX(10deg) scaleY(0.94);
 }
 
 .diorama-landmark--lod-low {
