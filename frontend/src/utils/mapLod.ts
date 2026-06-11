@@ -4,7 +4,7 @@ export type LandmarkLod = {
   visible: boolean;
   size: number;
   opacity: number;
-  renderMode: 'pin' | 'image';
+  renderMode: 'pin' | 'image' | 'glyph';
   labelMode: 'none' | 'short' | 'full';
   label: string;
   className: string;
@@ -34,17 +34,17 @@ function getBaseSize(tier: Landmark['tier'], zoom: number) {
   const normalizedTier = tier ?? 'district';
 
   if (normalizedTier === 'major') {
-    if (zoom < 15) return lerp(52, 82, smoothstep(zoom, 13, 15));
-    if (zoom < 17) return lerp(82, 104, smoothstep(zoom, 15, 17));
-    return lerp(104, 124, smoothstep(zoom, 17, 18));
+    if (zoom < 15) return lerp(24, 32, smoothstep(zoom, 13, 15));
+    if (zoom < 17) return lerp(32, 40, smoothstep(zoom, 15, 17));
+    return lerp(40, 48, smoothstep(zoom, 17, 18));
   }
 
   if (normalizedTier === 'district') {
-    if (zoom < 17) return lerp(54, 84, smoothstep(zoom, 15, 17));
-    return lerp(84, 104, smoothstep(zoom, 17, 18));
+    if (zoom < 17) return lerp(22, 32, smoothstep(zoom, 15, 17));
+    return lerp(32, 40, smoothstep(zoom, 17, 18));
   }
 
-  return lerp(70, 88, smoothstep(zoom, 17, 18));
+  return lerp(22, 34, smoothstep(zoom, 17, 18));
 }
 
 export function getLandmarkLod(landmark: Landmark, zoom: number, active = false): LandmarkLod {
@@ -65,14 +65,14 @@ export function getLandmarkLod(landmark: Landmark, zoom: number, active = false)
   const tier = landmark.tier ?? 'district';
   const fade = smoothstep(zoom, minZoom - 0.35, minZoom + 0.25);
   const baseSize = getBaseSize(tier, zoom);
-  const activeBoost = active ? (tier === 'major' ? 14 : 16) : 0;
+  const activeBoost = active ? (tier === 'major' ? 6 : 5) : 0;
   const className = zoom < 15 ? 'lod-low' : zoom < 17 ? 'lod-mid' : 'lod-high';
 
   return {
     visible: true,
     size: Math.round(baseSize + activeBoost),
     opacity: active ? 1 : lerp(0.18, 1, fade),
-    renderMode: 'image',
+    renderMode: 'glyph',
     labelMode: active ? 'full' : 'none',
     label: active ? landmark.name : '',
     className,

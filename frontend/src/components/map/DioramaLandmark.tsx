@@ -1,40 +1,8 @@
 import L from 'leaflet';
 import { useMemo } from 'react';
 import { Marker } from 'react-leaflet';
-import moleAsset from '../../assets/landmarks/mole.webp';
-import portaNuovaAsset from '../../assets/landmarks/porta-nuova.webp';
-import portaSusaAsset from '../../assets/landmarks/porta-susa.webp';
-import granMadreAsset from '../../assets/landmarks/gran-madre.webp';
-import lingottoAsset from '../../assets/landmarks/lingotto.webp';
-import valentinoAsset from '../../assets/landmarks/valentino.webp';
-import piazzaCastelloAsset from '../../assets/landmarks/piazza-castello.webp';
 import type { Landmark } from '../../types';
 import { getLandmarkLod } from '../../utils/mapLod';
-
-const localAssets: Record<string, string> = {
-  mole: moleAsset,
-  'porta-nuova': portaNuovaAsset,
-  'porta-susa': portaSusaAsset,
-  'gran-madre': granMadreAsset,
-  lingotto: lingottoAsset,
-  valentino: valentinoAsset,
-  castello: piazzaCastelloAsset,
-};
-
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map((word) => word[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-}
-
-function getAssetUrl(landmark: Landmark) {
-  if (localAssets[landmark.id]) return localAssets[landmark.id];
-  if (!landmark.asset) return undefined;
-  return `${import.meta.env.BASE_URL}${landmark.asset}`;
-}
 
 type Props = {
   landmark: Landmark;
@@ -45,26 +13,22 @@ type Props = {
 
 export function DioramaLandmark({ landmark, zoom, active, onSelect }: Props) {
   const lod = getLandmarkLod(landmark, zoom, active);
-  const assetUrl = getAssetUrl(landmark);
-  const useImage = lod.renderMode === 'image' && landmark.display === 'image' && Boolean(assetUrl);
 
   const icon = useMemo(() => {
     const size = lod.size || 1;
-    const visualWidth = useImage ? size * 1.48 : size;
-    const boxWidth = lod.labelMode === 'none' ? Math.max(80, visualWidth * 1.28) : Math.max(156, visualWidth * 1.34);
-    const boxHeight = lod.labelMode === 'none' ? size * 1.58 : size * 1.82;
+    const visualWidth = size * 1.18;
+    const boxWidth = lod.labelMode === 'none' ? Math.max(52, visualWidth * 1.45) : Math.max(132, visualWidth * 1.62);
+    const boxHeight = lod.labelMode === 'none' ? size * 1.28 : size * 1.72;
     const labelHtml = lod.labelMode === 'none' ? '' : `<span>${lod.label}</span>`;
-    const visualHtml = useImage
-      ? `<img src="${assetUrl}" alt="" loading="eager" decoding="async" />`
-      : `<em>${getInitials(landmark.name)}</em>`;
+    const visualHtml = `<em class="landmark-glyph landmark-glyph--${landmark.type}"><b></b><b></b><b></b></em>`;
 
     return L.divIcon({
       className: '',
-      html: `<div class="diorama-landmark ${useImage ? 'diorama-landmark--image' : 'diorama-landmark--pin'} diorama-landmark--${landmark.tier ?? 'district'} diorama-landmark--${lod.className} ${active ? 'is-active' : ''}" style="--lm-size:${size}px;--lm-visual-w:${visualWidth}px;--lm-box:${boxWidth}px;--lm-opacity:${lod.opacity}"><i>${visualHtml}</i>${labelHtml}</div>`,
+      html: `<div class="diorama-landmark diorama-landmark--glyph diorama-landmark--${landmark.tier ?? 'district'} diorama-landmark--${lod.className} ${active ? 'is-active' : ''}" style="--lm-size:${size}px;--lm-visual-w:${visualWidth}px;--lm-box:${boxWidth}px;--lm-opacity:${lod.opacity}"><i>${visualHtml}</i>${labelHtml}</div>`,
       iconSize: [boxWidth, boxHeight],
-      iconAnchor: [boxWidth / 2, useImage ? size * 1.24 : size * 0.82],
+      iconAnchor: [boxWidth / 2, size * 1.02],
     });
-  }, [active, assetUrl, landmark.name, landmark.tier, lod.className, lod.label, lod.labelMode, lod.opacity, lod.renderMode, lod.size, useImage]);
+  }, [active, landmark.tier, landmark.type, lod.className, lod.label, lod.labelMode, lod.opacity, lod.size]);
 
   if (!lod.visible) return null;
 
