@@ -2,7 +2,7 @@ import type { Landmark } from '../types';
 
 export const landmarks: Landmark[] = [
   { id: 'mole', name: 'Mole Antonelliana', lat: 45.0691, lon: 7.6932, type: 'tower', asset: 'assets/landmarks/mole.png', display: 'image', tier: 'major', minZoom: 12, labelZoom: 14.2 },
-  { id: 'porta-nuova', name: 'Porta Nuova', lat: 45.0628, lon: 7.6798, type: 'station', asset: 'assets/landmarks/porta-nuova.png', display: 'image', tier: 'major', minZoom: 12.4, labelZoom: 14.7 },
+  { id: 'porta-nuova', name: 'Porta Nuova', lat: 45.0622, lon: 7.6788, type: 'station', asset: 'assets/landmarks/porta-nuova.png', display: 'image', tier: 'major', minZoom: 12.4, labelZoom: 14.7 },
   { id: 'porta-susa', name: 'Porta Susa', lat: 45.0736, lon: 7.6678, type: 'station', asset: 'assets/landmarks/porta-susa.png', display: 'image', tier: 'major', minZoom: 12.6, labelZoom: 14.8 },
   { id: 'castello', name: 'Piazza Castello', lat: 45.0711, lon: 7.6858, type: 'square', asset: 'assets/landmarks/piazza-castello.png', display: 'image', tier: 'major', minZoom: 12.5, labelZoom: 14.8 },
   { id: 'lingotto', name: 'Lingotto', lat: 45.0316, lon: 7.6677, type: 'factory', asset: 'assets/landmarks/lingotto.png', display: 'image', tier: 'major', minZoom: 12.8, labelZoom: 15 },

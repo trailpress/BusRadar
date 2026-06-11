@@ -149,13 +149,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         zoom={13}
         minZoom={3}
         maxZoom={18}
-        zoomSnap={0.25}
-        zoomDelta={0.5}
         zoomControl={false}
-        zoomAnimation
-        fadeAnimation
-        inertia
-        markerZoomAnimation
+        markerZoomAnimation={false}
         attributionControl={false}
         className="bus-map"
       >
@@ -165,9 +160,9 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           attribution={tileLayer.attribution}
           opacity={1}
           maxNativeZoom={18}
-          updateWhenZooming={false}
-          updateWhenIdle
-          keepBuffer={8}
+          updateWhenZooming
+          updateWhenIdle={false}
+          keepBuffer={4}
         />
         {highlightedRoutes.map((route) => (
           <Polyline key={route.id} positions={route.path.map(toLeafletPoint)} pathOptions={{ color: getLineColor(route.line), weight: showRouteForLine === route.line ? 8 : 4, opacity: showRouteForLine === route.line ? 0.95 : 0.62 }} />
