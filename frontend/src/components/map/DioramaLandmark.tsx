@@ -46,7 +46,7 @@ type Props = {
 export function DioramaLandmark({ landmark, zoom, active, onSelect }: Props) {
   const lod = getLandmarkLod(landmark, zoom, active);
   const assetUrl = getAssetUrl(landmark);
-  const useImage = landmark.display === 'image' && Boolean(assetUrl);
+  const useImage = lod.renderMode === 'image' && landmark.display === 'image' && Boolean(assetUrl);
 
   const icon = useMemo(() => {
     const size = lod.size || 1;
@@ -59,9 +59,9 @@ export function DioramaLandmark({ landmark, zoom, active, onSelect }: Props) {
       className: '',
       html: `<div class="diorama-landmark ${useImage ? 'diorama-landmark--image' : 'diorama-landmark--pin'} diorama-landmark--${landmark.tier ?? 'district'} diorama-landmark--${lod.className} ${active ? 'is-active' : ''}" style="--lm-size:${size}px;--lm-opacity:${lod.opacity}"><i>${visualHtml}</i>${labelHtml}</div>`,
       iconSize: [size, Math.round(size * 1.18)],
-      iconAnchor: [size / 2, Math.round(size * 0.88)],
+      iconAnchor: useImage ? [size / 2, Math.round(size * 0.86)] : [size / 2, size / 2],
     });
-  }, [active, assetUrl, landmark.name, landmark.tier, lod.className, lod.label, lod.labelMode, lod.opacity, lod.size, useImage]);
+  }, [active, assetUrl, landmark.name, landmark.tier, lod.className, lod.label, lod.labelMode, lod.opacity, lod.renderMode, lod.size, useImage]);
 
   if (!lod.visible) return null;
 

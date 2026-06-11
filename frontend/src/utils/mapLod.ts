@@ -4,6 +4,7 @@ export type LandmarkLod = {
   visible: boolean;
   size: number;
   opacity: number;
+  renderMode: 'pin' | 'image';
   labelMode: 'none' | 'short' | 'full';
   label: string;
   className: string;
@@ -24,6 +25,7 @@ export function getLandmarkLod(landmark: Landmark, zoom: number, active = false)
       visible: false,
       size: 0,
       opacity: 0,
+      renderMode: 'pin',
       labelMode: 'none',
       label: '',
       className: 'is-hidden',
@@ -37,8 +39,9 @@ export function getLandmarkLod(landmark: Landmark, zoom: number, active = false)
   if (zoom < 15) {
     return {
       visible: isMajor,
-      size: 44,
-      opacity: 0.74,
+      size: 22,
+      opacity: 0.78,
+      renderMode: 'pin',
       labelMode: active ? 'full' : 'none',
       label: active ? landmark.name : '',
       className: 'lod-low',
@@ -46,11 +49,12 @@ export function getLandmarkLod(landmark: Landmark, zoom: number, active = false)
   }
 
   if (zoom < 17) {
-    const size = isMajor ? 62 : isDistrict ? 50 : 0;
+    const size = isMajor ? 26 : isDistrict ? 22 : 0;
     return {
       visible: size > 0,
       size,
       opacity: isMajor ? 0.92 : 0.82,
+      renderMode: active ? 'image' : 'pin',
       labelMode: active ? 'full' : 'short',
       label: active ? landmark.name : landmark.shortName ?? landmark.name,
       className: 'lod-mid',
@@ -59,8 +63,9 @@ export function getLandmarkLod(landmark: Landmark, zoom: number, active = false)
 
   return {
     visible: true,
-    size: isMajor ? 82 : isDistrict ? 66 : 48,
+    size: active ? 52 : isMajor ? 42 : isDistrict ? 36 : 30,
     opacity: 1,
+    renderMode: 'image',
     labelMode: active ? 'full' : 'full',
     label: landmark.name,
     className: 'lod-high',

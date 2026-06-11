@@ -123,8 +123,10 @@
   --lm-size: 44px;
   --lm-opacity: 1;
   position: relative;
-  width: var(--lm-size);
-  height: calc(var(--lm-size) * 1.18);
+  width: var(--lm-size) !important;
+  height: calc(var(--lm-size) * 1.18) !important;
+  overflow: visible;
+  contain: layout paint;
   opacity: var(--lm-opacity);
   pointer-events: auto;
   transform: translateZ(0);
@@ -137,8 +139,9 @@
   bottom: calc(var(--lm-size) * 0.12);
   display: grid;
   place-items: center;
-  width: var(--lm-size);
-  height: var(--lm-size);
+  width: var(--lm-size) !important;
+  height: var(--lm-size) !important;
+  overflow: visible;
   transform: translateX(-50%) perspective(120px) rotateX(7deg);
   transform-origin: 50% 90%;
 }
@@ -158,8 +161,10 @@
 
 .diorama-landmark img {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: var(--lm-size) !important;
+  max-height: var(--lm-size) !important;
   object-fit: contain;
   transform: translateZ(0);
   user-select: none;
@@ -167,8 +172,10 @@
 }
 
 .diorama-landmark--pin i {
+  width: var(--lm-size) !important;
+  height: var(--lm-size) !important;
   border: 2px solid #ffffff;
-  border-radius: 9px;
+  border-radius: 8px;
   background: #2563eb;
   color: #ffffff;
   font-size: 9px;
@@ -198,6 +205,10 @@
 
 .diorama-landmark--lod-low span {
   display: none;
+}
+
+.diorama-landmark--lod-low i {
+  transform: translateX(-50%);
 }
 
 .diorama-landmark--lod-low {
