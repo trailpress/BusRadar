@@ -4,7 +4,7 @@
 .bus-map {
   width: 100%;
   height: 100%;
-  background: #05070a;
+  background: #eef2f7;
 }
 
 .map-shell--diorama .leaflet-tile-pane {
@@ -29,6 +29,7 @@
 
 .leaflet-container {
   font-family: inherit;
+  background: #eef2f7;
 }
 
 .leaflet-control-container {

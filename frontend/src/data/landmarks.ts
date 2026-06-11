@@ -10,7 +10,7 @@ export const landmarks: Landmark[] = [
   { id: 'stadio-olimpico', name: 'Stadio Olimpico', lat: 45.0419, lon: 7.6501, type: 'stadium', asset: 'assets/landmarks/stadio-olimpico.png', display: 'image', tier: 'major', minZoom: 13, labelZoom: 15.2 },
   { id: 'basilica-superga', name: 'Basilica di Superga', lat: 45.0808, lon: 7.7677, type: 'church', asset: 'assets/landmarks/basilica-superga.png', display: 'image', tier: 'major', minZoom: 12.9, labelZoom: 15.1 },
 
-  { id: 'gran-madre', name: 'Gran Madre', lat: 45.0632, lon: 7.7009, type: 'church', asset: 'assets/landmarks/gran-madre.png', display: 'image', tier: 'district', minZoom: 13, labelZoom: 15.4 },
+  { id: 'gran-madre', name: 'Gran Madre', lat: 45.0621, lon: 7.6991, type: 'church', asset: 'assets/landmarks/gran-madre.png', display: 'image', tier: 'district', minZoom: 13, labelZoom: 15.4 },
   { id: 'piazza-vittorio', name: 'Piazza Vittorio', lat: 45.0645, lon: 7.6962, type: 'square', asset: 'assets/landmarks/piazza-vittorio.png', display: 'image', tier: 'district', minZoom: 13.2, labelZoom: 15.5 },
   { id: 'piazza-statuto', name: 'Piazza Statuto', lat: 45.0766, lon: 7.6695, type: 'square', asset: 'assets/landmarks/piazza-statuto.png', display: 'image', tier: 'district', minZoom: 13.3, labelZoom: 15.6 },
   { id: 'porta-palazzo', name: 'Porta Palazzo', lat: 45.0752, lon: 7.6856, type: 'market', asset: 'assets/landmarks/porta-palazzo.png', display: 'image', tier: 'district', minZoom: 13.4, labelZoom: 15.7 },
