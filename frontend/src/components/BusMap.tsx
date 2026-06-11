@@ -1,6 +1,6 @@
 import L from 'leaflet';
 import { Layers, LocateFixed } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import { landmarks, routes, stops, userPosition } from '../data/demoData';
 import type { LatLng, MapLayerMode, Vehicle } from '../types';
@@ -92,12 +92,21 @@ function FocusPoint({ point }: { point?: LatLng }) {
 }
 
 function ZoomTracker({ onZoom }: { onZoom: (zoom: number) => void }) {
+  const frameRef = useRef<number | undefined>(undefined);
+  const updateZoom = (map: L.Map) => {
+    if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    frameRef.current = requestAnimationFrame(() => onZoom(map.getZoom()));
+  };
   const map = useMapEvents({
-    zoomend: () => onZoom(map.getZoom()),
+    zoom: () => updateZoom(map),
+    zoomend: () => updateZoom(map),
   });
 
   useEffect(() => {
     onZoom(map.getZoom());
+    return () => {
+      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    };
   }, [map, onZoom]);
 
   return null;
@@ -122,6 +131,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         zoom={13}
         minZoom={3}
         maxZoom={18}
+        zoomSnap={0.1}
+        zoomDelta={0.5}
         zoomControl={false}
         markerZoomAnimation
         attributionControl={false}

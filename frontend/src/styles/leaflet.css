@@ -126,26 +126,27 @@
   --lm-opacity: 1;
   position: relative;
   width: var(--lm-box) !important;
-  height: calc(var(--lm-size) * 1.52) !important;
+  height: calc(var(--lm-size) * 1.82) !important;
   overflow: visible;
-  contain: layout paint;
   opacity: var(--lm-opacity);
   pointer-events: auto;
   transform: translateZ(0);
-  transition: opacity 160ms ease, filter 160ms ease;
+  will-change: opacity, transform, filter;
+  transition: opacity 260ms ease, filter 260ms ease, transform 260ms cubic-bezier(0.2, 0, 0.2, 1);
 }
 
 .diorama-landmark i {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--lm-size) * 0.18);
+  bottom: calc(var(--lm-size) * 0.28);
   display: grid;
   place-items: center;
   width: var(--lm-visual-w) !important;
   height: var(--lm-size) !important;
   overflow: visible;
-  transform: translateX(-50%) perspective(160px) rotateX(5deg);
+  transform: translateX(-50%) perspective(180px) rotateX(4deg);
   transform-origin: 50% 90%;
+  transition: transform 260ms cubic-bezier(0.2, 0, 0.2, 1), width 260ms ease, height 260ms ease;
 }
 
 .diorama-landmark--image i::after {
@@ -171,6 +172,7 @@
   transform: translateZ(0);
   user-select: none;
   -webkit-user-drag: none;
+  transition: opacity 260ms ease;
 }
 
 .diorama-landmark--pin i {

@@ -17,10 +17,40 @@ function getTierMinZoom(landmark: Landmark) {
   return 17;
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function smoothstep(value: number, start: number, end: number) {
+  const t = clamp((value - start) / (end - start), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
+function lerp(start: number, end: number, amount: number) {
+  return start + (end - start) * amount;
+}
+
+function getBaseSize(tier: Landmark['tier'], zoom: number) {
+  const normalizedTier = tier ?? 'district';
+
+  if (normalizedTier === 'major') {
+    if (zoom < 15) return lerp(52, 82, smoothstep(zoom, 13, 15));
+    if (zoom < 17) return lerp(82, 104, smoothstep(zoom, 15, 17));
+    return lerp(104, 124, smoothstep(zoom, 17, 18));
+  }
+
+  if (normalizedTier === 'district') {
+    if (zoom < 17) return lerp(54, 84, smoothstep(zoom, 15, 17));
+    return lerp(84, 104, smoothstep(zoom, 17, 18));
+  }
+
+  return lerp(70, 88, smoothstep(zoom, 17, 18));
+}
+
 export function getLandmarkLod(landmark: Landmark, zoom: number, active = false): LandmarkLod {
   const minZoom = Math.max(landmark.minZoom ?? getTierMinZoom(landmark), getTierMinZoom(landmark));
 
-  if (zoom < minZoom) {
+  if (zoom < minZoom - 0.35) {
     return {
       visible: false,
       size: 0,
@@ -33,53 +63,18 @@ export function getLandmarkLod(landmark: Landmark, zoom: number, active = false)
   }
 
   const tier = landmark.tier ?? 'district';
-  const isMajor = tier === 'major';
-  const isDistrict = tier === 'district';
-
-  if (zoom < 15) {
-    return {
-      visible: isMajor,
-      size: 52,
-      opacity: 0.9,
-      renderMode: 'image',
-      labelMode: active ? 'full' : 'none',
-      label: active ? landmark.name : '',
-      className: 'lod-low',
-    };
-  }
-
-  if (zoom < 17) {
-    const size = isMajor ? 82 : isDistrict ? 54 : 0;
-    return {
-      visible: size > 0,
-      size,
-      opacity: isMajor ? 1 : 0.9,
-      renderMode: isMajor || active ? 'image' : 'pin',
-      labelMode: active ? 'full' : 'none',
-      label: active ? landmark.name : '',
-      className: 'lod-mid',
-    };
-  }
-
-  if (zoom < 18) {
-    return {
-      visible: true,
-      size: active ? 118 : isMajor ? 104 : isDistrict ? 84 : 70,
-      opacity: 1,
-      renderMode: 'image',
-      labelMode: active ? 'full' : 'none',
-      label: active ? landmark.name : '',
-      className: 'lod-high',
-    };
-  }
+  const fade = smoothstep(zoom, minZoom - 0.35, minZoom + 0.25);
+  const baseSize = getBaseSize(tier, zoom);
+  const activeBoost = active ? (tier === 'major' ? 14 : 16) : 0;
+  const className = zoom < 15 ? 'lod-low' : zoom < 17 ? 'lod-mid' : 'lod-high';
 
   return {
     visible: true,
-    size: active ? 138 : isMajor ? 124 : isDistrict ? 104 : 88,
-    opacity: 1,
+    size: Math.round(baseSize + activeBoost),
+    opacity: active ? 1 : lerp(0.18, 1, fade),
     renderMode: 'image',
     labelMode: active ? 'full' : 'none',
     label: active ? landmark.name : '',
-    className: 'lod-high',
+    className,
   };
 }

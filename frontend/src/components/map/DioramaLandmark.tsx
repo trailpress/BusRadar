@@ -52,7 +52,7 @@ export function DioramaLandmark({ landmark, zoom, active, onSelect }: Props) {
     const size = lod.size || 1;
     const visualWidth = useImage ? Math.round(size * 1.48) : size;
     const boxWidth = lod.labelMode === 'none' ? Math.max(80, Math.round(visualWidth * 1.28)) : Math.max(156, Math.round(visualWidth * 1.34));
-    const boxHeight = lod.labelMode === 'none' ? Math.round(size * 1.22) : Math.round(size * 1.5);
+    const boxHeight = lod.labelMode === 'none' ? Math.round(size * 1.58) : Math.round(size * 1.82);
     const labelHtml = lod.labelMode === 'none' ? '' : `<span>${lod.label}</span>`;
     const visualHtml = useImage
       ? `<img src="${assetUrl}" alt="" loading="eager" decoding="async" />`
@@ -62,7 +62,7 @@ export function DioramaLandmark({ landmark, zoom, active, onSelect }: Props) {
       className: '',
       html: `<div class="diorama-landmark ${useImage ? 'diorama-landmark--image' : 'diorama-landmark--pin'} diorama-landmark--${landmark.tier ?? 'district'} diorama-landmark--${lod.className} ${active ? 'is-active' : ''}" style="--lm-size:${size}px;--lm-visual-w:${visualWidth}px;--lm-box:${boxWidth}px;--lm-opacity:${lod.opacity}"><i>${visualHtml}</i>${labelHtml}</div>`,
       iconSize: [boxWidth, boxHeight],
-      iconAnchor: [boxWidth / 2, useImage ? Math.round(size * 0.88) : Math.round(size * 0.72)],
+      iconAnchor: [boxWidth / 2, useImage ? Math.round(size * 1.24) : Math.round(size * 0.82)],
     });
   }, [active, assetUrl, landmark.name, landmark.tier, lod.className, lod.label, lod.labelMode, lod.opacity, lod.renderMode, lod.size, useImage]);
 
