@@ -1,9 +1,9 @@
-import { ArrowLeft, BusFront, Crosshair, Info, Navigation } from 'lucide-react';
+import { ArrowLeft, BusFront, Crosshair, Info, Navigation, TrainFront } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useMemo, useState } from 'react';
 import { userPosition } from '../data/demoData';
 import type { Vehicle } from '../types';
-import { distanceMeters } from '../utils/geo';
+import { bearingDegrees, distanceMeters } from '../utils/geo';
 import { formatDistance } from '../utils/format';
 import { LineBadge } from '../components/LineBadge';
 import { notify } from '../utils/notify';
@@ -56,8 +56,8 @@ export function RadarScreen({ vehicles, onSelectVehicle, onBack }: Props) {
           <div className="radar-center">
             <Crosshair size={18} />
           </div>
-          {matches.slice(0, 10).map(({ vehicle, distance }, index) => {
-            const angle = (index * 47 + Number(vehicle.vehicleId)) % 360;
+          {matches.slice(0, 10).map(({ vehicle, distance }) => {
+            const angle = bearingDegrees(userPosition, vehicle);
             const normalized = Math.min(distance / radius, 1);
             const distancePx = 26 + normalized * 104;
             return (
@@ -69,7 +69,7 @@ export function RadarScreen({ vehicles, onSelectVehicle, onBack }: Props) {
                 onClick={() => onSelectVehicle(vehicle)}
                 aria-label={`Apri vettura ${vehicle.vehicleId}`}
               >
-                {vehicle.line}
+                {vehicle.vehicleType === 'tram' ? 'T' : vehicle.line}
               </button>
             );
           })}
@@ -91,7 +91,7 @@ export function RadarScreen({ vehicles, onSelectVehicle, onBack }: Props) {
         {matches.slice(0, 4).map(({ vehicle, distance }) => (
           <button className="vehicle-row" key={vehicle.vehicleId} type="button" onClick={() => onSelectVehicle(vehicle)}>
             <div className="row-icon">
-              <BusFront size={18} />
+              {vehicle.vehicleType === 'tram' ? <TrainFront size={18} /> : <BusFront size={18} />}
             </div>
             <div>
               <strong>Vettura {vehicle.vehicleId}</strong>

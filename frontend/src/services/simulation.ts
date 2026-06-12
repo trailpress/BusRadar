@@ -1,6 +1,6 @@
 import { routes } from '../data/demoData';
 import type { Vehicle } from '../types';
-import { interpolatePath } from '../utils/geo';
+import { interpolatePathState } from '../utils/geo';
 import { nowTime } from '../utils/format';
 
 export function advanceVehicles(vehicles: Vehicle[]): Vehicle[] {
@@ -8,17 +8,23 @@ export function advanceVehicles(vehicles: Vehicle[]): Vehicle[] {
     const route = routes.find((item) => item.id === vehicle.routeId);
     if (!route) return vehicle;
 
-    const delta = 0.0025 + vehicle.speed / 70000;
+    const delta = 0.0022 + vehicle.speed / 82000;
     const progress = (vehicle.progress + delta) % 1;
-    const point = interpolatePath(route.path, progress);
-    const speedWave = Math.round(18 + ((Math.sin(progress * Math.PI * 2 + Number(vehicle.vehicleId)) + 1) / 2) * 24);
+    const { point, bearing } = interpolatePathState(route.path, progress);
+    const wave = (Math.sin(progress * Math.PI * 2 + Number(vehicle.vehicleId)) + 1) / 2;
+    const speedWave = Math.round(12 + wave * (vehicle.vehicleType === 'tram' ? 26 : 34));
+    const status = speedWave < 5 ? 'stopped' : 'moving';
 
     return {
       ...vehicle,
       ...point,
+      bearing,
       progress,
       speed: speedWave,
       updatedAt: nowTime(),
+      routeShortName: vehicle.routeShortName || vehicle.line,
+      source: 'simulation',
+      status,
     };
   });
 }

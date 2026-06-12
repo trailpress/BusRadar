@@ -1,4 +1,4 @@
-import { BusFront, Star } from 'lucide-react';
+import { BusFront, Star, TrainFront } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Vehicle } from '../types';
 import { LineBadge } from '../components/LineBadge';
@@ -42,11 +42,11 @@ export function VehiclesScreen({ vehicles, onSelectVehicle }: Props) {
         {filtered.map((vehicle) => (
           <button className="vehicle-row" key={vehicle.vehicleId} type="button" onClick={() => onSelectVehicle(vehicle)}>
             <div className="row-icon">
-              <BusFront size={18} />
+              {vehicle.vehicleType === 'tram' ? <TrainFront size={18} /> : <BusFront size={18} />}
             </div>
             <div>
               <strong>{vehicle.vehicleId}</strong>
-              <span>{vehicle.nextStop ?? vehicle.direction}</span>
+              <span>{vehicle.vehicleType === 'tram' ? 'Tram' : 'Bus'} · {vehicle.nextStop ?? vehicle.direction}</span>
             </div>
             <LineBadge line={vehicle.line} />
             <div className="vehicle-speed">

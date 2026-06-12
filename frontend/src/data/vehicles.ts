@@ -1,6 +1,16 @@
 import type { Vehicle } from '../types';
 
-export const vehicles: Vehicle[] = [
+const tramLines = new Set(['3', '4', '10', '13', '15']);
+
+function vehicleTypeForLine(line: string): Vehicle['vehicleType'] {
+  return tramLines.has(line) ? 'tram' : 'bus';
+}
+
+type VehicleSeed = Omit<Vehicle, 'bearing' | 'routeShortName' | 'source' | 'status' | 'vehicleType'> & {
+  status: 'simulated';
+};
+
+const vehicleSeeds: VehicleSeed[] = [
   { vehicleId: '3278', line: '4', lineId: '4', direction: 'Falchera', lat: 45.0703, lon: 7.6869, speed: 32, updatedAt: '09:41:23', status: 'simulated', reliability: 82, progress: 0.48, routeId: 'route-4', nextStop: 'Falchera', favorite: true },
   { vehicleId: '3410', line: '4', lineId: '4', direction: 'Drosso', lat: 45.0456, lon: 7.6622, speed: 29, updatedAt: '09:41:20', status: 'simulated', reliability: 87, progress: 0.22, routeId: 'route-4', nextStop: 'Porta Nuova' },
   { vehicleId: '7055', line: '4', lineId: '4', direction: 'Falchera', lat: 45.0921, lon: 7.6837, speed: 38, updatedAt: '09:41:14', status: 'simulated', reliability: 89, progress: 0.79, routeId: 'route-4', nextStop: 'Falchera' },
@@ -39,3 +49,12 @@ export const vehicles: Vehicle[] = [
   { vehicleId: '6812', line: '68', lineId: '68', direction: 'San Mauro', lat: 45.0551, lon: 7.6769, speed: 25, updatedAt: '09:41:07', status: 'simulated', reliability: 90, progress: 0.14, routeId: 'route-68', nextStop: 'Madama Cristina' },
   { vehicleId: '6844', line: '68', lineId: '68', direction: 'Frejus', lat: 45.0647, lon: 7.6968, speed: 23, updatedAt: '09:40:38', status: 'simulated', reliability: 87, progress: 0.88, routeId: 'route-68', nextStop: 'Piazza Vittorio' },
 ];
+
+export const vehicles: Vehicle[] = vehicleSeeds.map(({ status: _legacyStatus, ...vehicle }) => ({
+  ...vehicle,
+  bearing: 0,
+  routeShortName: vehicle.line,
+  source: 'simulation',
+  status: 'moving',
+  vehicleType: vehicleTypeForLine(vehicle.line),
+}));

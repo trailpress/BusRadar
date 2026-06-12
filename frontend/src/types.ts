@@ -1,3 +1,5 @@
+import type { TransitVehicle } from './types/transit';
+
 export type TabKey = 'map' | 'lines' | 'stops' | 'vehicles' | 'more';
 
 export type LatLng = {
@@ -5,20 +7,8 @@ export type LatLng = {
   lon: number;
 };
 
-export type Vehicle = LatLng & {
-  vehicleId: string;
-  line: string;
-  lineId?: string;
-  direction: string;
-  speed: number;
-  updatedAt: string;
-  status: 'simulated';
-  reliability: number;
-  progress: number;
-  routeId: string;
-  nextStop?: string;
-  favorite?: boolean;
-};
+export type Vehicle = TransitVehicle;
+export type { TransitVehicle, VehicleSource, VehicleStatus, VehicleType } from './types/transit';
 
 export type TransitLine = {
   id: string;

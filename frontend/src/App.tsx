@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
-import { lines, vehicles as seedVehicles } from './data/demoData';
-import { advanceVehicles } from './services/simulation';
+import { lines } from './data/demoData';
+import { transitDataProvider } from './services/TransitDataProvider';
 import { LineDetailScreen } from './screens/LineDetailScreen';
 import { LinesScreen } from './screens/LinesScreen';
 import { MapScreen } from './screens/MapScreen';
@@ -14,7 +14,7 @@ import { notify } from './utils/notify';
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('map');
-  const [vehicles, setVehicles] = useState(seedVehicles);
+  const [vehicles, setVehicles] = useState(() => transitDataProvider.getInitialVehicles());
   const [search, setSearch] = useState('');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>();
   const [selectedLine, setSelectedLine] = useState<TransitLine>();
@@ -25,7 +25,7 @@ function App() {
   const [toast, setToast] = useState<string>();
 
   useEffect(() => {
-    const id = window.setInterval(() => setVehicles((current) => advanceVehicles(current)), 1000);
+    const id = window.setInterval(() => setVehicles((current) => transitDataProvider.advanceVehicles(current)), 1000);
     return () => window.clearInterval(id);
   }, []);
 

@@ -27,10 +27,10 @@ const tileLayer = {
 function createBusIcon(vehicle: Vehicle, selected: boolean) {
   const color = getLineColor(vehicle.line);
   return L.divIcon({
-    className: '',
-    html: `<div class="bus-marker ${selected ? 'is-selected' : ''}" style="--line-color:${color}"><span>${vehicle.line}</span></div>`,
-    iconSize: [42, 42],
-    iconAnchor: [21, 21],
+    className: 'vehicle-marker-shell',
+    html: `<div class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${selected ? 'is-selected' : ''}" style="--line-color:${color};--bearing:${vehicle.bearing}deg"><i></i><span>${vehicle.line}</span></div>`,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
   });
 }
 
@@ -141,7 +141,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
               <div className="map-popup">
                 <LineBadge line={vehicle.line} />
                 <strong>Vettura {vehicle.vehicleId}</strong>
-                <span>{vehicle.direction}</span>
+                <span>{vehicle.vehicleType === 'tram' ? 'Tram' : 'Bus'} · {vehicle.direction} · {vehicle.source}</span>
               </div>
             </Popup>
           </Marker>

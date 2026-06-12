@@ -54,15 +54,21 @@
   color: #9aa4b2;
 }
 
-.bus-marker {
+.vehicle-marker-shell {
+  transition: transform 900ms linear;
+  will-change: transform;
+}
+
+.vehicle-marker {
   --line-color: #2f7dff;
+  --bearing: 0deg;
   position: relative;
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   border: 2px solid rgba(255, 255, 255, 0.48);
-  border-radius: 7px;
+  border-radius: 9px;
   background: var(--line-color);
   color: #fff;
   font-size: 12px;
@@ -73,11 +79,40 @@
     0 10px 26px rgba(0, 0, 0, 0.45);
 }
 
-.bus-marker span {
+.vehicle-marker--tram {
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 42%),
+    var(--line-color);
+}
+
+.vehicle-marker i {
+  position: absolute;
+  left: 50%;
+  top: -8px;
+  width: 0;
+  height: 0;
+  border-right: 5px solid transparent;
+  border-bottom: 8px solid #ffffff;
+  border-left: 5px solid transparent;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  transform: translateX(-50%) rotate(var(--bearing));
+  transform-origin: 50% 25px;
+}
+
+.vehicle-marker--tram i {
+  border-right-width: 4px;
+  border-left-width: 4px;
+  border-bottom-color: #0f172a;
+}
+
+.vehicle-marker span {
+  position: relative;
+  z-index: 1;
   transform: none;
 }
 
-.bus-marker.is-selected {
+.vehicle-marker.is-selected {
   animation: pulse-marker 1.4s ease-in-out infinite;
 }
 

@@ -32,7 +32,7 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         <LineBadge line={vehicle.line} size="lg" />
         <div>
           <strong>{vehicle.vehicleId}</strong>
-          <span>Demo</span>
+          <span>{vehicle.vehicleType === 'tram' ? 'Tram' : 'Bus'} · {vehicle.source === 'simulation' ? 'simulation/live-ready' : 'GTFS-RT'}</span>
         </div>
       </div>
       <div className="direction-block">
@@ -55,8 +55,8 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         </div>
         <div>
           <ShieldCheck size={16} />
-          <strong>{vehicle.reliability}%</strong>
-          <span>Affidabilità</span>
+          <strong>{Math.round(vehicle.bearing)}°</strong>
+          <span>Direzione marcia</span>
         </div>
       </div>
       <div className="next-stops">
