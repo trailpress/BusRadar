@@ -1,11 +1,17 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import GtfsRealtimeBindings from 'gtfs-realtime-bindings';
 
 const targetRouteShortNames = new Set(['3', '4', '8', '10', '11', '13', '15', '17', '18', '33', '35', '55', '56', '58', '61', '68']);
 
 const gtfsDir = process.env.GTFS_STATIC_DIR;
 const writeShapes = process.argv.includes('--write-shapes');
+const realtimeFeeds = [
+  { kind: 'vehiclePositions', envName: 'GTFS_RT_VEHICLE_POSITIONS_URL', url: process.env.GTFS_RT_VEHICLE_POSITIONS_URL },
+  { kind: 'tripUpdates', envName: 'GTFS_RT_TRIP_UPDATES_URL', url: process.env.GTFS_RT_TRIP_UPDATES_URL },
+  { kind: 'alerts', envName: 'GTFS_RT_ALERTS_URL', url: process.env.GTFS_RT_ALERTS_URL },
+];
 
 function parseCsv(text) {
   const rows = [];
@@ -146,6 +152,90 @@ export const gtfsRouteShapes: GtfsRouteShape[] = ${JSON.stringify(shapeEntries, 
 `;
 }
 
+function headersForFeed() {
+  const headers = { accept: 'application/x-protobuf,application/octet-stream,*/*' };
+  if (process.env.GTFS_RT_API_KEY) {
+    headers.authorization = `Bearer ${process.env.GTFS_RT_API_KEY}`;
+  }
+  return headers;
+}
+
+async function fetchRealtimeFeed({ kind, envName, url }) {
+  if (!url) {
+    return { kind, envName, status: 'skipped', reason: `${envName} is not set` };
+  }
+
+  let response;
+  try {
+    response = await fetch(url, { headers: headersForFeed() });
+  } catch (error) {
+    return {
+      kind,
+      envName,
+      status: 'network-error',
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  if (!response.ok) {
+    return {
+      kind,
+      envName,
+      status: 'http-error',
+      httpStatus: response.status,
+      httpStatusText: response.statusText,
+    };
+  }
+
+  const body = new Uint8Array(await response.arrayBuffer());
+  if (body.byteLength === 0) {
+    return { kind, envName, status: 'empty-feed', bytes: 0 };
+  }
+
+  try {
+    const message = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(body);
+    const entity = message.entity ?? [];
+    return {
+      kind,
+      envName,
+      status: 'ok',
+      bytes: body.byteLength,
+      header: {
+        gtfsRealtimeVersion: message.header?.gtfsRealtimeVersion,
+        incrementality: message.header?.incrementality,
+        timestamp: message.header?.timestamp?.toString?.() ?? message.header?.timestamp,
+      },
+      entityCount: entity.length,
+      firstVehicles: entity
+        .filter((item) => item.vehicle?.position)
+        .slice(0, 10)
+        .map((item) => ({
+          routeId: item.vehicle?.trip?.routeId ?? null,
+          vehicleId: item.vehicle?.vehicle?.id ?? item.vehicle?.vehicle?.label ?? item.id ?? null,
+          tripId: item.vehicle?.trip?.tripId ?? null,
+          lat: item.vehicle?.position?.latitude ?? null,
+          lon: item.vehicle?.position?.longitude ?? null,
+          timestamp: item.vehicle?.timestamp?.toString?.() ?? item.vehicle?.timestamp ?? null,
+        })),
+      tripUpdateCount: entity.filter((item) => item.tripUpdate).length,
+      vehiclePositionCount: entity.filter((item) => item.vehicle).length,
+      alertCount: entity.filter((item) => item.alert).length,
+    };
+  } catch (error) {
+    return {
+      kind,
+      envName,
+      status: 'protobuf-error',
+      bytes: body.byteLength,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+async function inspectRealtimeFeeds() {
+  return Promise.all(realtimeFeeds.map((feed) => fetchRealtimeFeed(feed)));
+}
+
 async function main() {
   const envSummary = {
     GTFS_STATIC_DIR: gtfsDir ? 'set' : 'missing',
@@ -154,11 +244,13 @@ async function main() {
     GTFS_RT_ALERTS_URL: process.env.GTFS_RT_ALERTS_URL ? 'set' : 'missing',
     GTFS_RT_API_KEY: process.env.GTFS_RT_API_KEY ? 'set' : 'missing',
   };
+  const realtimeResults = await inspectRealtimeFeeds();
 
   if (!gtfsDir) {
     console.log(JSON.stringify({
-      mode: 'documentation-only',
+      mode: realtimeResults.some((result) => result.status !== 'skipped') ? 'gtfs-rt-inspection' : 'documentation-only',
       env: envSummary,
+      realtime: realtimeResults,
       nextStep: 'Set GTFS_STATIC_DIR to an extracted, authorized GTFS static folder to inspect route shapes.',
     }, null, 2));
     return;
@@ -186,6 +278,7 @@ async function main() {
       shapes: new Set(shapes.map((shape) => shape.shape_id)).size,
       shape_points: shapes.length,
     },
+    realtime: realtimeResults,
     representativeShapes,
   };
 

@@ -47,7 +47,12 @@ VITE_TRANSIT_DATA_MODE=simulation
 
 ## Script spike
 
-Lo script lavora solo su un GTFS statico gia' scaricato/estratto localmente e autorizzato.
+Lo script puo' lavorare in due modalita':
+
+- GTFS statico locale gia' scaricato/estratto e autorizzato;
+- GTFS-RT remoto autorizzato, letto solo da script tramite variabili ambiente.
+
+L'uso previsto per il test live e' non commerciale/civic tech, limitato alla verifica tecnica. Prima di qualunque uso pubblico o continuativo vanno verificati licenza, attribution, rate limit e autorizzazione del feed owner.
 
 ```bash
 cd frontend
@@ -67,6 +72,32 @@ Output previsto:
 - conteggio tabelle;
 - shape rappresentativa per ogni linea BusRadar;
 - eventuale `src/data/gtfsRouteShapes.generated.ts`.
+
+### Test GTFS-RT live da script
+
+Impostare solo le variabili disponibili e autorizzate:
+
+```bash
+cd frontend
+GTFS_RT_VEHICLE_POSITIONS_URL="https://feed-autorizzato.example/vehicle-positions.pb" \
+GTFS_RT_TRIP_UPDATES_URL="https://feed-autorizzato.example/trip-updates.pb" \
+GTFS_RT_ALERTS_URL="https://feed-autorizzato.example/alerts.pb" \
+GTFS_RT_API_KEY="eventuale-token-autorizzato" \
+npm run realtime:spike
+```
+
+Se il feed non richiede token, lasciare `GTFS_RT_API_KEY` vuota.
+
+Lo script:
+
+- scarica i feed configurati;
+- decodifica protobuf GTFS-RT con `gtfs-realtime-bindings`;
+- stampa stato HTTP/protobuf;
+- stampa numero entita';
+- per Vehicle Positions stampa i primi 10 mezzi con `routeId`, `vehicleId`, `tripId`, `lat`, `lon`, `timestamp`;
+- gestisce feed vuoti, errori HTTP, errori di rete e decoding non valido.
+
+Gli URL non sono hardcoded nella UI e non vengono salvati nel repository.
 
 Il file generato non deve essere collegato alla UI finche':
 
@@ -94,7 +125,7 @@ Il file generato non deve essere collegato alla UI finche':
   - estrae periodi attivi, route/stop coinvolti, causa, effetto, severita' e testi;
   - normalizza in `RealtimeAlert`.
 
-La decodifica protobuf e il fetch HTTP non sono implementati nello spike UI. Andranno aggiunti in un boundary separato dopo autorizzazione.
+La decodifica protobuf e il fetch HTTP sono implementati solo nello script `frontend/scripts/realtime-spike.mjs`, non nella UI. L'app principale resta su `SimulationAdapter`.
 
 ## Checklist tecnica
 
@@ -109,9 +140,12 @@ La decodifica protobuf e il fetch HTTP non sono implementati nello spike UI. And
 - [ ] Misurare dimensione del file shape generato.
 - [ ] Definire strategia di semplificazione geometrie per mobile.
 - [ ] Decidere se servire shape come asset statico o via adapter.
-- [ ] Aggiungere decoder protobuf GTFS-RT solo in servizio separato.
+- [x] Aggiungere decoder protobuf GTFS-RT solo in script separato.
 - [ ] Testare Vehicle Positions con fixture locale prima del feed live.
 - [ ] Testare Trip Updates e Alerts con fixture locale.
+- [ ] Testare Vehicle Positions con endpoint autorizzato da env.
+- [ ] Testare Trip Updates con endpoint autorizzato da env.
+- [ ] Testare Alerts con endpoint autorizzato da env.
 - [ ] Aggiungere fallback automatico a SimulationAdapter.
 
 ## Checklist legale
@@ -123,6 +157,7 @@ La decodifica protobuf e il fetch HTTP non sono implementati nello spike UI. And
 - [ ] Nessuno scraping.
 - [ ] Nessuna chiave API nel repository.
 - [ ] Rate limit e caching rispettati.
+- [ ] Uso live confermato come non commerciale/civic tech o coperto da licenza esplicita.
 - [ ] Conferma che BusRadar non appaia come app ufficiale GTT/5T/MaTO.
 
 ## Decisione sui tracciati reali
