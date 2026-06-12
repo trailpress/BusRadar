@@ -63,5 +63,3 @@ export type Landmark = LatLng & {
   labelZoom?: number;
   tier?: 'major' | 'district' | 'local';
 };
-
-export type MapLayerMode = 'standard' | 'diorama';
