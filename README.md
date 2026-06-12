@@ -31,6 +31,7 @@ Il layer custom Diorama/landmark è stato rimosso: la demo punta su una base car
 - `GTFSStaticAdapter` e `GTFSRealtimeAdapter` sono placeholder documentati.
 - Una futura integrazione GTFS/GTFS-RT va fatta solo con feed autorizzati, verifica tecnica e licenza compatibile.
 - Nessun endpoint GTT/MaTO/5T, scraping, chiave API o feed realtime non autorizzato è implementato.
+- La branch `realtime-spike` aggiunge script, env placeholder e checklist per validare GTFS statico/GTFS-RT senza attivare dati reali nell'app. Vedi `README_REALTIME.md`.
 
 ## Sviluppo
 
