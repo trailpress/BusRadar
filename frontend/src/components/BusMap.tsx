@@ -44,6 +44,15 @@ function createVehiclePopup(vehicle: Vehicle) {
   `;
 }
 
+function updateVehicleMarkerElement(marker: L.Marker, vehicle: Vehicle, selected: boolean) {
+  const element = marker.getElement()?.querySelector<HTMLElement>('.vehicle-marker');
+  if (!element) return;
+
+  element.classList.toggle('is-selected', selected);
+  element.style.setProperty('--bearing', `${vehicle.bearing}deg`);
+  element.querySelector('span')?.replaceChildren(document.createTextNode(vehicle.line));
+}
+
 function RecenterButton() {
   const map = useMap();
   return (
@@ -155,22 +164,21 @@ function VehicleMarkers({
       existing.to = nextLatLng;
       existing.startedAt = now;
       existing.vehicle = vehicle;
-      existing.marker.setIcon(createBusIcon(vehicle, selected));
       existing.marker.setZIndexOffset(selected ? 700 : 520);
+      updateVehicleMarkerElement(existing.marker, vehicle, selected);
       existing.marker.setPopupContent(createVehiclePopup(vehicle));
     });
   }, [vehicles, selectedVehicleId, followedVehicleId, map]);
 
   useEffect(() => {
     let frameId = 0;
-    const duration = 950;
+    const duration = 1000;
 
     const tick = (time: number) => {
       markersRef.current.forEach((entry) => {
         const elapsed = Math.min(1, Math.max(0, (time - entry.startedAt) / duration));
-        const eased = elapsed < 0.5 ? 2 * elapsed * elapsed : 1 - Math.pow(-2 * elapsed + 2, 2) / 2;
-        const lat = entry.from.lat + (entry.to.lat - entry.from.lat) * eased;
-        const lng = entry.from.lng + (entry.to.lng - entry.from.lng) * eased;
+        const lat = entry.from.lat + (entry.to.lat - entry.from.lat) * elapsed;
+        const lng = entry.from.lng + (entry.to.lng - entry.from.lng) * elapsed;
         entry.marker.setLatLng([lat, lng]);
       });
       frameId = requestAnimationFrame(tick);

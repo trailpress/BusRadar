@@ -35,6 +35,10 @@ export function interpolatePath(path: LatLng[], progress: number): LatLng {
   return interpolatePathState(path, progress).point;
 }
 
+export function pathLengthMeters(path: LatLng[]) {
+  return path.slice(0, -1).reduce((sum, point, index) => sum + distanceMeters(point, path[index + 1]), 0);
+}
+
 export function interpolatePathState(path: LatLng[], progress: number): { point: LatLng; bearing: number; segmentIndex: number } {
   if (path.length === 0) return { point: { lat: 0, lon: 0 }, bearing: 0, segmentIndex: 0 };
   if (path.length === 1) return { point: path[0], bearing: 0, segmentIndex: 0 };

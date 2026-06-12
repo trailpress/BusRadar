@@ -1,4 +1,6 @@
 import type { Vehicle } from '../types';
+import { interpolatePathState } from '../utils/geo';
+import { routes } from './lines';
 
 const tramLines = new Set(['3', '4', '10', '13', '15']);
 
@@ -50,11 +52,17 @@ const vehicleSeeds: VehicleSeed[] = [
   { vehicleId: '6844', line: '68', lineId: '68', direction: 'Frejus', lat: 45.0647, lon: 7.6968, speed: 23, updatedAt: '09:40:38', status: 'simulated', reliability: 87, progress: 0.88, routeId: 'route-68', nextStop: 'Piazza Vittorio' },
 ];
 
-export const vehicles: Vehicle[] = vehicleSeeds.map(({ status: _legacyStatus, ...vehicle }) => ({
-  ...vehicle,
-  bearing: 0,
-  routeShortName: vehicle.line,
-  source: 'simulation',
-  status: 'moving',
-  vehicleType: vehicleTypeForLine(vehicle.line),
-}));
+export const vehicles: Vehicle[] = vehicleSeeds.map(({ status: _legacyStatus, ...vehicle }) => {
+  const route = routes.find((item) => item.id === vehicle.routeId);
+  const routeState = route ? interpolatePathState(route.path, vehicle.progress) : undefined;
+
+  return {
+    ...vehicle,
+    ...(routeState?.point ?? {}),
+    bearing: routeState?.bearing ?? 0,
+    routeShortName: vehicle.line,
+    source: 'simulation',
+    status: 'moving',
+    vehicleType: vehicleTypeForLine(vehicle.line),
+  };
+});

@@ -1,6 +1,6 @@
 import { routes } from '../data/demoData';
 import type { Vehicle } from '../types';
-import { interpolatePathState } from '../utils/geo';
+import { interpolatePathState, pathLengthMeters } from '../utils/geo';
 import { nowTime } from '../utils/format';
 
 export function advanceVehicles(vehicles: Vehicle[]): Vehicle[] {
@@ -8,7 +8,9 @@ export function advanceVehicles(vehicles: Vehicle[]): Vehicle[] {
     const route = routes.find((item) => item.id === vehicle.routeId);
     if (!route) return vehicle;
 
-    const delta = 0.0022 + vehicle.speed / 82000;
+    const routeLength = Math.max(pathLengthMeters(route.path), 1);
+    const metersPerSecond = Math.max(vehicle.speed, 8) / 3.6;
+    const delta = (metersPerSecond / routeLength) * 1.15;
     const progress = (vehicle.progress + delta) % 1;
     const { point, bearing } = interpolatePathState(route.path, progress);
     const wave = (Math.sin(progress * Math.PI * 2 + Number(vehicle.vehicleId)) + 1) / 2;
