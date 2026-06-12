@@ -1,13 +1,12 @@
 import L from 'leaflet';
 import { LocateFixed } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import { routes, stops, userPosition } from '../data/demoData';
 import type { LatLng, Vehicle } from '../types';
 import { getLineColor } from '../utils/lineColors';
 import { toLeafletPoint } from '../utils/geo';
 import { IconButton } from './IconButton';
-import { LineBadge } from './LineBadge';
 
 type Props = {
   vehicles: Vehicle[];
@@ -32,6 +31,17 @@ function createBusIcon(vehicle: Vehicle, selected: boolean) {
     iconSize: [44, 44],
     iconAnchor: [22, 22],
   });
+}
+
+function createVehiclePopup(vehicle: Vehicle) {
+  const color = getLineColor(vehicle.line);
+  return `
+    <div class="map-popup">
+      <span class="line-badge" style="--line-color:${color}">${vehicle.line}</span>
+      <strong>Vettura ${vehicle.vehicleId}</strong>
+      <span>${vehicle.vehicleType === 'tram' ? 'Tram' : 'Bus'} · ${vehicle.direction} · ${vehicle.source}</span>
+    </div>
+  `;
 }
 
 function RecenterButton() {
@@ -76,6 +86,103 @@ function FocusPoint({ point }: { point?: LatLng }) {
     if (!point) return;
     map.flyTo([point.lat, point.lon], 16, { duration: 0.9 });
   }, [map, point?.lat, point?.lon]);
+
+  return null;
+}
+
+type VehicleMarkerEntry = {
+  marker: L.Marker;
+  from: L.LatLng;
+  to: L.LatLng;
+  startedAt: number;
+  vehicle: Vehicle;
+};
+
+function VehicleMarkers({
+  vehicles,
+  selectedVehicleId,
+  followedVehicleId,
+  onSelectVehicle,
+}: {
+  vehicles: Vehicle[];
+  selectedVehicleId?: string;
+  followedVehicleId?: string;
+  onSelectVehicle: (vehicle: Vehicle) => void;
+}) {
+  const map = useMap();
+  const markersRef = useRef<Map<string, VehicleMarkerEntry>>(new Map());
+  const latestSelectRef = useRef(onSelectVehicle);
+
+  latestSelectRef.current = onSelectVehicle;
+
+  useEffect(() => {
+    const markers = markersRef.current;
+    const activeIds = new Set(vehicles.map((vehicle) => vehicle.vehicleId));
+    const now = performance.now();
+
+    markers.forEach((entry, vehicleId) => {
+      if (!activeIds.has(vehicleId)) {
+        entry.marker.remove();
+        markers.delete(vehicleId);
+      }
+    });
+
+    vehicles.forEach((vehicle) => {
+      const nextLatLng = L.latLng(vehicle.lat, vehicle.lon);
+      const selected = vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId;
+      const existing = markers.get(vehicle.vehicleId);
+
+      if (!existing) {
+        const marker = L.marker(nextLatLng, {
+          icon: createBusIcon(vehicle, selected),
+          zIndexOffset: selected ? 700 : 520,
+          riseOnHover: true,
+        }).addTo(map);
+
+        marker.bindPopup(createVehiclePopup(vehicle));
+        marker.on('click', () => latestSelectRef.current(markersRef.current.get(vehicle.vehicleId)?.vehicle ?? vehicle));
+        markers.set(vehicle.vehicleId, {
+          marker,
+          from: nextLatLng,
+          to: nextLatLng,
+          startedAt: now,
+          vehicle,
+        });
+        return;
+      }
+
+      existing.from = existing.marker.getLatLng();
+      existing.to = nextLatLng;
+      existing.startedAt = now;
+      existing.vehicle = vehicle;
+      existing.marker.setIcon(createBusIcon(vehicle, selected));
+      existing.marker.setZIndexOffset(selected ? 700 : 520);
+      existing.marker.setPopupContent(createVehiclePopup(vehicle));
+    });
+  }, [vehicles, selectedVehicleId, followedVehicleId, map]);
+
+  useEffect(() => {
+    let frameId = 0;
+    const duration = 950;
+
+    const tick = (time: number) => {
+      markersRef.current.forEach((entry) => {
+        const elapsed = Math.min(1, Math.max(0, (time - entry.startedAt) / duration));
+        const eased = elapsed < 0.5 ? 2 * elapsed * elapsed : 1 - Math.pow(-2 * elapsed + 2, 2) / 2;
+        const lat = entry.from.lat + (entry.to.lat - entry.from.lat) * eased;
+        const lng = entry.from.lng + (entry.to.lng - entry.from.lng) * eased;
+        entry.marker.setLatLng([lat, lng]);
+      });
+      frameId = requestAnimationFrame(tick);
+    };
+
+    frameId = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(frameId);
+      markersRef.current.forEach((entry) => entry.marker.remove());
+      markersRef.current.clear();
+    };
+  }, []);
 
   return null;
 }
@@ -130,22 +237,12 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           position={[userPosition.lat, userPosition.lon]}
           icon={L.divIcon({ className: '', html: '<div class="user-marker"></div>', iconSize: [24, 24], iconAnchor: [12, 12] })}
         />
-        {visibleVehicles.map((vehicle) => (
-          <Marker
-            key={vehicle.vehicleId}
-            position={[vehicle.lat, vehicle.lon]}
-            icon={createBusIcon(vehicle, vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId)}
-            eventHandlers={{ click: () => onSelectVehicle(vehicle) }}
-          >
-            <Popup>
-              <div className="map-popup">
-                <LineBadge line={vehicle.line} />
-                <strong>Vettura {vehicle.vehicleId}</strong>
-                <span>{vehicle.vehicleType === 'tram' ? 'Tram' : 'Bus'} · {vehicle.direction} · {vehicle.source}</span>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        <VehicleMarkers
+          vehicles={visibleVehicles}
+          selectedVehicleId={selectedVehicleId}
+          followedVehicleId={followedVehicleId}
+          onSelectVehicle={onSelectVehicle}
+        />
         <RecenterButton />
         <FitRoute line={showRouteForLine} />
         <FollowVehicle vehicle={followedVehicle} />

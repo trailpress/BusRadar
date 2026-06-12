@@ -55,7 +55,6 @@
 }
 
 .vehicle-marker-shell {
-  transition: transform 900ms linear;
   will-change: transform;
 }
 
