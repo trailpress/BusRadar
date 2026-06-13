@@ -41,9 +41,14 @@ GTFS_RT_TRIP_UPDATES_URL=
 GTFS_RT_ALERTS_URL=
 GTFS_RT_API_KEY=
 VITE_TRANSIT_DATA_MODE=simulation
+VITE_GTFS_RT_VEHICLE_POSITIONS_URL=
+VITE_GTFS_RT_TRIP_UPDATES_URL=
+VITE_GTFS_RT_ALERTS_URL=
 ```
 
 `VITE_TRANSIT_DATA_MODE` resta `simulation` finche' il test legale/tecnico non e' completato.
+
+Le variabili `VITE_GTFS_RT_*` sono visibili nel bundle browser: usarle solo per feed pubblici, autorizzati e compatibili CORS. Non inserire token o chiavi private in variabili `VITE_*`.
 
 ## Script spike
 
@@ -98,6 +103,32 @@ Lo script:
 - gestisce feed vuoti, errori HTTP, errori di rete e decoding non valido.
 
 Gli URL non sono hardcoded nella UI e non vengono salvati nel repository.
+
+## Vista realtime nell'app
+
+La schermata `Altro` include un pannello "Realtime GTFS-RT" che prova a leggere i feed configurati in build tramite:
+
+- `VITE_GTFS_RT_VEHICLE_POSITIONS_URL`
+- `VITE_GTFS_RT_TRIP_UPDATES_URL`
+- `VITE_GTFS_RT_ALERTS_URL`
+
+Se gli URL non sono configurati, il pannello mostra `Non configurato`. Se un endpoint blocca il browser via CORS o richiede chiavi private, il pannello mostra errore rete/CORS. In quel caso il test reale va fatto con lo script server-side `npm run realtime:spike`, non dalla UI.
+
+La mappa e i mezzi dell'app continuano a usare dati simulati: il pannello realtime e' solo diagnostico.
+
+Per test rapidi da GitHub Pages senza rebuild si possono usare query param con endpoint pubblici/autorizzati e CORS-safe:
+
+```text
+https://trailpress.github.io/BusRadar/?gtfsVp=https%3A%2F%2Fexample.org%2Fvehicle.pb
+```
+
+Parametri supportati:
+
+- `gtfsVp`: Vehicle Positions.
+- `gtfsTu`: Trip Updates.
+- `gtfsAlerts`: Alerts.
+
+Non mettere token, API key o endpoint privati nei query param.
 
 Il file generato non deve essere collegato alla UI finche':
 

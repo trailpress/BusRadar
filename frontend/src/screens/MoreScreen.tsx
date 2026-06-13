@@ -1,4 +1,5 @@
 import { Info, ShieldCheck } from 'lucide-react';
+import { RealtimePanel } from '../components/RealtimePanel';
 
 export function MoreScreen() {
   return (
@@ -23,6 +24,7 @@ export function MoreScreen() {
           <p>BusRadar non rappresenta operatori o enti di trasporto. La struttura e pronta per future integrazioni autorizzate.</p>
         </div>
       </section>
+      <RealtimePanel />
     </main>
   );
 }
