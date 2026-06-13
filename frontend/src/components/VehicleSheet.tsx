@@ -13,6 +13,7 @@ type Props = {
 export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
   const vehicleKind = vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus';
   const speedSource = vehicle.speedSource === 'feed' ? 'Feed realtime' : vehicle.speedSource === 'observed' ? 'Calcolata da GPS' : 'Non disponibile';
+  const rawVehicleLabel = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? vehicle.realtimeVehicleLabel : undefined;
   const vehicleAsset = `${import.meta.env.BASE_URL}assets/vehicles/${
     vehicle.vehicleType === 'tram' ? 'tram-top.png' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'bus-articulated-top.png' : 'bus-top.png'
   }`;
@@ -38,6 +39,11 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
       <div className="direction-block">
         <strong>{vehicle.direction}</strong>
         <span>Direzione: {vehicle.direction}</span>
+        <span>
+          Numero da feed: {vehicle.vehicleIdSource ?? 'vehicle.id'}
+          {rawVehicleLabel ? ` · label GTFS-RT: ${rawVehicleLabel}` : ''}
+          {vehicle.realtimeEntityId && vehicle.realtimeEntityId !== vehicle.vehicleId ? ` · entity: ${vehicle.realtimeEntityId}` : ''}
+        </span>
       </div>
       <div className="bus-photo">
         <img src={vehicleAsset} alt="" />

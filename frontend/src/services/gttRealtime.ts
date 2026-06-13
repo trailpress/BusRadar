@@ -3,8 +3,11 @@ import { getGtfsLine, getGtfsRoutesForLine, getGtfsRoutesForRouteId } from '../d
 import { distanceMeters, routeProgressAtPoint } from '../utils/geo';
 
 type GttVehiclePosition = {
+  entityId?: string | null;
   routeId: string | null;
   vehicleId: string | null;
+  vehicleLabel?: string | null;
+  licensePlate?: string | null;
   tripId: string | null;
   lat: number | null;
   lon: number | null;
@@ -26,6 +29,8 @@ type GttTripUpdate = {
   routeId: string | null;
   tripId: string | null;
   vehicleId: string | null;
+  vehicleLabel?: string | null;
+  licensePlate?: string | null;
   timestamp: string | null;
   stopTimeUpdates: Array<{
     stopId: string | null;
@@ -79,6 +84,11 @@ function normalizeRouteName(routeId: string) {
 
 function normalizeVehicleId(vehicleId: string | null) {
   return vehicleId?.replace(/U$/, '') ?? '';
+}
+
+function normalizeOptionalVehicleId(vehicleId?: string | null) {
+  const normalized = normalizeVehicleId(vehicleId ?? null);
+  return normalized || undefined;
 }
 
 function vehicleTypeForRoute(routeId: string): Vehicle['vehicleType'] {
@@ -281,12 +291,18 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const line = normalizeRouteName(routeId);
   const gtfsLine = getGtfsLine(line);
   const vehicleType = vehicleTypeForRoute(routeId);
-  const vehicleId = normalizeVehicleId(vehicle.vehicleId);
+  const vehicleId = normalizeVehicleId(vehicle.vehicleId) || normalizeVehicleId(vehicle.vehicleLabel ?? null);
+  const vehicleIdSource: Vehicle['vehicleIdSource'] = normalizeVehicleId(vehicle.vehicleId) ? 'vehicle.id' : 'vehicle.label';
   const { speed, source: speedSource } = observedSpeed(vehicleId || String(index), vehicle);
   const estimate = terminalEstimate(routeId, line, { lat: vehicle.lat ?? 0, lon: vehicle.lon ?? 0 }, speed);
 
   return {
     vehicleId,
+    realtimeEntityId: normalizeOptionalVehicleId(vehicle.entityId),
+    realtimeVehicleId: normalizeOptionalVehicleId(vehicle.vehicleId),
+    realtimeVehicleLabel: normalizeOptionalVehicleId(vehicle.vehicleLabel),
+    licensePlate: vehicle.licensePlate || undefined,
+    vehicleIdSource,
     routeId: `gtt-${routeId}`,
     routeShortName: line,
     vehicleType,
@@ -325,7 +341,10 @@ export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | 
   const payload = (await response.json()) as GttVehiclesResponse;
   if (payload.status !== 'ok' || !Array.isArray(payload.vehicles)) return undefined;
 
-  const vehicles = payload.vehicles.filter((vehicle) => vehicle.vehicleId).filter(isValidTorinoCoordinate).map(toVehicle);
+  const vehicles = payload.vehicles
+    .filter((vehicle) => vehicle.vehicleId || vehicle.vehicleLabel)
+    .filter(isValidTorinoCoordinate)
+    .map(toVehicle);
   if (vehicles.length === 0) return undefined;
 
   return {

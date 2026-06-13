@@ -5,6 +5,11 @@ export type VehicleStatus = 'moving' | 'stopped' | 'unknown';
 
 export type TransitVehicle = {
   vehicleId: string;
+  realtimeEntityId?: string;
+  realtimeVehicleId?: string;
+  realtimeVehicleLabel?: string;
+  licensePlate?: string;
+  vehicleIdSource?: 'vehicle.id' | 'vehicle.label';
   routeId: string;
   routeShortName: string;
   vehicleType: VehicleType;

@@ -54,11 +54,12 @@ function createBusIcon(vehicle: Vehicle, selected: boolean, zoom: number) {
 
 function createVehiclePopup(vehicle: Vehicle) {
   const color = getLineColor(vehicle.line);
+  const labelSuffix = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? ` · label ${vehicle.realtimeVehicleLabel}` : '';
   return `
     <div class="map-popup">
       <span class="line-badge" style="--line-color:${color}">${vehicle.line}</span>
       <strong>Vettura ${vehicle.vehicleId}</strong>
-      <span>${vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus'} · ${vehicle.direction} · ${vehicle.source}</span>
+      <span>${vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus'} · ${vehicle.direction} · ${vehicle.source}${labelSuffix}</span>
     </div>
   `;
 }

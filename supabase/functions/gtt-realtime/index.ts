@@ -61,8 +61,11 @@ function summarizeFeed(kind: FeedKind, bytes: Uint8Array) {
   const vehicles = entity
     .filter((item) => item.vehicle?.position)
     .map((item) => ({
+      entityId: item.id ?? null,
       routeId: item.vehicle?.trip?.routeId ?? null,
-      vehicleId: item.vehicle?.vehicle?.id ?? item.vehicle?.vehicle?.label ?? item.id ?? null,
+      vehicleId: item.vehicle?.vehicle?.id ?? null,
+      vehicleLabel: item.vehicle?.vehicle?.label ?? null,
+      licensePlate: item.vehicle?.vehicle?.licensePlate ?? null,
       tripId: item.vehicle?.trip?.tripId ?? null,
       lat: item.vehicle?.position?.latitude ?? null,
       lon: item.vehicle?.position?.longitude ?? null,
@@ -76,7 +79,9 @@ function summarizeFeed(kind: FeedKind, bytes: Uint8Array) {
       id: item.id ?? null,
       routeId: item.tripUpdate?.trip?.routeId ?? null,
       tripId: item.tripUpdate?.trip?.tripId ?? null,
-      vehicleId: item.tripUpdate?.vehicle?.id ?? item.tripUpdate?.vehicle?.label ?? null,
+      vehicleId: item.tripUpdate?.vehicle?.id ?? null,
+      vehicleLabel: item.tripUpdate?.vehicle?.label ?? null,
+      licensePlate: item.tripUpdate?.vehicle?.licensePlate ?? null,
       timestamp: item.tripUpdate?.timestamp?.toString?.() ?? null,
       stopTimeUpdates: (item.tripUpdate?.stopTimeUpdate ?? []).map((update) => ({
         stopId: update.stopId ?? null,
