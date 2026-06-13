@@ -34,8 +34,13 @@ function parseCsvLine(line) {
   return values;
 }
 
-function readCsv(fileName) {
-  const raw = fs.readFileSync(path.join(gtfsDir, fileName), 'utf8').replace(/^\uFEFF/, '');
+function readCsv(fileName, required = true) {
+  const fullPath = path.join(gtfsDir, fileName);
+  if (!fs.existsSync(fullPath)) {
+    if (required) throw new Error(`Missing GTFS table ${fileName}`);
+    return [];
+  }
+  const raw = fs.readFileSync(fullPath, 'utf8').replace(/^\uFEFF/, '');
   const lines = raw.split(/\r?\n/).filter(Boolean);
   const headers = parseCsvLine(lines[0]);
   return lines.slice(1).map((line) => {
@@ -64,11 +69,19 @@ function colorForRoute(route) {
   return route.route_type === '0' ? '#2563EB' : '#10B981';
 }
 
+function gtfsTimeToSeconds(value) {
+  const [hours, minutes, seconds] = String(value || '').split(':').map(Number);
+  if (![hours, minutes, seconds].every(Number.isFinite)) return undefined;
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
 const routes = readCsv('routes.txt');
 const trips = readCsv('trips.txt');
 const shapes = readCsv('shapes.txt');
 const stops = readCsv('stops.txt');
 const stopTimes = readCsv('stop_times.txt');
+const calendar = readCsv('calendar.txt', false);
+const calendarDates = readCsv('calendar_dates.txt', false);
 
 const routeById = new Map(routes.map((route) => [route.route_id, route]));
 const tripsByRouteDirection = new Map();
@@ -145,9 +158,15 @@ for (const stopTime of stopTimes) {
   const tripIndex = tripStopIndex[stopTime.trip_id] ?? {
     routeId: trip.route_id,
     line: shortName,
+    serviceId: trip.service_id,
     stops: [],
   };
-  tripIndex.stops.push([Number(stopTime.stop_sequence), stopTime.stop_id]);
+  tripIndex.stops.push([
+    Number(stopTime.stop_sequence),
+    stopTime.stop_id,
+    gtfsTimeToSeconds(stopTime.departure_time) ?? gtfsTimeToSeconds(stopTime.arrival_time) ?? -1,
+    gtfsTimeToSeconds(stopTime.arrival_time) ?? gtfsTimeToSeconds(stopTime.departure_time) ?? -1,
+  ]);
   tripStopIndex[stopTime.trip_id] = tripIndex;
 
   const selected = selectedTrips.some((item) => item.trip_id === stopTime.trip_id);
@@ -228,6 +247,30 @@ const payload = {
   stops: networkStops,
 };
 
+const serviceIndex = {
+  services: Object.fromEntries(calendar.map((service) => [
+    service.service_id,
+    {
+      startDate: service.start_date,
+      endDate: service.end_date,
+      days: [
+        Number(service.sunday) === 1 ? 1 : 0,
+        Number(service.monday) === 1 ? 1 : 0,
+        Number(service.tuesday) === 1 ? 1 : 0,
+        Number(service.wednesday) === 1 ? 1 : 0,
+        Number(service.thursday) === 1 ? 1 : 0,
+        Number(service.friday) === 1 ? 1 : 0,
+        Number(service.saturday) === 1 ? 1 : 0,
+      ],
+    },
+  ])),
+  exceptions: calendarDates.reduce((acc, item) => {
+    acc[item.date] ??= {};
+    acc[item.date][item.service_id] = Number(item.exception_type);
+    return acc;
+  }, {}),
+};
+
 const outFile = path.join(process.cwd(), 'src/data/gtfsNetwork.generated.ts');
 fs.writeFileSync(
   outFile,
@@ -240,6 +283,7 @@ fs.writeFileSync(
   JSON.stringify({
     generatedAt: payload.generatedAt,
     source: 'GTT GTFS static stop_times.txt',
+    calendar: serviceIndex,
     trips: tripStopIndex,
   }),
 );

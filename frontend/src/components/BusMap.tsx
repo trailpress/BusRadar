@@ -354,14 +354,12 @@ function StopPopup({ stop, routeIds, stopSequencesByRoute }: { stop: GtfsStop; r
       </div>
       <div className="arrival-list">
         {!arrivals && <small>Carico passaggi reali...</small>}
-        {arrivals?.length === 0 && (
-          <small>Il feed realtime GTT non pubblica passaggi per questa palina in questo momento.</small>
-        )}
+        {arrivals?.length === 0 && <small>Nessun passaggio programmato trovato per questa palina nelle prossime ore.</small>}
         {arrivals?.map((arrival) => (
           <div key={`${arrival.tripId}-${arrival.routeId}-${arrival.timeLabel}`}>
             <LineBadge line={arrival.line} size="sm" />
             <span>{arrival.timeLabel}</span>
-            <em>{arrival.minutes === 0 ? 'ora' : `${arrival.minutes} min`}</em>
+            <em>{arrival.source === 'scheduled' ? 'prog.' : arrival.minutes === 0 ? 'ora' : `${arrival.minutes} min`}</em>
           </div>
         ))}
       </div>

@@ -63,13 +63,23 @@ export type GttStopArrival = {
   timeLabel: string;
   minutes: number;
   delaySeconds?: number;
+  source: 'realtime' | 'scheduled';
 };
 
 type StopTimeIndex = {
+  calendar?: {
+    services: Record<string, {
+      startDate: string;
+      endDate: string;
+      days: number[];
+    }>;
+    exceptions: Record<string, Record<string, number>>;
+  };
   trips: Record<string, {
     routeId: string;
     line: string;
-    stops: Array<[number, string]>;
+    serviceId?: string;
+    stops: Array<[number, string, number?, number?]>;
   }>;
 };
 
@@ -154,6 +164,80 @@ function fetchStopTimeIndex() {
   return stopTimeIndexCache;
 }
 
+function localGtfsDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}${month}${day}`;
+}
+
+function serviceRunsToday(serviceId: string | undefined, index: StopTimeIndex | undefined, date: Date) {
+  if (!serviceId || !index?.calendar) return true;
+
+  const dayKey = localGtfsDate(date);
+  const exception = index.calendar.exceptions[dayKey]?.[serviceId];
+  if (exception === 1) return true;
+  if (exception === 2) return false;
+
+  const service = index.calendar.services[serviceId];
+  if (!service) return true;
+  return dayKey >= service.startDate && dayKey <= service.endDate && service.days[date.getDay()] === 1;
+}
+
+function scheduledStopArrivals(
+  stopId: string,
+  allowedRouteIds: string[],
+  stopSequencesByRoute: Record<string, number[]>,
+  stopTimeIndex: StopTimeIndex | undefined,
+): GttStopArrival[] {
+  if (!stopTimeIndex) return [];
+
+  const now = new Date();
+  const secondsNow = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  const allowed = new Set(allowedRouteIds.flatMap((routeId) => [routeId, normalizeRouteName(routeId)]));
+  const maxHorizonSeconds = secondsNow + 4 * 3600;
+
+  return Object.entries(stopTimeIndex.trips)
+    .flatMap(([tripId, trip]) => {
+      if (!serviceRunsToday(trip.serviceId, stopTimeIndex, now)) return [];
+
+      const normalizedRouteId = normalizeRouteName(trip.line || trip.routeId);
+      if (allowed.size > 0 && !allowed.has(trip.routeId) && !allowed.has(normalizedRouteId)) return [];
+
+      const sequenceSet = new Set([
+        ...(stopSequencesByRoute[trip.routeId] ?? []),
+        ...(stopSequencesByRoute[normalizedRouteId] ?? []),
+        ...(stopSequencesByRoute[`${normalizedRouteId}U`] ?? []),
+      ]);
+      const stopEntries = trip.stops.filter(([sequence, staticStopId]) => staticStopId === stopId || sequenceSet.has(sequence));
+
+      return stopEntries
+        .map(([sequence, , departureSeconds = -1, arrivalSeconds = -1]) => {
+          const seconds = departureSeconds >= 0 ? departureSeconds : arrivalSeconds;
+          if (seconds < secondsNow || seconds > maxHorizonSeconds) return undefined;
+          const minutes = Math.max(0, Math.round((seconds - secondsNow) / 60));
+          const displaySeconds = seconds % 86400;
+          const time = new Date(now);
+          time.setHours(Math.floor(displaySeconds / 3600), Math.floor((displaySeconds % 3600) / 60), 0, 0);
+
+          return {
+            routeId: trip.routeId,
+            line: normalizedRouteId,
+            tripId,
+            timeLabel: time.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
+            minutes,
+            source: 'scheduled' as const,
+            delaySeconds: undefined,
+            vehicleId: undefined,
+            sequence,
+          };
+        })
+        .filter((arrival): arrival is NonNullable<typeof arrival> => Boolean(arrival));
+    })
+    .sort((a, b) => a.minutes - b.minutes)
+    .slice(0, 8);
+}
+
 export async function fetchGttStopArrivals(
   stopId: string,
   allowedRouteIds: string[] = [],
@@ -164,7 +248,7 @@ export async function fetchGttStopArrivals(
   const allowed = new Set(allowedRouteIds.flatMap((routeId) => [routeId, normalizeRouteName(routeId)]));
   const routeByVehicle = new Map(rawVehicles.map((vehicle) => [vehicle.vehicleId, vehicle.routeId]).filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1])));
 
-  return updates
+  const realtimeArrivals = updates
     .flatMap((trip) => {
       const routeId = trip.routeId || routeByVehicle.get(trip.vehicleId ?? '') || '';
       const staticTrip = trip.tripId ? stopTimeIndex?.trips[trip.tripId] : undefined;
@@ -197,6 +281,7 @@ export async function fetchGttStopArrivals(
             timeLabel: new Date(time).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
             minutes: Math.max(0, Math.round((time - now) / 60000)),
             delaySeconds,
+            source: 'realtime' as const,
           };
         });
     })
@@ -204,6 +289,10 @@ export async function fetchGttStopArrivals(
     .filter((arrival) => arrival.minutes <= 90)
     .sort((a, b) => a.minutes - b.minutes)
     .slice(0, 8);
+
+  return realtimeArrivals.length > 0
+    ? realtimeArrivals
+    : scheduledStopArrivals(stopId, allowedRouteIds, stopSequencesByRoute, stopTimeIndex);
 }
 
 function formatTimestamp(timestamp: string | null) {
