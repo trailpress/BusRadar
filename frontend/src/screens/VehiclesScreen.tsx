@@ -35,7 +35,7 @@ export function VehiclesScreen({ vehicles, onSelectVehicle }: Props) {
       </section>
       <SearchBox value={query} placeholder="Cerca vettura o numero" onChange={setQuery} />
       <div className="list-tabs">
-        <button className={mode === 'service' ? 'is-active' : ''} type="button" onClick={() => setMode('service')}>In servizio <span>{vehicles.length + 116}</span></button>
+        <button className={mode === 'service' ? 'is-active' : ''} type="button" onClick={() => setMode('service')}>In servizio <span>{vehicles.length}</span></button>
         <button className={mode === 'favorites' ? 'is-active' : ''} type="button" onClick={() => setMode('favorites')}>Preferite</button>
       </div>
       <section className="list-section">

@@ -7,3 +7,4 @@ dist/
 !.env.example
 !frontend/.env.example
 supabase/.temp/
+frontend/public/assets/vehicles/*-source.png

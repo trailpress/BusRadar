@@ -41,7 +41,7 @@ export function RadarScreen({ vehicles, onSelectVehicle, onBack }: Props) {
         <div>
           <h1>Radar</h1>
         </div>
-        <button className="plain-icon" type="button" aria-label="Informazioni" onClick={() => notify('Radar demo: posizione utente e mezzi sono simulati')}>
+        <button className="plain-icon" type="button" aria-label="Informazioni" onClick={() => notify('Radar basato sui mezzi realtime disponibili')}>
           <Info size={18} />
         </button>
       </section>
@@ -84,7 +84,7 @@ export function RadarScreen({ vehicles, onSelectVehicle, onBack }: Props) {
       </section>
 
       <section className="list-section">
-        <button className="radar-summary" type="button" onClick={() => notify(`${matches.length} mezzi demo nel raggio selezionato`)}>
+        <button className="radar-summary" type="button" onClick={() => notify(`${matches.length} mezzi realtime nel raggio selezionato`)}>
           <span><i /> {matches.length} mezzi nel raggio di {radiusOptions.find((option) => option.value === radius)?.label}</span>
           <small>Aggiornato ora</small>
         </button>

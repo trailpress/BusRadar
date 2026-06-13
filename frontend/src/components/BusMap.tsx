@@ -3,7 +3,7 @@ import { LocateFixed } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import { userPosition } from '../data/demoData';
-import { getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopsForRoute, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
+import { getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
 import { fetchGttStopArrivals, type GttStopArrival } from '../services/gttRealtime';
 import type { LatLng, Vehicle } from '../types';
 import { getLineColor } from '../utils/lineColors';
@@ -26,13 +26,16 @@ const tileLayer = {
   attribution: '&copy; OpenStreetMap contributors',
 };
 
+const vehicleAssetBase = import.meta.env.BASE_URL;
+
 function createBusIcon(vehicle: Vehicle, selected: boolean) {
   const color = getLineColor(vehicle.line);
+  const asset = vehicle.vehicleType === 'tram' ? `${vehicleAssetBase}assets/vehicles/tram-top.png` : `${vehicleAssetBase}assets/vehicles/bus-top.png`;
   return L.divIcon({
     className: 'vehicle-marker-shell',
-    html: `<div class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${selected ? 'is-selected' : ''}" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--label-bearing:${-vehicle.bearing}deg"><i></i><span>${vehicle.line}</span></div>`,
-    iconSize: [50, 50],
-    iconAnchor: [25, 25],
+    html: `<div class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${selected ? 'is-selected' : ''}" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--label-bearing:${-vehicle.bearing}deg"><img src="${asset}" alt="" /><span>${vehicle.line}</span></div>`,
+    iconSize: vehicle.vehicleType === 'tram' ? [74, 42] : [58, 38],
+    iconAnchor: vehicle.vehicleType === 'tram' ? [37, 21] : [29, 19],
   });
 }
 
@@ -239,7 +242,7 @@ function StopPopup({ stop, routeIds, stopSequencesByRoute }: { stop: GtfsStop; r
       </div>
       <div className="arrival-list">
         {!arrivals && <small>Carico passaggi reali...</small>}
-        {arrivals?.length === 0 && <small>Nessun passaggio realtime nei prossimi minuti</small>}
+        {arrivals?.length === 0 && <small>Feed realtime senza previsioni pubblicate per questa palina ora</small>}
         {arrivals?.map((arrival) => (
           <div key={`${arrival.tripId}-${arrival.routeId}-${arrival.timeLabel}`}>
             <LineBadge line={arrival.line} size="sm" />
@@ -264,10 +267,12 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const routeStops = useMemo(() => {
     const byStop = new Map<string, { stop: GtfsStop; routeIds: Set<string>; stopSequencesByRoute: Record<string, number[]> }>();
     highlightedRoutes.forEach((route) => {
-      getGtfsStopsForRoute(route).forEach((stop, index) => {
+      getGtfsStopEntriesForRoute(route).forEach(({ stop, sequence }) => {
         const existing = byStop.get(stop.id) ?? { stop, routeIds: new Set<string>(), stopSequencesByRoute: {} };
         existing.routeIds.add(route.routeId);
-        existing.stopSequencesByRoute[route.routeId] = [...(existing.stopSequencesByRoute[route.routeId] ?? []), index + 1];
+        existing.routeIds.add(route.line);
+        existing.stopSequencesByRoute[route.routeId] = [...(existing.stopSequencesByRoute[route.routeId] ?? []), sequence];
+        existing.stopSequencesByRoute[route.line] = [...(existing.stopSequencesByRoute[route.line] ?? []), sequence];
         byStop.set(stop.id, existing);
       });
     });
@@ -311,7 +316,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           />
         ))}
         {routeStops
-          .slice(0, showRouteForLine || selectedLine ? 260 : 160)
+          .slice(0, showRouteForLine || selectedLine ? routeStops.length : 220)
           .map(({ stop, routeIds, stopSequencesByRoute }) => (
             <Marker
               key={stop.id}

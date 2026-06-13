@@ -14,7 +14,7 @@ export function MoreScreen() {
         <Info size={22} />
         <div>
           <strong>Dati transit</strong>
-          <p>Fallback simulato sempre attivo. In dev, il proxy locale legge i feed GTFS-RT GTT HTTPS verificati.</p>
+          <p>La mappa usa Vehicle Positions GTFS-RT via proxy tecnico. Se il feed non risponde, BusRadar non inventa mezzi.</p>
         </div>
       </section>
       <section className="info-card">

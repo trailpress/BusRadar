@@ -25,7 +25,7 @@ export function LineDetailScreen({ line, vehicles, onBack, onSelectVehicle }: Pr
           <ArrowLeft size={20} />
         </button>
         <strong>Linea {line.id}</strong>
-        <button className="back-button" type="button" aria-label="Preferiti" onClick={() => notify(`Linea ${line.id} aggiunta ai preferiti demo`)}>
+        <button className="back-button" type="button" aria-label="Preferiti" onClick={() => notify(`Linea ${line.id} aggiunta ai preferiti`)}>
           <Star size={19} />
         </button>
       </section>

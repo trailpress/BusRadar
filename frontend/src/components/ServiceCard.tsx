@@ -10,6 +10,7 @@ type Props = {
 export function ServiceCard({ vehicles, selectedLine }: Props) {
   const count = selectedLine ? vehicles.filter((vehicle) => vehicle.line === selectedLine).length : vehicles.length;
   const averageSpeed = Math.round(vehicles.reduce((sum, vehicle) => sum + vehicle.speed, 0) / Math.max(vehicles.length, 1));
+  const lastUpdate = vehicles[0]?.updatedAt ?? '--:--';
 
   return (
     <aside className="service-card">
@@ -18,7 +19,7 @@ export function ServiceCard({ vehicles, selectedLine }: Props) {
         <strong>{pluralizeBus(count)} in servizio</strong>
       </div>
       <footer>
-        <span>Ultimo aggiornamento: 09:41:23</span>
+        <span>Ultimo aggiornamento: {lastUpdate}</span>
         <span>
           <Clock3 size={13} />
           {averageSpeed} km/h

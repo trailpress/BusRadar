@@ -44,7 +44,7 @@ export function LinesScreen({ vehicles, onSelectLine }: Props) {
       <SearchBox value={query} placeholder="Cerca linea" onChange={setQuery} />
       {favorites.length > 0 && (
         <section className="list-section">
-          <div className="section-heading"><h2>Preferite</h2><button type="button" onClick={() => notify('Modifica preferite: funzione demo')}>Modifica</button></div>
+          <div className="section-heading"><h2>Preferite</h2><button type="button" onClick={() => notify('Gestione preferite non ancora attiva')}>Modifica</button></div>
           {favorites.map(renderLine)}
         </section>
       )}

@@ -51,7 +51,7 @@ export function MapScreen({
       {followedVehicleId && (
         <div className="follow-banner">
           <strong>Seguendo vettura {followedVehicleId}</strong>
-          <span>La mappa resta centrata sul mezzo simulato</span>
+          <span>La mappa resta centrata sul mezzo realtime</span>
         </div>
       )}
       {selectedVehicle && (

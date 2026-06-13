@@ -107,16 +107,22 @@ export async function fetchGttStopArrivals(
 ): Promise<GttStopArrival[]> {
   const [updates, rawVehicles] = await Promise.all([fetchTripUpdates(), fetchRawVehicles()]);
   const now = Date.now();
-  const allowed = new Set(allowedRouteIds);
+  const allowed = new Set(allowedRouteIds.flatMap((routeId) => [routeId, normalizeRouteName(routeId)]));
   const routeByVehicle = new Map(rawVehicles.map((vehicle) => [vehicle.vehicleId, vehicle.routeId]).filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1])));
 
   return updates
     .flatMap((trip) => {
       const routeId = trip.routeId || routeByVehicle.get(trip.vehicleId ?? '') || '';
-      const sequenceSet = new Set(stopSequencesByRoute[routeId] ?? []);
+      const normalizedRouteId = normalizeRouteName(routeId);
+      const sequenceSet = new Set([
+        ...(stopSequencesByRoute[routeId] ?? []),
+        ...(stopSequencesByRoute[normalizedRouteId] ?? []),
+        ...(stopSequencesByRoute[`${normalizedRouteId}U`] ?? []),
+      ]);
 
       return trip.stopTimeUpdates
         .filter((stopUpdate) => stopUpdate.stopId === stopId || (routeId && stopUpdate.stopSequence != null && sequenceSet.has(stopUpdate.stopSequence)))
+        .filter((stopUpdate) => Number(stopUpdate.arrivalTime ?? stopUpdate.departureTime ?? 0) > 0)
         .map((stopUpdate) => {
           const seconds = Number(stopUpdate.arrivalTime ?? stopUpdate.departureTime ?? 0);
           const time = seconds > 0 ? seconds * 1000 : now;
@@ -124,16 +130,16 @@ export async function fetchGttStopArrivals(
 
           return {
             routeId,
-            line: normalizeRouteName(routeId),
+            line: normalizedRouteId,
             tripId: trip.tripId ?? '-',
             vehicleId: trip.vehicleId ?? undefined,
-            timeLabel: seconds > 0 ? new Date(time).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : 'live',
+            timeLabel: new Date(time).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
             minutes: Math.max(0, Math.round((time - now) / 60000)),
             delaySeconds,
           };
         });
     })
-    .filter((arrival) => allowed.size === 0 || allowed.has(arrival.routeId))
+    .filter((arrival) => allowed.size === 0 || allowed.has(arrival.routeId) || allowed.has(normalizeRouteName(arrival.routeId)))
     .filter((arrival) => arrival.minutes <= 90)
     .sort((a, b) => a.minutes - b.minutes)
     .slice(0, 8);

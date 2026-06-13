@@ -12,6 +12,7 @@ export type GtfsRouteVariant = {
   color: string;
   path: LatLng[];
   stops: string[];
+  stopEntries: Array<{ stopId: string; sequence: number }>;
 };
 
 export type GtfsStop = LatLng & {
@@ -64,7 +65,16 @@ export function getGtfsRoutesForRouteId(routeId?: string) {
 }
 
 export function getGtfsStopsForRoute(route: GtfsRouteVariant) {
-  return route.stops.map((stopId) => stopById.get(stopId)).filter((stop): stop is GtfsStop => Boolean(stop));
+  return route.stopEntries.map((entry) => stopById.get(entry.stopId)).filter((stop): stop is GtfsStop => Boolean(stop));
+}
+
+export function getGtfsStopEntriesForRoute(route: GtfsRouteVariant) {
+  return route.stopEntries
+    .map((entry) => {
+      const stop = stopById.get(entry.stopId);
+      return stop ? { stop, sequence: entry.sequence } : undefined;
+    })
+    .filter((entry): entry is { stop: GtfsStop; sequence: number } => Boolean(entry));
 }
 
 export function getGtfsStop(stopId: string) {

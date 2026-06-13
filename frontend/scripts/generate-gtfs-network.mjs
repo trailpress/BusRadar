@@ -45,9 +45,9 @@ function readCsv(fileName) {
 }
 
 function simplify(points, step = 2) {
-  if (points.length <= 90) return points;
+  if (points.length <= 260) return points;
   const simplified = points.filter((_, index) => index === 0 || index === points.length - 1 || index % step === 0);
-  return simplified.length > 260 ? simplify(simplified, step + 1) : simplified;
+  return simplified.length > 900 ? simplify(simplified, step + 1) : simplified;
 }
 
 function cleanLineName(routeShortName, routeId) {
@@ -82,9 +82,9 @@ for (const trip of trips) {
   tripsByRouteDirection.set(key, bucket);
 }
 
-function pickRepresentativeTrip(routeId, directionId) {
+function pickRepresentativeTrips(routeId, directionId, limit = 2) {
   const bucket = tripsByRouteDirection.get(`${routeId}::${directionId}`) ?? [];
-  if (bucket.length === 0) return undefined;
+  if (bucket.length === 0) return [];
 
   const shapeCounts = new Map();
   for (const trip of bucket) {
@@ -92,16 +92,16 @@ function pickRepresentativeTrip(routeId, directionId) {
     shapeCounts.set(trip.shape_id, (shapeCounts.get(trip.shape_id) ?? 0) + 1);
   }
 
-  const [shapeId] = [...shapeCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
-  return bucket.find((trip) => trip.shape_id === shapeId) ?? bucket[0];
+  const shapeIds = [...shapeCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([shapeId]) => shapeId);
+  return shapeIds.map((shapeId) => bucket.find((trip) => trip.shape_id === shapeId)).filter(Boolean);
 }
 
 const selectedTrips = [];
 for (const route of routes) {
-  const d0 = pickRepresentativeTrip(route.route_id, '0');
-  const d1 = pickRepresentativeTrip(route.route_id, '1');
-  if (d0) selectedTrips.push(d0);
-  if (d1 && d1.shape_id !== d0?.shape_id) selectedTrips.push(d1);
+  const variants = [...pickRepresentativeTrips(route.route_id, '0'), ...pickRepresentativeTrips(route.route_id, '1')];
+  for (const trip of variants) {
+    if (!selectedTrips.some((item) => item.shape_id === trip.shape_id && item.route_id === trip.route_id)) selectedTrips.push(trip);
+  }
 }
 
 const selectedShapeIds = new Set(selectedTrips.map((trip) => trip.shape_id).filter(Boolean));
@@ -150,9 +150,8 @@ const networkRoutes = selectedTrips
   .map((trip) => {
     const route = routeById.get(trip.route_id);
     const points = shapePoints.get(trip.shape_id)?.sort((a, b) => a.seq - b.seq) ?? [];
-    const stopIds = (stopTimesByTrip.get(trip.trip_id) ?? [])
-      .sort((a, b) => a.sequence - b.sequence)
-      .map((item) => item.stopId);
+    const stopEntries = (stopTimesByTrip.get(trip.trip_id) ?? []).sort((a, b) => a.sequence - b.sequence);
+    const stopIds = stopEntries.map((item) => item.stopId);
     const shortName = cleanLineName(route?.route_short_name ?? '', trip.route_id);
 
     for (const stopId of stopIds) {
@@ -171,6 +170,7 @@ const networkRoutes = selectedTrips
       color: colorForRoute(route ?? {}),
       path: simplify(points).map(({ lat, lon }) => ({ lat, lon })),
       stops: stopIds,
+      stopEntries,
     };
   })
   .filter((route) => route.path.length > 1);

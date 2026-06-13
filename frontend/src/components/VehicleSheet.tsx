@@ -1,6 +1,4 @@
 import { Clock3, Gauge, LocateFixed, Route as RouteIcon, ShieldCheck, Star, X } from 'lucide-react';
-import { stops } from '../data/demoData';
-import { getNextStops } from '../services/simulation';
 import type { Vehicle } from '../types';
 import { notify } from '../utils/notify';
 import { LineBadge } from './LineBadge';
@@ -13,14 +11,12 @@ type Props = {
 };
 
 export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
-  const nextStops = getNextStops(vehicle).map((stopId) => stops.find((stop) => stop.id === stopId)?.name ?? stopId);
-  const stopTimes = ['09:42', '09:44', '09:46', '09:48'];
-  const stopDistances = ['120 m', '350 m', '680 m', ''];
+  const vehicleAsset = `${import.meta.env.BASE_URL}assets/vehicles/${vehicle.vehicleType === 'tram' ? 'tram-top.png' : 'bus-top.png'}`;
 
   return (
     <section className="vehicle-sheet" aria-label={`Dettaglio vettura ${vehicle.vehicleId}`}>
       <div className="detail-nav">
-        <button type="button" aria-label="Aggiungi ai preferiti" onClick={() => notify(`Vettura ${vehicle.vehicleId} aggiunta ai preferiti demo`)}>
+        <button type="button" aria-label="Aggiungi ai preferiti" onClick={() => notify(`Vettura ${vehicle.vehicleId} aggiunta ai preferiti`)}>
           <Star size={18} className={vehicle.favorite ? 'star-on' : ''} />
         </button>
         <strong>Dettagli vettura</strong>
@@ -32,7 +28,7 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         <LineBadge line={vehicle.line} size="lg" />
         <div>
           <strong>{vehicle.vehicleId}</strong>
-          <span>{vehicle.vehicleType === 'tram' ? 'Tram' : 'Bus'} · {vehicle.source === 'simulation' ? 'simulation/live-ready' : 'GTFS-RT'}</span>
+          <span>{vehicle.vehicleType === 'tram' ? 'Tram' : 'Bus'} · {vehicle.source === 'gtfs-rt' ? 'GTFS-RT reale' : 'dato non realtime'}</span>
         </div>
       </div>
       <div className="direction-block">
@@ -40,7 +36,7 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         <span>Direzione: {vehicle.direction}</span>
       </div>
       <div className="bus-photo">
-        <img src={`${import.meta.env.BASE_URL}assets/demo-bus.png`} alt="" />
+        <img src={vehicleAsset} alt="" />
       </div>
       <div className="metric-grid">
         <div>
@@ -60,15 +56,13 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         </div>
       </div>
       <div className="next-stops">
-        <span>Prossime fermate</span>
-        {[...nextStops, vehicle.direction].slice(0, 4).map((name, index) => (
-          <div key={`${name}-${index}`} className={index === 3 ? 'is-current' : ''}>
-            <i />
-            <strong>{name}</strong>
-            <span>{stopTimes[index]}</span>
-            <em>{stopDistances[index]}</em>
-          </div>
-        ))}
+        <span>Dati percorso</span>
+        <div className="is-current">
+          <i />
+          <strong>{vehicle.nextStop ?? vehicle.direction}</strong>
+          <span>{vehicle.source === 'gtfs-rt' ? 'Realtime GTT' : 'Dato non realtime'}</span>
+          <em>{vehicle.routeShortName}</em>
+        </div>
       </div>
       <div className="sheet-actions">
         <button type="button" onClick={onFollow}>

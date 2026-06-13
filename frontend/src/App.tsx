@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import { gtfsNetwork } from './data/gtfsNetwork';
 import { fetchGttRealtimeVehicles } from './services/gttRealtime';
-import { transitDataProvider } from './services/TransitDataProvider';
 import { LineDetailScreen } from './screens/LineDetailScreen';
 import { LinesScreen } from './screens/LinesScreen';
 import { MapScreen } from './screens/MapScreen';
@@ -15,7 +14,7 @@ import { notify } from './utils/notify';
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('map');
-  const [vehicles, setVehicles] = useState(() => transitDataProvider.getInitialVehicles());
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [search, setSearch] = useState('');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>();
   const [selectedLine, setSelectedLine] = useState<TransitLine>();
@@ -26,18 +25,15 @@ function App() {
   const [toast, setToast] = useState<string>();
 
   useEffect(() => {
-    const id = window.setInterval(() => {
-      setVehicles((current) => (current.some((vehicle) => vehicle.source === 'gtfs-rt') ? current : transitDataProvider.advanceVehicles(current)));
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  useEffect(() => {
     let cancelled = false;
 
     async function loadRealtimeVehicles() {
       const snapshot = await fetchGttRealtimeVehicles();
-      if (!snapshot || cancelled) return;
+      if (cancelled) return;
+      if (!snapshot) {
+        setVehicles([]);
+        return;
+      }
       setVehicles(snapshot.vehicles);
     }
 

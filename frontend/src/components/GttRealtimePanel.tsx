@@ -118,7 +118,7 @@ export function GttRealtimePanel() {
       ) : (
         <div className="realtime-empty">
           <ShieldAlert size={18} />
-          <span>Proxy realtime non disponibile. La mappa resta in fallback simulato.</span>
+          <span>Proxy realtime non disponibile. La mappa non mostra mezzi inventati.</span>
         </div>
       )}
     </section>
