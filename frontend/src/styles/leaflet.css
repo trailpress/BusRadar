@@ -56,7 +56,7 @@
 
 .vehicle-marker-shell {
   will-change: transform;
-  transition: transform 160ms linear;
+  contain: layout style;
 }
 
 .leaflet-interactive {
@@ -83,6 +83,55 @@
   filter: drop-shadow(0 5px 10px rgba(15, 23, 42, 0.3));
   cursor: pointer;
   pointer-events: none;
+}
+
+.vehicle-tooltip {
+  position: absolute;
+  bottom: 42px;
+  left: 50%;
+  z-index: 5;
+  display: grid;
+  min-width: 132px;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 15px 15px 15px 5px;
+  background: rgba(16, 23, 34, 0.94);
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 6px) scale(0.96);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.vehicle-tooltip::after {
+  position: absolute;
+  bottom: -6px;
+  left: 18px;
+  width: 12px;
+  height: 12px;
+  background: rgba(16, 23, 34, 0.94);
+  content: "";
+  transform: rotate(45deg);
+}
+
+.vehicle-tooltip b {
+  font-size: 12px;
+  line-height: 1.1;
+}
+
+.vehicle-tooltip small {
+  color: #cbd5e1;
+  font-size: 10px;
+  line-height: 1.15;
+}
+
+.vehicle-marker-shell:hover .vehicle-tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
 }
 
 .vehicle-marker i {

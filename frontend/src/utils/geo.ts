@@ -78,6 +78,8 @@ export function routeProgressAtPoint(path: LatLng[], point: LatLng) {
 
   const metersPerDegreeLat = 111320;
   const metersPerDegreeLon = 111320 * Math.cos((point.lat * Math.PI) / 180);
+  const segmentLengths = path.slice(0, -1).map((item, index) => distanceMeters(item, path[index + 1]));
+  const totalMeters = segmentLengths.reduce((sum, length) => sum + length, 0);
   let traveledBefore = 0;
   let best:
     | {
@@ -101,7 +103,7 @@ export function routeProgressAtPoint(path: LatLng[], point: LatLng) {
     const vy = by - ay;
     const wx = px - ax;
     const wy = py - ay;
-    const segmentMeters = distanceMeters(start, end);
+    const segmentMeters = segmentLengths[index];
     const segmentSquared = vx * vx + vy * vy;
     const t = segmentSquared === 0 ? 0 : Math.min(1, Math.max(0, (wx * vx + wy * vy) / segmentSquared));
     const projected = {
@@ -110,7 +112,6 @@ export function routeProgressAtPoint(path: LatLng[], point: LatLng) {
     };
     const offRouteMeters = distanceMeters(projected, point);
     const traveledMeters = traveledBefore + segmentMeters * t;
-    const totalMeters = traveledMeters + path.slice(index + 1, -1).reduce((sum, item, pathIndex) => sum + distanceMeters(item, path[index + pathIndex + 2]), 0);
     const candidate = {
       distanceMeters: offRouteMeters,
       traveledMeters,

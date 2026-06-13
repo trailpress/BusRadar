@@ -198,7 +198,6 @@ const networkStops = [...stopById.values()]
   .sort((a, b) => Number(a.code) - Number(b.code));
 
 const networkLines = routes
-  .filter((route) => networkRoutes.some((networkRoute) => networkRoute.routeId === route.route_id))
   .map((route) => {
     const line = cleanLineName(route.route_short_name, route.route_id);
     const routeVariants = networkRoutes.filter((networkRoute) => networkRoute.routeId === route.route_id);

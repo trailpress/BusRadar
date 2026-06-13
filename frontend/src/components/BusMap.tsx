@@ -46,7 +46,7 @@ function createBusIcon(vehicle: Vehicle, selected: boolean, zoom: number) {
   const iconAnchor: [number, number] = [iconSize[0] / 2, iconSize[1] / 2];
   return L.divIcon({
     className: 'vehicle-marker-shell',
-    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${useSprite ? 'vehicle-marker--sprite' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--sprite-bearing:${spriteBearing}deg" aria-label="${vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus'} linea ${vehicle.line}">${useSprite ? `<img src="${asset}" alt="" />` : '<i></i>'}<strong>${vehicle.line}</strong>${isArticulated && !useSprite ? '<em>18</em>' : ''}</button>`,
+    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${useSprite ? 'vehicle-marker--sprite' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--sprite-bearing:${spriteBearing}deg" aria-label="${vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus'} linea ${vehicle.line}">${useSprite ? `<img src="${asset}" alt="" />` : '<i></i>'}<strong>${vehicle.line}</strong>${isArticulated && !useSprite ? '<em>18</em>' : ''}<span class="vehicle-tooltip"><b>Vettura ${vehicle.vehicleId}</b><small>${vehicle.direction || 'Direzione non disponibile'}</small></span></button>`,
     iconSize,
     iconAnchor,
   });
@@ -72,6 +72,8 @@ function updateVehicleMarkerElement(marker: L.Marker, vehicle: Vehicle, selected
   element.style.setProperty('--bearing', `${vehicle.bearing}deg`);
   element.style.setProperty('--sprite-bearing', `${vehicle.bearing - 90}deg`);
   element.querySelector('strong')?.replaceChildren(document.createTextNode(vehicle.line));
+  element.querySelector('.vehicle-tooltip b')?.replaceChildren(document.createTextNode(`Vettura ${vehicle.vehicleId}`));
+  element.querySelector('.vehicle-tooltip small')?.replaceChildren(document.createTextNode(vehicle.direction || 'Direzione non disponibile'));
   const articulatedBadge = element.querySelector('em');
   if (vehicle.vehicleLengthClass === 'articulated-18m' && !articulatedBadge) {
     element.insertAdjacentHTML('beforeend', '<em>18</em>');
@@ -253,7 +255,7 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
   if (selectedLine) return getGtfsRoutesForLine(selectedLine);
 
   const byRoute = new Map<string, GtfsRouteVariant>();
-  vehicles.slice(0, 120).forEach((vehicle) => {
+  vehicles.slice(0, 90).forEach((vehicle) => {
     const routeId = vehicle.routeId.replace(/^gtt-/, '');
     const variants = getGtfsRoutesForRouteId(routeId);
     const lineVariants = variants.length > 0 ? variants : getGtfsRoutesForLine(vehicle.line);
@@ -261,6 +263,15 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
   });
 
   return [...byRoute.values()];
+}
+
+function displayRoutePath(route: GtfsRouteVariant, highlighted: boolean, zoom: number) {
+  if (highlighted || zoom >= 15.5 || route.path.length <= 180) return route.path.map(toLeafletPoint);
+
+  const step = zoom < 12.8 ? 12 : zoom < 14.2 ? 8 : 4;
+  return route.path
+    .filter((_, index) => index === 0 || index === route.path.length - 1 || index % step === 0)
+    .map(toLeafletPoint);
 }
 
 function StopPopup({ stop, routeIds, stopSequencesByRoute }: { stop: GtfsStop; routeIds: string[]; stopSequencesByRoute: Record<string, number[]> }) {
@@ -370,7 +381,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         {highlightedRoutes.map((route) => (
           <Polyline
             key={route.id}
-            positions={route.path.map(toLeafletPoint)}
+            positions={displayRoutePath(route, routeIsHighlighted(route), zoom)}
             pathOptions={{
               color: route.color || getLineColor(route.line),
               weight: routeIsHighlighted(route) ? 8 : 5,

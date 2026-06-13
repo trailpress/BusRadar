@@ -2,7 +2,7 @@ import { ArrowLeft, Clock3, MapPinned, Route as RouteIcon, Star, Timer, TramFron
 import { useState } from 'react';
 import { BusMap } from '../components/BusMap';
 import { LineBadge } from '../components/LineBadge';
-import { getGtfsRoutesForLine, getGtfsStopsForRoute } from '../data/gtfsNetwork';
+import { getGtfsRoutesForLine, getGtfsStopsForRoute, gtfsNetwork } from '../data/gtfsNetwork';
 import type { LatLng, TransitLine, Vehicle } from '../types';
 import { notify } from '../utils/notify';
 
@@ -17,7 +17,10 @@ type Props = {
 export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelectVehicle }: Props) {
   const [tab, setTab] = useState<'details' | 'route' | 'stops'>('route');
   const routeVariants = getGtfsRoutesForLine(line.id);
-  const lineStops = routeVariants.flatMap(getGtfsStopsForRoute).filter((stop, index, list) => list.findIndex((item) => item.id === stop.id) === index);
+  const routeStops = routeVariants.flatMap(getGtfsStopsForRoute);
+  const fallbackStops = gtfsNetwork.stops.filter((stop) => stop.lines.includes(line.id));
+  const lineStops = (routeStops.length > 0 ? routeStops : fallbackStops)
+    .filter((stop, index, list) => list.findIndex((item) => item.id === stop.id) === index);
 
   return (
     <main className="screen line-detail">
