@@ -59,6 +59,14 @@ export type GttStopArrival = {
   delaySeconds?: number;
 };
 
+type StopTimeIndex = {
+  trips: Record<string, {
+    routeId: string;
+    line: string;
+    stops: Array<[number, string]>;
+  }>;
+};
+
 export const GTT_REALTIME_API_BASE =
   import.meta.env.VITE_REALTIME_API_BASE ?? 'https://mtuwzlbxhmpnqpaahity.supabase.co/functions/v1/gtt-realtime';
 
@@ -66,6 +74,10 @@ const tramRoutes = new Set(['3', '4', '9', '10', '13', '15', '16']);
 
 function normalizeRouteName(routeId: string) {
   return routeId.replace(/U$/, '');
+}
+
+function normalizeVehicleId(vehicleId: string | null) {
+  return vehicleId?.replace(/U$/, '') ?? '';
 }
 
 function vehicleTypeForRoute(routeId: string): Vehicle['vehicleType'] {
@@ -89,6 +101,7 @@ function vehicleLengthClass(vehicleId: string | null, vehicleType: Vehicle['vehi
 
 let tripUpdatesCache: { at: number; updates: GttTripUpdate[] } | undefined;
 let rawVehiclesCache: { at: number; vehicles: GttVehiclePosition[] } | undefined;
+let stopTimeIndexCache: Promise<StopTimeIndex | undefined> | undefined;
 
 async function fetchRawVehicles() {
   if (rawVehiclesCache && Date.now() - rawVehiclesCache.at < 15000) return rawVehiclesCache.vehicles;
@@ -114,12 +127,19 @@ async function fetchTripUpdates() {
   return updates;
 }
 
+function fetchStopTimeIndex() {
+  stopTimeIndexCache ??= fetch(`${import.meta.env.BASE_URL}assets/gtfs-stop-times.json`)
+    .then((response) => (response.ok ? response.json() as Promise<StopTimeIndex> : undefined))
+    .catch(() => undefined);
+  return stopTimeIndexCache;
+}
+
 export async function fetchGttStopArrivals(
   stopId: string,
   allowedRouteIds: string[] = [],
   stopSequencesByRoute: Record<string, number[]> = {},
 ): Promise<GttStopArrival[]> {
-  const [updates, rawVehicles] = await Promise.all([fetchTripUpdates(), fetchRawVehicles()]);
+  const [updates, rawVehicles, stopTimeIndex] = await Promise.all([fetchTripUpdates(), fetchRawVehicles(), fetchStopTimeIndex()]);
   const now = Date.now();
   const allowed = new Set(allowedRouteIds.flatMap((routeId) => [routeId, normalizeRouteName(routeId)]));
   const routeByVehicle = new Map(rawVehicles.map((vehicle) => [vehicle.vehicleId, vehicle.routeId]).filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1])));
@@ -127,15 +147,22 @@ export async function fetchGttStopArrivals(
   return updates
     .flatMap((trip) => {
       const routeId = trip.routeId || routeByVehicle.get(trip.vehicleId ?? '') || '';
-      const normalizedRouteId = normalizeRouteName(routeId);
+      const staticTrip = trip.tripId ? stopTimeIndex?.trips[trip.tripId] : undefined;
+      const resolvedRouteId = routeId || staticTrip?.routeId || '';
+      const normalizedRouteId = normalizeRouteName(staticTrip?.line || resolvedRouteId);
       const sequenceSet = new Set([
-        ...(stopSequencesByRoute[routeId] ?? []),
+        ...(stopSequencesByRoute[resolvedRouteId] ?? []),
         ...(stopSequencesByRoute[normalizedRouteId] ?? []),
         ...(stopSequencesByRoute[`${normalizedRouteId}U`] ?? []),
       ]);
 
       return trip.stopTimeUpdates
-        .filter((stopUpdate) => stopUpdate.stopId === stopId || (routeId && stopUpdate.stopSequence != null && sequenceSet.has(stopUpdate.stopSequence)))
+        .filter((stopUpdate) => {
+          if (stopUpdate.stopId === stopId) return true;
+          if (stopUpdate.stopSequence == null) return false;
+          const staticStopId = staticTrip?.stops.find(([sequence]) => sequence === stopUpdate.stopSequence)?.[1];
+          return staticStopId === stopId || (resolvedRouteId && sequenceSet.has(stopUpdate.stopSequence));
+        })
         .filter((stopUpdate) => Number(stopUpdate.arrivalTime ?? stopUpdate.departureTime ?? 0) > 0)
         .map((stopUpdate) => {
           const seconds = Number(stopUpdate.arrivalTime ?? stopUpdate.departureTime ?? 0);
@@ -143,10 +170,10 @@ export async function fetchGttStopArrivals(
           const delaySeconds = stopUpdate.arrivalDelay ?? stopUpdate.departureDelay ?? undefined;
 
           return {
-            routeId,
+            routeId: resolvedRouteId,
             line: normalizedRouteId,
             tripId: trip.tripId ?? '-',
-            vehicleId: trip.vehicleId ?? undefined,
+            vehicleId: normalizeVehicleId(trip.vehicleId) || undefined,
             timeLabel: new Date(time).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
             minutes: Math.max(0, Math.round((time - now) / 60000)),
             delaySeconds,
@@ -187,9 +214,10 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const speed = speedKmh(vehicle.speed);
   const gtfsLine = getGtfsLine(line);
   const vehicleType = vehicleTypeForRoute(routeId);
+  const vehicleId = normalizeVehicleId(vehicle.vehicleId);
 
   return {
-    vehicleId: vehicle.vehicleId || `GTT-${index}`,
+    vehicleId,
     routeId: `gtt-${routeId}`,
     routeShortName: line,
     vehicleType,
@@ -223,7 +251,7 @@ export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | 
   const payload = (await response.json()) as GttVehiclesResponse;
   if (payload.status !== 'ok' || !Array.isArray(payload.vehicles)) return undefined;
 
-  const vehicles = payload.vehicles.filter(isValidTorinoCoordinate).map(toVehicle);
+  const vehicles = payload.vehicles.filter((vehicle) => vehicle.vehicleId).filter(isValidTorinoCoordinate).map(toVehicle);
   if (vehicles.length === 0) return undefined;
 
   return {

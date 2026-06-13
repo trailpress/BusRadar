@@ -133,9 +133,23 @@ const stopById = new Map(
 );
 
 const stopTimesByTrip = new Map();
+const tripStopIndex = {};
 for (const stopTime of stopTimes) {
   const trip = tripsById.get(stopTime.trip_id);
   if (!trip) continue;
+  const route = routeById.get(trip.route_id);
+  const shortName = cleanLineName(route?.route_short_name ?? '', trip.route_id);
+  const stop = stopById.get(stopTime.stop_id);
+  if (stop && !stop.lines.includes(shortName)) stop.lines.push(shortName);
+
+  const tripIndex = tripStopIndex[stopTime.trip_id] ?? {
+    routeId: trip.route_id,
+    line: shortName,
+    stops: [],
+  };
+  tripIndex.stops.push([Number(stopTime.stop_sequence), stopTime.stop_id]);
+  tripStopIndex[stopTime.trip_id] = tripIndex;
+
   const selected = selectedTrips.some((item) => item.trip_id === stopTime.trip_id);
   if (!selected) continue;
   const bucket = stopTimesByTrip.get(stopTime.trip_id) ?? [];
@@ -175,10 +189,11 @@ const networkRoutes = selectedTrips
   })
   .filter((route) => route.path.length > 1);
 
-const usedStops = new Set(networkRoutes.flatMap((route) => route.stops));
-const networkStops = [...usedStops]
-  .map((stopId) => stopById.get(stopId))
-  .filter(Boolean)
+for (const trip of Object.values(tripStopIndex)) {
+  trip.stops.sort((a, b) => a[0] - b[0]);
+}
+
+const networkStops = [...stopById.values()]
   .filter((stop) => Number.isFinite(stop.lat) && Number.isFinite(stop.lon))
   .sort((a, b) => Number(a.code) - Number(b.code));
 
@@ -218,6 +233,16 @@ const outFile = path.join(process.cwd(), 'src/data/gtfsNetwork.generated.ts');
 fs.writeFileSync(
   outFile,
   `// Generated from GTT GTFS static. Do not edit by hand.\nimport type { GtfsNetwork } from './gtfsNetwork';\n\nexport const gtfsNetwork = ${JSON.stringify(payload)} as const satisfies GtfsNetwork;\n`,
+);
+
+fs.mkdirSync(path.join(process.cwd(), 'public/assets'), { recursive: true });
+fs.writeFileSync(
+  path.join(process.cwd(), 'public/assets/gtfs-stop-times.json'),
+  JSON.stringify({
+    generatedAt: payload.generatedAt,
+    source: 'GTT GTFS static stop_times.txt',
+    trips: tripStopIndex,
+  }),
 );
 
 console.log(`Generated ${networkLines.length} lines, ${networkRoutes.length} route variants, ${networkStops.length} stops`);

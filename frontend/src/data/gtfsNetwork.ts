@@ -61,7 +61,7 @@ export function getGtfsRoutesForLine(lineId?: string) {
 
 export function getGtfsRoutesForRouteId(routeId?: string) {
   if (!routeId) return [];
-  return routesByRouteId.get(routeId) ?? [];
+  return routesByRouteId.get(routeId) ?? routesByRouteId.get(`${routeId}U`) ?? routesByLine.get(routeId.replace(/U$/, '')) ?? [];
 }
 
 export function getGtfsStopsForRoute(route: GtfsRouteVariant) {

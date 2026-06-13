@@ -1,7 +1,7 @@
 import { ArrowLeft, BusFront, Crosshair, Info, Navigation, TrainFront } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useMemo, useState } from 'react';
-import { userPosition } from '../data/demoData';
+import type { LatLng } from '../types';
 import type { Vehicle } from '../types';
 import { bearingDegrees, distanceMeters } from '../utils/geo';
 import { formatDistance } from '../utils/format';
@@ -17,19 +17,20 @@ const radiusOptions = [
 
 type Props = {
   vehicles: Vehicle[];
+  userLocation: LatLng;
   onSelectVehicle: (vehicle: Vehicle) => void;
   onBack: () => void;
 };
 
-export function RadarScreen({ vehicles, onSelectVehicle, onBack }: Props) {
+export function RadarScreen({ vehicles, userLocation, onSelectVehicle, onBack }: Props) {
   const [radius, setRadius] = useState(1000);
   const matches = useMemo(
     () =>
       vehicles
-        .map((vehicle) => ({ vehicle, distance: distanceMeters(userPosition, vehicle) }))
+        .map((vehicle) => ({ vehicle, distance: distanceMeters(userLocation, vehicle) }))
         .filter((item) => item.distance <= radius)
         .sort((a, b) => a.distance - b.distance),
-    [vehicles, radius],
+    [vehicles, userLocation, radius],
   );
 
   return (
@@ -57,7 +58,7 @@ export function RadarScreen({ vehicles, onSelectVehicle, onBack }: Props) {
             <Crosshair size={18} />
           </div>
           {matches.slice(0, 10).map(({ vehicle, distance }) => {
-            const angle = bearingDegrees(userPosition, vehicle);
+            const angle = bearingDegrees(userLocation, vehicle);
             const normalized = Math.min(distance / radius, 1);
             const distancePx = 26 + normalized * 104;
             return (

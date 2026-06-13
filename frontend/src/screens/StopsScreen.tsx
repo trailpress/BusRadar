@@ -15,8 +15,7 @@ export function StopsScreen({ onSelectStop }: Props) {
   const stops = useMemo(
     () =>
       gtfsNetwork.stops
-        .filter((stop) => !normalized || stop.name.toLowerCase().includes(normalized) || stop.code.includes(normalized))
-        .slice(0, normalized ? 250 : 120),
+        .filter((stop) => !normalized || stop.name.toLowerCase().includes(normalized) || stop.code.includes(normalized)),
     [normalized],
   );
 

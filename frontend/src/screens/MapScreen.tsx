@@ -10,6 +10,7 @@ type Props = {
   selectedVehicle?: Vehicle;
   followedVehicleId?: string;
   focusPoint?: LatLng;
+  userLocation: LatLng;
   showRouteForLine?: string;
   search: string;
   onSearch: (value: string) => void;
@@ -26,6 +27,7 @@ export function MapScreen({
   selectedVehicle,
   followedVehicleId,
   focusPoint,
+  userLocation,
   showRouteForLine,
   search,
   onSearch,
@@ -43,6 +45,7 @@ export function MapScreen({
         selectedVehicleId={selectedVehicle?.vehicleId}
         followedVehicleId={followedVehicleId}
         focusPoint={focusPoint}
+        userLocation={userLocation}
         showRouteForLine={showRouteForLine}
         onSelectVehicle={onSelectVehicle}
       />

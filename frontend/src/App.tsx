@@ -22,7 +22,18 @@ function App() {
   const [showRouteForLine, setShowRouteForLine] = useState<string>();
   const [followedVehicleId, setFollowedVehicleId] = useState<string>();
   const [mapFocus, setMapFocus] = useState<LatLng>();
+  const [userLocation, setUserLocation] = useState<LatLng>({ lat: 45.0706, lon: 7.6867 });
   const [toast, setToast] = useState<string>();
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    const id = navigator.geolocation.watchPosition(
+      (position) => setUserLocation({ lat: position.coords.latitude, lon: position.coords.longitude }),
+      () => undefined,
+      { enableHighAccuracy: true, maximumAge: 30000, timeout: 12000 },
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,7 +125,7 @@ function App() {
   if (selectedLine) {
     return (
       <div className="app-shell">
-        <LineDetailScreen line={selectedLine} vehicles={vehicles} onBack={() => setSelectedLine(undefined)} onSelectVehicle={openVehicle} />
+        <LineDetailScreen line={selectedLine} vehicles={vehicles} userLocation={userLocation} onBack={() => setSelectedLine(undefined)} onSelectVehicle={openVehicle} />
         {toast && <div className="toast">{toast}</div>}
         <BottomNav active="lines" onChange={handleTabChange} />
       </div>
@@ -130,6 +141,7 @@ function App() {
           selectedVehicle={selectedVehicle}
           followedVehicleId={followedVehicleId}
           focusPoint={mapFocus}
+          userLocation={userLocation}
           showRouteForLine={showRouteForLine}
           search={search}
           onSearch={setSearch}
@@ -157,7 +169,7 @@ function App() {
       {activeTab === 'lines' && <LinesScreen vehicles={vehicles} onSelectLine={openLine} />}
       {activeTab === 'stops' && <StopsScreen onSelectStop={openStop} />}
       {activeTab === 'vehicles' && <VehiclesScreen vehicles={vehicles} onSelectVehicle={openVehicle} />}
-      {activeTab === 'more' && <RadarScreen vehicles={vehicles} onSelectVehicle={trackVehicleFromRadar} onBack={() => setActiveTab('map')} />}
+      {activeTab === 'more' && <RadarScreen vehicles={vehicles} userLocation={userLocation} onSelectVehicle={trackVehicleFromRadar} onBack={() => setActiveTab('map')} />}
       {toast && <div className="toast">{toast}</div>}
       <BottomNav active={activeTab} onChange={handleTabChange} />
     </div>

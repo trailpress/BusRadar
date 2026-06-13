@@ -1,8 +1,7 @@
 import L from 'leaflet';
 import { LocateFixed } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
-import { userPosition } from '../data/demoData';
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import { getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
 import { fetchGttStopArrivals, type GttStopArrival } from '../services/gttRealtime';
 import type { LatLng, Vehicle } from '../types';
@@ -17,6 +16,7 @@ type Props = {
   selectedVehicleId?: string;
   followedVehicleId?: string;
   focusPoint?: LatLng;
+  userLocation: LatLng;
   showRouteForLine?: string;
   onSelectVehicle: (vehicle: Vehicle) => void;
 };
@@ -28,14 +28,24 @@ const tileLayer = {
 
 const vehicleAssetBase = import.meta.env.BASE_URL;
 
-function createBusIcon(vehicle: Vehicle, selected: boolean) {
+function createBusIcon(vehicle: Vehicle, selected: boolean, zoom: number) {
   const color = getLineColor(vehicle.line);
   const isArticulated = vehicle.vehicleLengthClass === 'articulated-18m';
-  const iconSize: [number, number] = [42, 38];
+  const useSprite = zoom >= 17;
+  const asset = vehicle.vehicleType === 'tram'
+    ? `${vehicleAssetBase}assets/vehicles/tram-top.png`
+    : `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'bus-articulated-top.png' : 'bus-top.png'}`;
+  const iconSize: [number, number] = useSprite
+    ? vehicle.vehicleType === 'tram'
+      ? [72, 28]
+      : isArticulated
+        ? [78, 28]
+        : [54, 28]
+    : [42, 38];
   const iconAnchor: [number, number] = [iconSize[0] / 2, iconSize[1] / 2];
   return L.divIcon({
     className: 'vehicle-marker-shell',
-    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg" aria-label="${vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus'} linea ${vehicle.line}"><i></i><strong>${vehicle.line}</strong>${isArticulated ? '<em>18</em>' : ''}</button>`,
+    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${useSprite ? 'vehicle-marker--sprite' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg" aria-label="${vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus'} linea ${vehicle.line}">${useSprite ? `<img src="${asset}" alt="" />` : '<i></i>'}<strong>${vehicle.line}</strong>${isArticulated && !useSprite ? '<em>18</em>' : ''}</button>`,
     iconSize,
     iconAnchor,
   });
@@ -68,11 +78,11 @@ function updateVehicleMarkerElement(marker: L.Marker, vehicle: Vehicle, selected
   }
 }
 
-function RecenterButton() {
+function RecenterButton({ userLocation }: { userLocation: LatLng }) {
   const map = useMap();
   return (
     <div className="map-floating-controls">
-      <IconButton label="Centra posizione" onClick={() => map.flyTo([userPosition.lat, userPosition.lon], 13.5)}>
+      <IconButton label="Centra posizione" onClick={() => map.flyTo([userLocation.lat, userLocation.lon], 15)}>
         <LocateFixed size={20} />
       </IconButton>
     </div>
@@ -114,6 +124,18 @@ function FocusPoint({ point }: { point?: LatLng }) {
   return null;
 }
 
+function ZoomTracker({ onZoom }: { onZoom: (zoom: number) => void }) {
+  const map = useMapEvents({
+    zoomend: () => onZoom(map.getZoom()),
+  });
+
+  useEffect(() => {
+    onZoom(map.getZoom());
+  }, [map, onZoom]);
+
+  return null;
+}
+
 type VehicleMarkerEntry = {
   marker: L.Marker;
   from: L.LatLng;
@@ -126,11 +148,13 @@ function VehicleMarkers({
   vehicles,
   selectedVehicleId,
   followedVehicleId,
+  zoom,
   onSelectVehicle,
 }: {
   vehicles: Vehicle[];
   selectedVehicleId?: string;
   followedVehicleId?: string;
+  zoom: number;
   onSelectVehicle: (vehicle: Vehicle) => void;
 }) {
   const map = useMap();
@@ -158,7 +182,7 @@ function VehicleMarkers({
 
       if (!existing) {
         const marker = L.marker(nextLatLng, {
-          icon: createBusIcon(vehicle, selected),
+          icon: createBusIcon(vehicle, selected, zoom),
           zIndexOffset: selected ? 700 : 520,
           riseOnHover: true,
         }).addTo(map);
@@ -180,10 +204,11 @@ function VehicleMarkers({
       existing.startedAt = now;
       existing.vehicle = vehicle;
       existing.marker.setZIndexOffset(selected ? 700 : 520);
+      existing.marker.setIcon(createBusIcon(vehicle, selected, zoom));
       updateVehicleMarkerElement(existing.marker, vehicle, selected);
       existing.marker.setPopupContent(createVehiclePopup(vehicle));
     });
-  }, [vehicles, selectedVehicleId, followedVehicleId, map]);
+  }, [vehicles, selectedVehicleId, followedVehicleId, map, zoom]);
 
   useEffect(() => {
     let frameId = 0;
@@ -253,7 +278,7 @@ function StopPopup({ stop, routeIds, stopSequencesByRoute }: { stop: GtfsStop; r
       </div>
       <div className="arrival-list">
         {!arrivals && <small>Carico passaggi reali...</small>}
-        {arrivals?.length === 0 && <small>Feed realtime senza previsioni pubblicate per questa palina ora</small>}
+        {arrivals?.length === 0 && <small>Nessuna previsione GTFS-RT GTT pubblicata per questa palina ora</small>}
         {arrivals?.map((arrival) => (
           <div key={`${arrival.tripId}-${arrival.routeId}-${arrival.timeLabel}`}>
             <LineBadge line={arrival.line} size="sm" />
@@ -266,7 +291,8 @@ function StopPopup({ stop, routeIds, stopSequencesByRoute }: { stop: GtfsStop; r
   );
 }
 
-export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, showRouteForLine, onSelectVehicle }: Props) {
+export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, showRouteForLine, onSelectVehicle }: Props) {
+  const [zoom, setZoom] = useState(13);
   const visibleVehicles = useMemo(
     () => vehicles.filter((vehicle) => !selectedLine || vehicle.line === selectedLine),
     [vehicles, selectedLine],
@@ -340,16 +366,18 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
             </Marker>
           ))}
         <Marker
-          position={[userPosition.lat, userPosition.lon]}
+          position={[userLocation.lat, userLocation.lon]}
           icon={L.divIcon({ className: '', html: '<div class="user-marker"></div>', iconSize: [24, 24], iconAnchor: [12, 12] })}
         />
         <VehicleMarkers
           vehicles={visibleVehicles}
           selectedVehicleId={selectedVehicleId}
           followedVehicleId={followedVehicleId}
+          zoom={zoom}
           onSelectVehicle={onSelectVehicle}
         />
-        <RecenterButton />
+        <ZoomTracker onZoom={setZoom} />
+        <RecenterButton userLocation={userLocation} />
         <FitRoute line={showRouteForLine} />
         <FollowVehicle vehicle={followedVehicle} />
         <FocusPoint point={focusPoint} />

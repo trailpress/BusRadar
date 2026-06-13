@@ -3,17 +3,18 @@ import { useState } from 'react';
 import { BusMap } from '../components/BusMap';
 import { LineBadge } from '../components/LineBadge';
 import { getGtfsRoutesForLine, getGtfsStopsForRoute } from '../data/gtfsNetwork';
-import type { TransitLine, Vehicle } from '../types';
+import type { LatLng, TransitLine, Vehicle } from '../types';
 import { notify } from '../utils/notify';
 
 type Props = {
   line: TransitLine;
   vehicles: Vehicle[];
+  userLocation: LatLng;
   onBack: () => void;
   onSelectVehicle: (vehicle: Vehicle) => void;
 };
 
-export function LineDetailScreen({ line, vehicles, onBack, onSelectVehicle }: Props) {
+export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelectVehicle }: Props) {
   const [tab, setTab] = useState<'details' | 'route' | 'stops'>('route');
   const routeVariants = getGtfsRoutesForLine(line.id);
   const lineStops = routeVariants.flatMap(getGtfsStopsForRoute).filter((stop, index, list) => list.findIndex((item) => item.id === stop.id) === index);
@@ -37,7 +38,7 @@ export function LineDetailScreen({ line, vehicles, onBack, onSelectVehicle }: Pr
       </div>
 
       <section className="line-map-panel">
-        <BusMap vehicles={vehicles} selectedLine={line.id} showRouteForLine={line.id} onSelectVehicle={onSelectVehicle} />
+        <BusMap vehicles={vehicles} selectedLine={line.id} showRouteForLine={line.id} userLocation={userLocation} onSelectVehicle={onSelectVehicle} />
       </section>
 
       {tab === 'route' && (
@@ -49,7 +50,7 @@ export function LineDetailScreen({ line, vehicles, onBack, onSelectVehicle }: Pr
       {tab === 'stops' && (
         <section className="list-section">
           <h2>Fermate</h2>
-          {lineStops.slice(0, 180).map((stop) => (
+          {lineStops.map((stop) => (
             <div className="stop-row" key={stop.id}>
               <MapPinned size={17} />
               <div>
