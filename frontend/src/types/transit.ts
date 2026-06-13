@@ -1,5 +1,6 @@
 export type VehicleType = 'bus' | 'tram';
 export type VehicleLengthClass = 'standard' | 'articulated-18m';
+export type VehicleLivery = 'urban' | 'interurban-blue';
 export type VehicleSource = 'simulation' | 'gtfs-rt';
 export type VehicleStatus = 'moving' | 'stopped' | 'unknown';
 
@@ -14,6 +15,7 @@ export type TransitVehicle = {
   routeShortName: string;
   vehicleType: VehicleType;
   vehicleLengthClass?: VehicleLengthClass;
+  vehicleLivery?: VehicleLivery;
   lat: number;
   lon: number;
   bearing: number;

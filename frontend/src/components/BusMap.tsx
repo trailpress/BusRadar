@@ -31,22 +31,25 @@ const vehicleAssetBase = import.meta.env.BASE_URL;
 function createBusIcon(vehicle: Vehicle, selected: boolean, zoom: number) {
   const color = getLineColor(vehicle.line);
   const isArticulated = vehicle.vehicleLengthClass === 'articulated-18m';
+  const isInterurbanBlue = vehicle.vehicleLivery === 'interurban-blue';
   const useSprite = zoom >= 17;
   const spriteBearing = vehicle.bearing - 90;
   const asset = vehicle.vehicleType === 'tram'
     ? `${vehicleAssetBase}assets/vehicles/tram-top.png`
-    : `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'bus-articulated-top.png' : 'bus-top.png'}`;
+    : isInterurbanBlue
+      ? `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'interurban-blue-articulated-top.png' : 'interurban-blue-bus-top.png'}`
+      : `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'bus-articulated-top.png' : 'bus-top.png'}`;
   const iconSize: [number, number] = useSprite
     ? vehicle.vehicleType === 'tram'
       ? [72, 28]
       : isArticulated
-        ? [78, 28]
-        : [54, 28]
+        ? [92, isInterurbanBlue ? 18 : 28]
+        : [isInterurbanBlue ? 70 : 54, isInterurbanBlue ? 20 : 28]
     : [42, 38];
   const iconAnchor: [number, number] = [iconSize[0] / 2, iconSize[1] / 2];
   return L.divIcon({
     className: 'vehicle-marker-shell',
-    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${useSprite ? 'vehicle-marker--sprite' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--sprite-bearing:${spriteBearing}deg" aria-label="${vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus'} linea ${vehicle.line}">${useSprite ? `<img src="${asset}" alt="" />` : '<i></i>'}<strong>${vehicle.line}</strong>${isArticulated && !useSprite ? '<em>18</em>' : ''}<span class="vehicle-tooltip"><b>Vettura ${vehicle.vehicleId}</b><small>${vehicle.direction || 'Direzione non disponibile'}</small></span></button>`,
+    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${isInterurbanBlue ? 'vehicle-marker--interurban' : ''} ${useSprite ? 'vehicle-marker--sprite' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--sprite-bearing:${spriteBearing}deg" aria-label="${vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus'} linea ${vehicle.line}">${useSprite ? `<img src="${asset}" alt="" />` : '<i></i>'}<strong>${vehicle.line}</strong>${isArticulated && !useSprite ? '<em>18</em>' : ''}<span class="vehicle-tooltip"><b>Vettura ${vehicle.vehicleId}</b><small>${vehicle.direction || 'Direzione non disponibile'}</small></span></button>`,
     iconSize,
     iconAnchor,
   });
@@ -70,6 +73,7 @@ function updateVehicleMarkerElement(marker: L.Marker, vehicle: Vehicle, selected
 
   element.classList.toggle('is-selected', selected);
   element.classList.toggle('vehicle-marker--articulated', vehicle.vehicleLengthClass === 'articulated-18m');
+  element.classList.toggle('vehicle-marker--interurban', vehicle.vehicleLivery === 'interurban-blue');
   element.style.setProperty('--bearing', `${vehicle.bearing}deg`);
   element.style.setProperty('--sprite-bearing', `${vehicle.bearing - 90}deg`);
   element.querySelector('strong')?.replaceChildren(document.createTextNode(vehicle.line));

@@ -110,6 +110,11 @@ function vehicleLengthClass(vehicleId: string | null, vehicleType: Vehicle['vehi
   return (number >= 800 && number < 900) || number >= 1300 ? 'articulated-18m' : 'standard';
 }
 
+function vehicleLiveryForRoute(routeId: string, line: string): Vehicle['vehicleLivery'] {
+  const routeNumber = Number(normalizeRouteName(routeId).replace(/\D/g, '') || line.replace(/\D/g, ''));
+  return routeNumber >= 1000 ? 'interurban-blue' : 'urban';
+}
+
 let tripUpdatesCache: { at: number; updates: GttTripUpdate[] } | undefined;
 let rawVehiclesCache: { at: number; vehicles: GttVehiclePosition[] } | undefined;
 let stopTimeIndexCache: Promise<StopTimeIndex | undefined> | undefined;
@@ -291,6 +296,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const line = normalizeRouteName(routeId);
   const gtfsLine = getGtfsLine(line);
   const vehicleType = vehicleTypeForRoute(routeId);
+  const vehicleLivery = vehicleLiveryForRoute(routeId, line);
   const vehicleId = normalizeVehicleId(vehicle.vehicleId) || normalizeVehicleId(vehicle.vehicleLabel ?? null);
   const vehicleIdSource: Vehicle['vehicleIdSource'] = normalizeVehicleId(vehicle.vehicleId) ? 'vehicle.id' : 'vehicle.label';
   const { speed, source: speedSource } = observedSpeed(vehicleId || String(index), vehicle);
@@ -306,6 +312,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     routeId: `gtt-${routeId}`,
     routeShortName: line,
     vehicleType,
+    vehicleLivery,
     vehicleLengthClass: vehicleLengthClass(vehicle.vehicleId, vehicleType),
     lat: vehicle.lat ?? 0,
     lon: vehicle.lon ?? 0,

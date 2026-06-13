@@ -14,8 +14,13 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
   const vehicleKind = vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus';
   const speedSource = vehicle.speedSource === 'feed' ? 'Feed realtime' : vehicle.speedSource === 'observed' ? 'Calcolata da GPS' : 'Non disponibile';
   const rawVehicleLabel = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? vehicle.realtimeVehicleLabel : undefined;
+  const isInterurbanBlue = vehicle.vehicleLivery === 'interurban-blue';
   const vehicleAsset = `${import.meta.env.BASE_URL}assets/vehicles/${
-    vehicle.vehicleType === 'tram' ? 'tram-top.png' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'bus-articulated-top.png' : 'bus-top.png'
+    vehicle.vehicleType === 'tram'
+      ? 'tram-top.png'
+      : isInterurbanBlue
+        ? vehicle.vehicleLengthClass === 'articulated-18m' ? 'interurban-blue-articulated-top.png' : 'interurban-blue-bus-top.png'
+        : vehicle.vehicleLengthClass === 'articulated-18m' ? 'bus-articulated-top.png' : 'bus-top.png'
   }`;
 
   return (
@@ -33,7 +38,7 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         <LineBadge line={vehicle.line} size="lg" />
         <div>
           <strong>{vehicle.vehicleId}</strong>
-          <span>{vehicleKind} · {vehicle.source === 'gtfs-rt' ? 'GTFS-RT reale' : 'dato non realtime'}</span>
+          <span>{vehicleKind}{isInterurbanBlue ? ' suburbano blu' : ''} · {vehicle.source === 'gtfs-rt' ? 'GTFS-RT reale' : 'dato non realtime'}</span>
         </div>
       </div>
       <div className="direction-block">
