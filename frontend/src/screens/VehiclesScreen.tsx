@@ -28,7 +28,9 @@ export function VehiclesScreen({ vehicles, onSelectVehicle }: Props) {
   const vehicleKind = (vehicle: Vehicle) => (
     vehicle.vehicleType === 'tram'
       ? 'Tram'
-      : `${vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus'}${vehicle.vehicleLivery === 'interurban-blue' ? ' suburbano blu' : ''}`
+      : `${vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus'}${
+        vehicle.vehicleLivery === 'interurban-blue' ? ' suburbano blu' : vehicle.vehicleLivery === 'electric-compact' ? ' elettrico compatto' : ''
+      }`
   );
 
   return (

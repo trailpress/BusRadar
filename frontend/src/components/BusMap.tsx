@@ -32,24 +32,29 @@ function createBusIcon(vehicle: Vehicle, selected: boolean, zoom: number) {
   const color = getLineColor(vehicle.line);
   const isArticulated = vehicle.vehicleLengthClass === 'articulated-18m';
   const isInterurbanBlue = vehicle.vehicleLivery === 'interurban-blue';
-  const useSprite = zoom >= 17;
+  const isElectricCompact = vehicle.vehicleLivery === 'electric-compact';
+  const useSprite = zoom >= 17.25;
   const spriteBearing = vehicle.bearing - 90;
   const asset = vehicle.vehicleType === 'tram'
     ? `${vehicleAssetBase}assets/vehicles/tram-top.png`
+    : isElectricCompact
+      ? `${vehicleAssetBase}assets/vehicles/bus-electric-compact-top.png`
     : isInterurbanBlue
       ? `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'interurban-blue-articulated-top.png' : 'interurban-blue-bus-top.png'}`
       : `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'bus-articulated-top.png' : 'bus-top.png'}`;
   const iconSize: [number, number] = useSprite
     ? vehicle.vehicleType === 'tram'
       ? [72, 28]
+      : isElectricCompact
+        ? [50, 16]
       : isArticulated
-        ? [92, isInterurbanBlue ? 18 : 28]
-        : [isInterurbanBlue ? 70 : 54, isInterurbanBlue ? 20 : 28]
+        ? [92, isInterurbanBlue ? 18 : 22]
+        : [isInterurbanBlue ? 70 : 58, isInterurbanBlue ? 20 : 18]
     : [42, 38];
   const iconAnchor: [number, number] = [iconSize[0] / 2, iconSize[1] / 2];
   return L.divIcon({
     className: 'vehicle-marker-shell',
-    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${isInterurbanBlue ? 'vehicle-marker--interurban' : ''} ${useSprite ? 'vehicle-marker--sprite' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--sprite-bearing:${spriteBearing}deg" aria-label="${vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus'} linea ${vehicle.line}">${useSprite ? `<img src="${asset}" alt="" />` : '<i></i>'}<strong>${vehicle.line}</strong>${isArticulated && !useSprite ? '<em>18</em>' : ''}<span class="vehicle-tooltip"><b>Vettura ${vehicle.vehicleId}</b><small>${vehicle.direction || 'Direzione non disponibile'}</small></span></button>`,
+    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${isInterurbanBlue ? 'vehicle-marker--interurban' : ''} ${isElectricCompact ? 'vehicle-marker--electric' : ''} ${useSprite ? 'vehicle-marker--sprite' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--sprite-bearing:${spriteBearing}deg" aria-label="${vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus'} linea ${vehicle.line}">${useSprite ? `<img src="${asset}" alt="" />` : '<i></i>'}<strong>${vehicle.line}</strong>${isArticulated && !useSprite ? '<em>18</em>' : ''}<span class="vehicle-tooltip"><b>Vettura ${vehicle.vehicleId}</b><small>${vehicle.direction || 'Direzione non disponibile'}</small></span></button>`,
     iconSize,
     iconAnchor,
   });
@@ -74,6 +79,7 @@ function updateVehicleMarkerElement(marker: L.Marker, vehicle: Vehicle, selected
   element.classList.toggle('is-selected', selected);
   element.classList.toggle('vehicle-marker--articulated', vehicle.vehicleLengthClass === 'articulated-18m');
   element.classList.toggle('vehicle-marker--interurban', vehicle.vehicleLivery === 'interurban-blue');
+  element.classList.toggle('vehicle-marker--electric', vehicle.vehicleLivery === 'electric-compact');
   element.style.setProperty('--bearing', `${vehicle.bearing}deg`);
   element.style.setProperty('--sprite-bearing', `${vehicle.bearing - 90}deg`);
   element.querySelector('strong')?.replaceChildren(document.createTextNode(vehicle.line));
@@ -306,7 +312,9 @@ function StopPopup({ stop, routeIds, stopSequencesByRoute }: { stop: GtfsStop; r
       </div>
       <div className="arrival-list">
         {!arrivals && <small>Carico passaggi reali...</small>}
-        {arrivals?.length === 0 && <small>Nessuna previsione GTFS-RT GTT pubblicata per questa palina ora</small>}
+        {arrivals?.length === 0 && (
+          <small>Il feed realtime GTT non pubblica passaggi per questa palina in questo momento.</small>
+        )}
         {arrivals?.map((arrival) => (
           <div key={`${arrival.tripId}-${arrival.routeId}-${arrival.timeLabel}`}>
             <LineBadge line={arrival.line} size="sm" />

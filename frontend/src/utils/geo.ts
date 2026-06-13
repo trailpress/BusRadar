@@ -87,6 +87,7 @@ export function routeProgressAtPoint(path: LatLng[], point: LatLng) {
         traveledMeters: number;
         remainingMeters: number;
         bearing: number;
+        projectedPoint: LatLng;
       }
     | undefined;
 
@@ -117,6 +118,7 @@ export function routeProgressAtPoint(path: LatLng[], point: LatLng) {
       traveledMeters,
       remainingMeters: Math.max(0, totalMeters - traveledMeters),
       bearing: bearingDegrees(start, end),
+      projectedPoint: projected,
     };
 
     if (!best || candidate.distanceMeters < best.distanceMeters) best = candidate;

@@ -15,9 +15,12 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
   const speedSource = vehicle.speedSource === 'feed' ? 'Feed realtime' : vehicle.speedSource === 'observed' ? 'Calcolata da GPS' : 'Non disponibile';
   const rawVehicleLabel = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? vehicle.realtimeVehicleLabel : undefined;
   const isInterurbanBlue = vehicle.vehicleLivery === 'interurban-blue';
+  const isElectricCompact = vehicle.vehicleLivery === 'electric-compact';
   const vehicleAsset = `${import.meta.env.BASE_URL}assets/vehicles/${
     vehicle.vehicleType === 'tram'
       ? 'tram-top.png'
+      : isElectricCompact
+        ? 'bus-electric-compact-top.png'
       : isInterurbanBlue
         ? vehicle.vehicleLengthClass === 'articulated-18m' ? 'interurban-blue-articulated-top.png' : 'interurban-blue-bus-top.png'
         : vehicle.vehicleLengthClass === 'articulated-18m' ? 'bus-articulated-top.png' : 'bus-top.png'
@@ -38,7 +41,7 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         <LineBadge line={vehicle.line} size="lg" />
         <div>
           <strong>{vehicle.vehicleId}</strong>
-          <span>{vehicleKind}{isInterurbanBlue ? ' suburbano blu' : ''} · {vehicle.source === 'gtfs-rt' ? 'GTFS-RT reale' : 'dato non realtime'}</span>
+          <span>{vehicleKind}{isInterurbanBlue ? ' suburbano blu' : isElectricCompact ? ' elettrico compatto' : ''} · {vehicle.source === 'gtfs-rt' ? 'GTFS-RT reale' : 'dato non realtime'}</span>
         </div>
       </div>
       <div className="direction-block">

@@ -110,7 +110,10 @@ function vehicleLengthClass(vehicleId: string | null, vehicleType: Vehicle['vehi
   return (number >= 800 && number < 900) || number >= 1300 ? 'articulated-18m' : 'standard';
 }
 
-function vehicleLiveryForRoute(routeId: string, line: string): Vehicle['vehicleLivery'] {
+function vehicleLiveryForVehicle(routeId: string, line: string, vehicleId: string | null): Vehicle['vehicleLivery'] {
+  const number = vehicleNumber(vehicleId);
+  if (number && number >= 50 && number <= 81) return 'electric-compact';
+
   const routeNumber = Number(normalizeRouteName(routeId).replace(/\D/g, '') || line.replace(/\D/g, ''));
   return routeNumber >= 1000 ? 'interurban-blue' : 'urban';
 }
@@ -277,6 +280,8 @@ function terminalEstimate(routeId: string, line: string, point: { lat: number; l
     etaTerminalTimeLabel: etaTime,
     remainingKm: Math.round((best.progress.remainingMeters / 1000) * 10) / 10,
     bearing: best.progress.bearing,
+    snappedPoint: best.progress.projectedPoint,
+    offRouteMeters: Math.round(best.progress.distanceMeters),
   };
 }
 
@@ -296,11 +301,15 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const line = normalizeRouteName(routeId);
   const gtfsLine = getGtfsLine(line);
   const vehicleType = vehicleTypeForRoute(routeId);
-  const vehicleLivery = vehicleLiveryForRoute(routeId, line);
+  const vehicleLivery = vehicleLiveryForVehicle(routeId, line, vehicle.vehicleId);
   const vehicleId = normalizeVehicleId(vehicle.vehicleId) || normalizeVehicleId(vehicle.vehicleLabel ?? null);
   const vehicleIdSource: Vehicle['vehicleIdSource'] = normalizeVehicleId(vehicle.vehicleId) ? 'vehicle.id' : 'vehicle.label';
   const { speed, source: speedSource } = observedSpeed(vehicleId || String(index), vehicle);
-  const estimate = terminalEstimate(routeId, line, { lat: vehicle.lat ?? 0, lon: vehicle.lon ?? 0 }, speed);
+  const rawPoint = { lat: vehicle.lat ?? 0, lon: vehicle.lon ?? 0 };
+  const estimate = terminalEstimate(routeId, line, rawPoint, speed);
+  const snapLimitMeters = vehicleLivery === 'interurban-blue' ? 260 : 120;
+  const isSnappedToRoute = Boolean(estimate.snappedPoint && estimate.offRouteMeters != null && estimate.offRouteMeters <= snapLimitMeters);
+  const displayPoint = isSnappedToRoute ? estimate.snappedPoint! : rawPoint;
 
   return {
     vehicleId,
@@ -314,9 +323,9 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     vehicleType,
     vehicleLivery,
     vehicleLengthClass: vehicleLengthClass(vehicle.vehicleId, vehicleType),
-    lat: vehicle.lat ?? 0,
-    lon: vehicle.lon ?? 0,
-    bearing: vehicle.bearing && vehicle.bearing > 0 ? vehicle.bearing : estimate.bearing ?? 0,
+    lat: displayPoint.lat,
+    lon: displayPoint.lon,
+    bearing: isSnappedToRoute ? estimate.bearing ?? 0 : vehicle.bearing && vehicle.bearing > 0 ? vehicle.bearing : estimate.bearing ?? 0,
     speed,
     speedSource,
     updatedAt: formatTimestamp(vehicle.timestamp),
