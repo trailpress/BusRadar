@@ -1,8 +1,11 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
+import { promisify } from 'node:util';
 import GtfsRealtimeBindings from 'gtfs-realtime-bindings';
 
+const execFileAsync = promisify(execFile);
 const targetRouteShortNames = new Set(['3', '4', '8', '10', '11', '13', '15', '17', '18', '33', '35', '55', '56', '58', '61', '68']);
 
 const gtfsDir = process.env.GTFS_STATIC_DIR;
@@ -165,29 +168,38 @@ async function fetchRealtimeFeed({ kind, envName, url }) {
     return { kind, envName, status: 'skipped', reason: `${envName} is not set` };
   }
 
-  let response;
+  let body;
+  let fetchError;
   try {
-    response = await fetch(url, { headers: headersForFeed() });
+    const response = await fetch(url, { headers: headersForFeed() });
+    if (!response.ok) {
+      return {
+        kind,
+        envName,
+        status: 'http-error',
+        httpStatus: response.status,
+        httpStatusText: response.statusText,
+      };
+    }
+    body = new Uint8Array(await response.arrayBuffer());
   } catch (error) {
-    return {
-      kind,
-      envName,
-      status: 'network-error',
-      error: error instanceof Error ? error.message : String(error),
-    };
+    fetchError = error instanceof Error ? error.message : String(error);
+    try {
+      const { stdout } = await execFileAsync('curl', ['-L', '--silent', '--show-error', '--max-time', '15', url], {
+        encoding: 'buffer',
+        maxBuffer: 2 * 1024 * 1024,
+      });
+      body = new Uint8Array(stdout);
+    } catch (curlError) {
+      return {
+        kind,
+        envName,
+        status: 'network-error',
+        error: `fetch: ${fetchError}; curl: ${curlError instanceof Error ? curlError.message : String(curlError)}`,
+      };
+    }
   }
 
-  if (!response.ok) {
-    return {
-      kind,
-      envName,
-      status: 'http-error',
-      httpStatus: response.status,
-      httpStatusText: response.statusText,
-    };
-  }
-
-  const body = new Uint8Array(await response.arrayBuffer());
   if (body.byteLength === 0) {
     return { kind, envName, status: 'empty-feed', bytes: 0 };
   }
@@ -199,6 +211,7 @@ async function fetchRealtimeFeed({ kind, envName, url }) {
       kind,
       envName,
       status: 'ok',
+      transport: fetchError ? 'curl-fallback' : 'fetch',
       bytes: body.byteLength,
       header: {
         gtfsRealtimeVersion: message.header?.gtfsRealtimeVersion,

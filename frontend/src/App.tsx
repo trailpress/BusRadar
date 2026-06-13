@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import { lines } from './data/demoData';
+import { fetchGttRealtimeVehicles } from './services/gttRealtime';
 import { transitDataProvider } from './services/TransitDataProvider';
 import { LineDetailScreen } from './screens/LineDetailScreen';
 import { LinesScreen } from './screens/LinesScreen';
@@ -25,8 +26,28 @@ function App() {
   const [toast, setToast] = useState<string>();
 
   useEffect(() => {
-    const id = window.setInterval(() => setVehicles((current) => transitDataProvider.advanceVehicles(current)), 1000);
+    const id = window.setInterval(() => {
+      setVehicles((current) => (current.some((vehicle) => vehicle.source === 'gtfs-rt') ? current : transitDataProvider.advanceVehicles(current)));
+    }, 1000);
     return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRealtimeVehicles() {
+      const snapshot = await fetchGttRealtimeVehicles();
+      if (!snapshot || cancelled) return;
+      setVehicles(snapshot.vehicles);
+    }
+
+    void loadRealtimeVehicles();
+    const id = window.setInterval(loadRealtimeVehicles, 15000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
   }, []);
 
   useEffect(() => {

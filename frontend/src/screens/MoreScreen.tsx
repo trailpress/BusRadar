@@ -1,4 +1,5 @@
 import { Info, ShieldCheck } from 'lucide-react';
+import { GttRealtimePanel } from '../components/GttRealtimePanel';
 
 export function MoreScreen() {
   return (
@@ -12,8 +13,8 @@ export function MoreScreen() {
       <section className="info-card">
         <Info size={22} />
         <div>
-          <strong>Dati simulati</strong>
-          <p>Nessun backend, nessun feed realtime, nessuna API GTT/MaTO/5T e nessuno scraping.</p>
+          <strong>Dati transit</strong>
+          <p>Fallback simulato sempre attivo. In dev, il proxy locale legge i feed GTFS-RT GTT HTTPS verificati.</p>
         </div>
       </section>
       <section className="info-card">
@@ -23,6 +24,7 @@ export function MoreScreen() {
           <p>BusRadar non rappresenta operatori o enti di trasporto. La struttura e pronta per future integrazioni autorizzate.</p>
         </div>
       </section>
+      <GttRealtimePanel />
     </main>
   );
 }
