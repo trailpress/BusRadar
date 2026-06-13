@@ -32,6 +32,7 @@ function createBusIcon(vehicle: Vehicle, selected: boolean, zoom: number) {
   const color = getLineColor(vehicle.line);
   const isArticulated = vehicle.vehicleLengthClass === 'articulated-18m';
   const useSprite = zoom >= 17;
+  const spriteBearing = vehicle.bearing - 90;
   const asset = vehicle.vehicleType === 'tram'
     ? `${vehicleAssetBase}assets/vehicles/tram-top.png`
     : `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'bus-articulated-top.png' : 'bus-top.png'}`;
@@ -45,7 +46,7 @@ function createBusIcon(vehicle: Vehicle, selected: boolean, zoom: number) {
   const iconAnchor: [number, number] = [iconSize[0] / 2, iconSize[1] / 2];
   return L.divIcon({
     className: 'vehicle-marker-shell',
-    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${useSprite ? 'vehicle-marker--sprite' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg" aria-label="${vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus'} linea ${vehicle.line}">${useSprite ? `<img src="${asset}" alt="" />` : '<i></i>'}<strong>${vehicle.line}</strong>${isArticulated && !useSprite ? '<em>18</em>' : ''}</button>`,
+    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${useSprite ? 'vehicle-marker--sprite' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--sprite-bearing:${spriteBearing}deg" aria-label="${vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus'} linea ${vehicle.line}">${useSprite ? `<img src="${asset}" alt="" />` : '<i></i>'}<strong>${vehicle.line}</strong>${isArticulated && !useSprite ? '<em>18</em>' : ''}</button>`,
     iconSize,
     iconAnchor,
   });
@@ -69,6 +70,7 @@ function updateVehicleMarkerElement(marker: L.Marker, vehicle: Vehicle, selected
   element.classList.toggle('is-selected', selected);
   element.classList.toggle('vehicle-marker--articulated', vehicle.vehicleLengthClass === 'articulated-18m');
   element.style.setProperty('--bearing', `${vehicle.bearing}deg`);
+  element.style.setProperty('--sprite-bearing', `${vehicle.bearing - 90}deg`);
   element.querySelector('strong')?.replaceChildren(document.createTextNode(vehicle.line));
   const articulatedBadge = element.querySelector('em');
   if (vehicle.vehicleLengthClass === 'articulated-18m' && !articulatedBadge) {
@@ -94,7 +96,9 @@ function FitRoute({ line }: { line?: string }) {
 
   useEffect(() => {
     if (!line) return;
-    const routeBounds = getGtfsRoutesForLine(line).flatMap((route) => route.path.map(toLeafletPoint));
+    const routesById = getGtfsRoutesForRouteId(line);
+    const routes = routesById.length > 0 ? routesById : getGtfsRoutesForLine(line);
+    const routeBounds = routes.flatMap((route) => route.path.map(toLeafletPoint));
     if (routeBounds.length === 0) return;
     map.fitBounds(routeBounds, { paddingTopLeft: [40, 120], paddingBottomRight: [40, 220], maxZoom: 15 });
   }, [line, map]);
@@ -188,7 +192,12 @@ function VehicleMarkers({
         }).addTo(map);
 
         marker.bindPopup(createVehiclePopup(vehicle));
-        marker.on('click', () => latestSelectRef.current(markersRef.current.get(vehicle.vehicleId)?.vehicle ?? vehicle));
+        const selectVehicle = () => latestSelectRef.current(markersRef.current.get(vehicle.vehicleId)?.vehicle ?? vehicle);
+        marker.on('click', selectVehicle);
+        marker.getElement()?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          selectVehicle();
+        });
         markers.set(vehicle.vehicleId, {
           marker,
           from: nextLatLng,
@@ -237,7 +246,10 @@ function VehicleMarkers({
 }
 
 function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, showRouteForLine?: string) {
-  if (showRouteForLine) return getGtfsRoutesForLine(showRouteForLine);
+  if (showRouteForLine) {
+    const routesById = getGtfsRoutesForRouteId(showRouteForLine);
+    return routesById.length > 0 ? routesById : getGtfsRoutesForLine(showRouteForLine);
+  }
   if (selectedLine) return getGtfsRoutesForLine(selectedLine);
 
   const byRoute = new Map<string, GtfsRouteVariant>();
@@ -316,6 +328,12 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     return [...byStop.values()];
   }, [highlightedRoutes]);
   const followedVehicle = vehicles.find((vehicle) => vehicle.vehicleId === followedVehicleId);
+  const routeIsHighlighted = (route: GtfsRouteVariant) => (
+    showRouteForLine === route.routeId ||
+    showRouteForLine === route.line ||
+    selectedLine === route.routeId ||
+    selectedLine === route.line
+  );
 
   return (
     <div className="map-shell map-shell--standard">
@@ -347,8 +365,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
             positions={route.path.map(toLeafletPoint)}
             pathOptions={{
               color: route.color || getLineColor(route.line),
-              weight: showRouteForLine === route.line || selectedLine === route.line ? 7 : 4,
-              opacity: showRouteForLine === route.line || selectedLine === route.line ? 0.92 : 0.5,
+              weight: routeIsHighlighted(route) ? 8 : 4,
+              opacity: routeIsHighlighted(route) ? 0.94 : 0.45,
             }}
           />
         ))}

@@ -85,6 +85,7 @@ function App() {
   function openVehicle(vehicle: Vehicle) {
     setSelectedVehicleId(vehicle.vehicleId);
     setLineFilter(vehicle.line);
+    setShowRouteForLine(vehicle.routeId.replace(/^gtt-/, ''));
     setActiveTab('map');
     notify(`Vettura ${vehicle.vehicleId} aperta`);
   }
@@ -93,7 +94,7 @@ function App() {
     setSelectedVehicleId(undefined);
     setFollowedVehicleId(vehicle.vehicleId);
     setLineFilter(vehicle.line);
-    setShowRouteForLine(vehicle.line);
+    setShowRouteForLine(vehicle.routeId.replace(/^gtt-/, ''));
     setActiveTab('map');
     notify(`Linea ${vehicle.line} in movimento sul radar`);
   }
@@ -152,7 +153,7 @@ function App() {
             setSelectedVehicleId(undefined);
             setFollowedVehicleId(vehicle.vehicleId);
             setLineFilter(vehicle.line);
-            setShowRouteForLine(vehicle.line);
+            setShowRouteForLine(vehicle.routeId.replace(/^gtt-/, ''));
             notify(`Segui vettura ${vehicle.vehicleId} attivo`);
           }}
           onShowRoute={(line) => {
