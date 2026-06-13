@@ -11,7 +11,10 @@ type Props = {
 };
 
 export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
-  const vehicleAsset = `${import.meta.env.BASE_URL}assets/vehicles/${vehicle.vehicleType === 'tram' ? 'tram-top.png' : 'bus-top.png'}`;
+  const vehicleKind = vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus';
+  const vehicleAsset = `${import.meta.env.BASE_URL}assets/vehicles/${
+    vehicle.vehicleType === 'tram' ? 'tram-top.png' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'bus-articulated-top.png' : 'bus-top.png'
+  }`;
 
   return (
     <section className="vehicle-sheet" aria-label={`Dettaglio vettura ${vehicle.vehicleId}`}>
@@ -28,7 +31,7 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         <LineBadge line={vehicle.line} size="lg" />
         <div>
           <strong>{vehicle.vehicleId}</strong>
-          <span>{vehicle.vehicleType === 'tram' ? 'Tram' : 'Bus'} · {vehicle.source === 'gtfs-rt' ? 'GTFS-RT reale' : 'dato non realtime'}</span>
+          <span>{vehicleKind} · {vehicle.source === 'gtfs-rt' ? 'GTFS-RT reale' : 'dato non realtime'}</span>
         </div>
       </div>
       <div className="direction-block">

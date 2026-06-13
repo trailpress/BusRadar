@@ -30,12 +30,17 @@ const vehicleAssetBase = import.meta.env.BASE_URL;
 
 function createBusIcon(vehicle: Vehicle, selected: boolean) {
   const color = getLineColor(vehicle.line);
-  const asset = vehicle.vehicleType === 'tram' ? `${vehicleAssetBase}assets/vehicles/tram-top.png` : `${vehicleAssetBase}assets/vehicles/bus-top.png`;
+  const isArticulated = vehicle.vehicleLengthClass === 'articulated-18m';
+  const asset = vehicle.vehicleType === 'tram'
+    ? `${vehicleAssetBase}assets/vehicles/tram-top.png`
+    : `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'bus-articulated-top.png' : 'bus-top.png'}`;
+  const iconSize: [number, number] = vehicle.vehicleType === 'tram' ? [74, 42] : isArticulated ? [88, 38] : [58, 38];
+  const iconAnchor: [number, number] = [iconSize[0] / 2, iconSize[1] / 2];
   return L.divIcon({
     className: 'vehicle-marker-shell',
-    html: `<div class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${selected ? 'is-selected' : ''}" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--label-bearing:${-vehicle.bearing}deg"><img src="${asset}" alt="" /><span>${vehicle.line}</span></div>`,
-    iconSize: vehicle.vehicleType === 'tram' ? [74, 42] : [58, 38],
-    iconAnchor: vehicle.vehicleType === 'tram' ? [37, 21] : [29, 19],
+    html: `<div class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${selected ? 'is-selected' : ''}" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--label-bearing:${-vehicle.bearing}deg"><img src="${asset}" alt="" /><span>${vehicle.line}</span></div>`,
+    iconSize,
+    iconAnchor,
   });
 }
 
@@ -45,7 +50,7 @@ function createVehiclePopup(vehicle: Vehicle) {
     <div class="map-popup">
       <span class="line-badge" style="--line-color:${color}">${vehicle.line}</span>
       <strong>Vettura ${vehicle.vehicleId}</strong>
-      <span>${vehicle.vehicleType === 'tram' ? 'Tram' : 'Bus'} · ${vehicle.direction} · ${vehicle.source}</span>
+      <span>${vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus'} · ${vehicle.direction} · ${vehicle.source}</span>
     </div>
   `;
 }

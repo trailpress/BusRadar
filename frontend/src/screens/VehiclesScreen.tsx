@@ -25,6 +25,9 @@ export function VehiclesScreen({ vehicles, onSelectVehicle }: Props) {
         ),
     [vehicles, normalized, mode],
   );
+  const vehicleKind = (vehicle: Vehicle) => (
+    vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus'
+  );
 
   return (
     <main className="screen panel-screen">
@@ -46,7 +49,7 @@ export function VehiclesScreen({ vehicles, onSelectVehicle }: Props) {
             </div>
             <div>
               <strong>{vehicle.vehicleId}</strong>
-              <span>{vehicle.vehicleType === 'tram' ? 'Tram' : 'Bus'} · {vehicle.nextStop ?? vehicle.direction}</span>
+              <span>{vehicleKind(vehicle)} · {vehicle.nextStop ?? vehicle.direction}</span>
             </div>
             <LineBadge line={vehicle.line} />
             <div className="vehicle-speed">

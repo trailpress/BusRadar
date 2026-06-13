@@ -73,6 +73,20 @@ function vehicleTypeForRoute(routeId: string): Vehicle['vehicleType'] {
   return getGtfsLine(normalizeRouteName(routeId))?.vehicleType ?? (tramRoutes.has(routeName) ? 'tram' : 'bus');
 }
 
+function vehicleNumber(vehicleId: string | null) {
+  const match = vehicleId?.match(/\d+/);
+  return match ? Number(match[0]) : undefined;
+}
+
+function vehicleLengthClass(vehicleId: string | null, vehicleType: Vehicle['vehicleType']): Vehicle['vehicleLengthClass'] {
+  if (vehicleType !== 'bus') return 'standard';
+  const number = vehicleNumber(vehicleId);
+  if (!number) return 'standard';
+
+  // GTT 18m articulated bus series: 800-899 and 9300+ including 9700+.
+  return (number >= 800 && number < 900) || number >= 9300 ? 'articulated-18m' : 'standard';
+}
+
 let tripUpdatesCache: { at: number; updates: GttTripUpdate[] } | undefined;
 let rawVehiclesCache: { at: number; vehicles: GttVehiclePosition[] } | undefined;
 
@@ -172,12 +186,14 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const line = normalizeRouteName(routeId);
   const speed = speedKmh(vehicle.speed);
   const gtfsLine = getGtfsLine(line);
+  const vehicleType = vehicleTypeForRoute(routeId);
 
   return {
     vehicleId: vehicle.vehicleId || `GTT-${index}`,
     routeId: `gtt-${routeId}`,
     routeShortName: line,
-    vehicleType: vehicleTypeForRoute(routeId),
+    vehicleType,
+    vehicleLengthClass: vehicleLengthClass(vehicle.vehicleId, vehicleType),
     lat: vehicle.lat ?? 0,
     lon: vehicle.lon ?? 0,
     bearing: vehicle.bearing ?? 0,

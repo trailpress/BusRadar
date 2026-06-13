@@ -8,7 +8,7 @@ export type LatLng = {
 };
 
 export type Vehicle = TransitVehicle;
-export type { TransitVehicle, VehicleSource, VehicleStatus, VehicleType } from './types/transit';
+export type { TransitVehicle, VehicleLengthClass, VehicleSource, VehicleStatus, VehicleType } from './types/transit';
 
 export type TransitLine = {
   id: string;

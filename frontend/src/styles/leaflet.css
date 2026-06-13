@@ -78,6 +78,11 @@
   height: 42px;
 }
 
+.vehicle-marker--articulated {
+  width: 88px;
+  height: 38px;
+}
+
 .vehicle-marker img {
   position: absolute;
   inset: 0;
