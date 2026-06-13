@@ -31,14 +31,11 @@ const vehicleAssetBase = import.meta.env.BASE_URL;
 function createBusIcon(vehicle: Vehicle, selected: boolean) {
   const color = getLineColor(vehicle.line);
   const isArticulated = vehicle.vehicleLengthClass === 'articulated-18m';
-  const asset = vehicle.vehicleType === 'tram'
-    ? `${vehicleAssetBase}assets/vehicles/tram-top.png`
-    : `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'bus-articulated-top.png' : 'bus-top.png'}`;
-  const iconSize: [number, number] = vehicle.vehicleType === 'tram' ? [74, 42] : isArticulated ? [88, 38] : [58, 38];
+  const iconSize: [number, number] = [42, 38];
   const iconAnchor: [number, number] = [iconSize[0] / 2, iconSize[1] / 2];
   return L.divIcon({
     className: 'vehicle-marker-shell',
-    html: `<div class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${selected ? 'is-selected' : ''}" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--label-bearing:${-vehicle.bearing}deg"><img src="${asset}" alt="" /><span>${vehicle.line}</span></div>`,
+    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg" aria-label="${vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus'} linea ${vehicle.line}"><i></i><strong>${vehicle.line}</strong>${isArticulated ? '<em>18</em>' : ''}</button>`,
     iconSize,
     iconAnchor,
   });
@@ -60,9 +57,15 @@ function updateVehicleMarkerElement(marker: L.Marker, vehicle: Vehicle, selected
   if (!element) return;
 
   element.classList.toggle('is-selected', selected);
+  element.classList.toggle('vehicle-marker--articulated', vehicle.vehicleLengthClass === 'articulated-18m');
   element.style.setProperty('--bearing', `${vehicle.bearing}deg`);
-  element.style.setProperty('--label-bearing', `${-vehicle.bearing}deg`);
-  element.querySelector('span')?.replaceChildren(document.createTextNode(vehicle.line));
+  element.querySelector('strong')?.replaceChildren(document.createTextNode(vehicle.line));
+  const articulatedBadge = element.querySelector('em');
+  if (vehicle.vehicleLengthClass === 'articulated-18m' && !articulatedBadge) {
+    element.insertAdjacentHTML('beforeend', '<em>18</em>');
+  } else if (vehicle.vehicleLengthClass !== 'articulated-18m') {
+    articulatedBadge?.remove();
+  }
 }
 
 function RecenterButton() {
@@ -184,13 +187,14 @@ function VehicleMarkers({
 
   useEffect(() => {
     let frameId = 0;
-    const duration = 1000;
+    const duration = 14500;
 
     const tick = (time: number) => {
       markersRef.current.forEach((entry) => {
         const elapsed = Math.min(1, Math.max(0, (time - entry.startedAt) / duration));
-        const lat = entry.from.lat + (entry.to.lat - entry.from.lat) * elapsed;
-        const lng = entry.from.lng + (entry.to.lng - entry.from.lng) * elapsed;
+        const eased = elapsed * elapsed * (3 - 2 * elapsed);
+        const lat = entry.from.lat + (entry.to.lat - entry.from.lat) * eased;
+        const lng = entry.from.lng + (entry.to.lng - entry.from.lng) * eased;
         entry.marker.setLatLng([lat, lng]);
       });
       frameId = requestAnimationFrame(tick);
@@ -214,7 +218,9 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
   const byRoute = new Map<string, GtfsRouteVariant>();
   vehicles.slice(0, 120).forEach((vehicle) => {
     const routeId = vehicle.routeId.replace(/^gtt-/, '');
-    getGtfsRoutesForRouteId(routeId).forEach((route) => byRoute.set(route.id, route));
+    const variants = getGtfsRoutesForRouteId(routeId);
+    const lineVariants = variants.length > 0 ? variants : getGtfsRoutesForLine(vehicle.line);
+    lineVariants.forEach((route) => byRoute.set(route.id, route));
   });
 
   return [...byRoute.values()];
