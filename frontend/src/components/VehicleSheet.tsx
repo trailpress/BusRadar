@@ -16,8 +16,11 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
   const rawVehicleLabel = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? vehicle.realtimeVehicleLabel : undefined;
   const isInterurbanBlue = vehicle.vehicleLivery === 'interurban-blue';
   const isElectricCompact = vehicle.vehicleLivery === 'electric-compact';
+  const usesRealisticRender = vehicle.vehicleType === 'bus' && vehicle.vehicleLengthClass === 'articulated-18m' && !isInterurbanBlue && !isElectricCompact;
   const vehicleAsset = `${import.meta.env.BASE_URL}assets/vehicles/${
-    vehicle.vehicleType === 'tram'
+    usesRealisticRender
+      ? 'detail/urban-articulated-18m-3d.jpg'
+      : vehicle.vehicleType === 'tram'
       ? 'tram-top.png'
       : isElectricCompact
         ? 'bus-electric-compact-top.png'

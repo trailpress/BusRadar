@@ -10,6 +10,13 @@ import { toLeafletPoint } from '../utils/geo';
 import { IconButton } from './IconButton';
 import { LineBadge } from './LineBadge';
 
+type ViewportBounds = {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+};
+
 type Props = {
   vehicles: Vehicle[];
   selectedLine?: string;
@@ -149,6 +156,41 @@ function ZoomTracker({ onZoom }: { onZoom: (zoom: number) => void }) {
   useEffect(() => {
     onZoom(map.getZoom());
   }, [map, onZoom]);
+
+  return null;
+}
+
+function ViewportTracker({ onViewport }: { onViewport: (bounds: ViewportBounds) => void }) {
+  const map = useMapEvents({
+    moveend: () => {
+      const bounds = map.getBounds().pad(0.25);
+      onViewport({
+        north: bounds.getNorth(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        west: bounds.getWest(),
+      });
+    },
+    zoomend: () => {
+      const bounds = map.getBounds().pad(0.25);
+      onViewport({
+        north: bounds.getNorth(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        west: bounds.getWest(),
+      });
+    },
+  });
+
+  useEffect(() => {
+    const bounds = map.getBounds().pad(0.25);
+    onViewport({
+      north: bounds.getNorth(),
+      south: bounds.getSouth(),
+      east: bounds.getEast(),
+      west: bounds.getWest(),
+    });
+  }, [map, onViewport]);
 
   return null;
 }
@@ -329,9 +371,16 @@ function StopPopup({ stop, routeIds, stopSequencesByRoute }: { stop: GtfsStop; r
 
 export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, showRouteForLine, onSelectVehicle }: Props) {
   const [zoom, setZoom] = useState(13);
+  const [viewport, setViewport] = useState<ViewportBounds>();
   const visibleVehicles = useMemo(
-    () => vehicles.filter((vehicle) => !selectedLine || vehicle.line === selectedLine),
-    [vehicles, selectedLine],
+    () => vehicles
+      .filter((vehicle) => !selectedLine || vehicle.line === selectedLine)
+      .filter((vehicle) => {
+        if (!viewport || selectedLine || showRouteForLine) return true;
+        if (vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId) return true;
+        return vehicle.lat >= viewport.south && vehicle.lat <= viewport.north && vehicle.lon >= viewport.west && vehicle.lon <= viewport.east;
+      }),
+    [vehicles, selectedLine, showRouteForLine, viewport, selectedVehicleId, followedVehicleId],
   );
   const highlightedRoutes = useMemo(
     () => routeVariantsForVehicles(visibleVehicles, selectedLine, showRouteForLine),
@@ -429,6 +478,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           onSelectVehicle={onSelectVehicle}
         />
         <ZoomTracker onZoom={setZoom} />
+        <ViewportTracker onViewport={setViewport} />
         <RecenterButton userLocation={userLocation} />
         <FitRoute line={showRouteForLine} />
         <FollowVehicle vehicle={followedVehicle} />
