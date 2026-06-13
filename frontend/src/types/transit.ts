@@ -24,3 +24,43 @@ export type TransitVehicle = {
   nextStop?: string;
   favorite?: boolean;
 };
+
+export type RealtimeVehiclePosition = {
+  id: string;
+  vehicleId: string;
+  tripId?: string;
+  routeId?: string;
+  routeShortName?: string;
+  lat: number;
+  lon: number;
+  bearing?: number;
+  speed?: number;
+  timestamp?: number;
+};
+
+export type RealtimeTripUpdate = {
+  id: string;
+  tripId?: string;
+  routeId?: string;
+  vehicleId?: string;
+  stopTimeUpdates: Array<{
+    stopId?: string;
+    stopSequence?: number;
+    arrivalDelaySeconds?: number;
+    departureDelaySeconds?: number;
+    arrivalTime?: number;
+    departureTime?: number;
+  }>;
+};
+
+export type RealtimeAlert = {
+  id: string;
+  activePeriods: Array<{ start?: number; end?: number }>;
+  routeIds: string[];
+  stopIds: string[];
+  cause?: string;
+  effect?: string;
+  severity?: string;
+  headerText?: string;
+  descriptionText?: string;
+};
