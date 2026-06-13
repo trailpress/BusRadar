@@ -12,6 +12,7 @@ type Props = {
 
 export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
   const vehicleKind = vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus';
+  const speedSource = vehicle.speedSource === 'feed' ? 'Feed realtime' : vehicle.speedSource === 'observed' ? 'Calcolata da GPS' : 'Non disponibile';
   const vehicleAsset = `${import.meta.env.BASE_URL}assets/vehicles/${
     vehicle.vehicleType === 'tram' ? 'tram-top.png' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'bus-articulated-top.png' : 'bus-top.png'
   }`;
@@ -45,7 +46,7 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         <div>
           <Gauge size={16} />
           <strong>{vehicle.speed} km/h</strong>
-          <span>Velocità</span>
+          <span>{speedSource}</span>
         </div>
         <div>
           <Clock3 size={16} />
@@ -59,11 +60,15 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         </div>
       </div>
       <div className="next-stops">
-        <span>Dati percorso</span>
+        <span>Stima percorso</span>
         <div className="is-current">
           <i />
-          <strong>{vehicle.nextStop ?? vehicle.direction}</strong>
-          <span>{vehicle.source === 'gtfs-rt' ? 'Realtime GTT' : 'Dato non realtime'}</span>
+          <strong>{vehicle.terminalName ?? vehicle.nextStop ?? vehicle.direction}</strong>
+          <span>
+            {vehicle.etaTerminalMinutes != null
+              ? `Arrivo stimato ${vehicle.etaTerminalTimeLabel} · ${vehicle.etaTerminalMinutes} min · ${vehicle.remainingKm ?? 0} km`
+              : 'ETA non calcolabile dal feed corrente'}
+          </span>
           <em>{vehicle.routeShortName}</em>
         </div>
       </div>

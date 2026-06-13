@@ -1,5 +1,6 @@
 import type { Vehicle } from '../types';
-import { getGtfsLine } from '../data/gtfsNetwork';
+import { getGtfsLine, getGtfsRoutesForLine, getGtfsRoutesForRouteId } from '../data/gtfsNetwork';
+import { distanceMeters, routeProgressAtPoint } from '../utils/geo';
 
 type GttVehiclePosition = {
   routeId: string | null;
@@ -102,6 +103,7 @@ function vehicleLengthClass(vehicleId: string | null, vehicleType: Vehicle['vehi
 let tripUpdatesCache: { at: number; updates: GttTripUpdate[] } | undefined;
 let rawVehiclesCache: { at: number; vehicles: GttVehiclePosition[] } | undefined;
 let stopTimeIndexCache: Promise<StopTimeIndex | undefined> | undefined;
+const previousSamples = new Map<string, { lat: number; lon: number; timestampMs: number; speed: number }>();
 
 async function fetchRawVehicles() {
   if (rawVehiclesCache && Date.now() - rawVehiclesCache.at < 15000) return rawVehiclesCache.vehicles;
@@ -197,6 +199,72 @@ function speedKmh(speedMetersPerSecond: number | null) {
   return Math.max(0, Math.round((speedMetersPerSecond ?? 0) * 3.6));
 }
 
+function timestampMs(timestamp: string | null) {
+  const seconds = Number(timestamp);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : Date.now();
+}
+
+function observedSpeed(vehicleId: string, vehicle: GttVehiclePosition) {
+  if (typeof vehicle.lat !== 'number' || typeof vehicle.lon !== 'number') return { speed: 0, source: 'unavailable' as const };
+
+  const feedSpeed = speedKmh(vehicle.speed);
+  const sampleTime = timestampMs(vehicle.timestamp);
+  const previous = previousSamples.get(vehicleId);
+  let speed = feedSpeed;
+  let source: Vehicle['speedSource'] = feedSpeed > 0 ? 'feed' : 'unavailable';
+
+  if ((!speed || speed < 1) && previous) {
+    const elapsedSeconds = Math.max(0, (sampleTime - previous.timestampMs) / 1000);
+    const meters = distanceMeters({ lat: previous.lat, lon: previous.lon }, { lat: vehicle.lat, lon: vehicle.lon });
+    if (elapsedSeconds >= 5 && elapsedSeconds <= 180 && meters < 5000) {
+      const calculated = Math.round((meters / elapsedSeconds) * 3.6);
+      if (calculated > 0 && calculated < 90) {
+        speed = calculated;
+        source = 'observed';
+      }
+    }
+  }
+
+  previousSamples.set(vehicleId, {
+    lat: vehicle.lat,
+    lon: vehicle.lon,
+    timestampMs: sampleTime,
+    speed,
+  });
+
+  return { speed, source };
+}
+
+function terminalEstimate(routeId: string, line: string, point: { lat: number; lon: number }, speed: number) {
+  const routes = getGtfsRoutesForRouteId(routeId).length > 0 ? getGtfsRoutesForRouteId(routeId) : getGtfsRoutesForLine(line);
+  const candidates = routes
+    .map((route) => {
+      const progress = routeProgressAtPoint(route.path, point);
+      if (!progress) return undefined;
+      return {
+        route,
+        progress,
+      };
+    })
+    .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate))
+    .sort((a, b) => a.progress.distanceMeters - b.progress.distanceMeters);
+
+  const best = candidates[0];
+  if (!best) return {};
+
+  const effectiveSpeed = speed >= 3 ? speed : 14;
+  const etaMinutes = Math.max(1, Math.round((best.progress.remainingMeters / 1000 / effectiveSpeed) * 60));
+  const etaTime = new Date(Date.now() + etaMinutes * 60000).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+  return {
+    terminalName: best.route.headsign || `Linea ${line}`,
+    etaTerminalMinutes: etaMinutes,
+    etaTerminalTimeLabel: etaTime,
+    remainingKm: Math.round((best.progress.remainingMeters / 1000) * 10) / 10,
+    bearing: best.progress.bearing,
+  };
+}
+
 function isValidTorinoCoordinate(vehicle: GttVehiclePosition) {
   return (
     typeof vehicle.lat === 'number' &&
@@ -211,10 +279,11 @@ function isValidTorinoCoordinate(vehicle: GttVehiclePosition) {
 function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const routeId = vehicle.routeId || 'GTT';
   const line = normalizeRouteName(routeId);
-  const speed = speedKmh(vehicle.speed);
   const gtfsLine = getGtfsLine(line);
   const vehicleType = vehicleTypeForRoute(routeId);
   const vehicleId = normalizeVehicleId(vehicle.vehicleId);
+  const { speed, source: speedSource } = observedSpeed(vehicleId || String(index), vehicle);
+  const estimate = terminalEstimate(routeId, line, { lat: vehicle.lat ?? 0, lon: vehicle.lon ?? 0 }, speed);
 
   return {
     vehicleId,
@@ -224,8 +293,9 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     vehicleLengthClass: vehicleLengthClass(vehicle.vehicleId, vehicleType),
     lat: vehicle.lat ?? 0,
     lon: vehicle.lon ?? 0,
-    bearing: vehicle.bearing ?? 0,
+    bearing: vehicle.bearing && vehicle.bearing > 0 ? vehicle.bearing : estimate.bearing ?? 0,
     speed,
+    speedSource,
     updatedAt: formatTimestamp(vehicle.timestamp),
     source: 'gtfs-rt',
     status: speed > 1 ? 'moving' : 'unknown',
@@ -234,7 +304,11 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     direction: gtfsLine?.direction ?? `Linea ${line}`,
     reliability: 100,
     progress: 0,
-    nextStop: vehicle.tripId ? `Trip ${vehicle.tripId}` : undefined,
+    nextStop: estimate.terminalName ?? (vehicle.tripId ? `Trip ${vehicle.tripId}` : undefined),
+    terminalName: estimate.terminalName,
+    etaTerminalMinutes: estimate.etaTerminalMinutes,
+    etaTerminalTimeLabel: estimate.etaTerminalTimeLabel,
+    remainingKm: estimate.remainingKm,
   };
 }
 

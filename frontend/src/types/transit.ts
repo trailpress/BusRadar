@@ -13,6 +13,7 @@ export type TransitVehicle = {
   lon: number;
   bearing: number;
   speed: number;
+  speedSource?: 'feed' | 'observed' | 'unavailable';
   updatedAt: string;
   source: VehicleSource;
   status: VehicleStatus;
@@ -24,6 +25,10 @@ export type TransitVehicle = {
   reliability: number;
   progress: number;
   nextStop?: string;
+  terminalName?: string;
+  etaTerminalMinutes?: number;
+  etaTerminalTimeLabel?: string;
+  remainingKm?: number;
   favorite?: boolean;
 };
 

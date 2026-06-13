@@ -72,3 +72,55 @@ export function interpolatePathState(path: LatLng[], progress: number): { point:
 export function toLeafletPoint(point: LatLng): [number, number] {
   return [point.lat, point.lon];
 }
+
+export function routeProgressAtPoint(path: LatLng[], point: LatLng) {
+  if (path.length < 2) return undefined;
+
+  const metersPerDegreeLat = 111320;
+  const metersPerDegreeLon = 111320 * Math.cos((point.lat * Math.PI) / 180);
+  let traveledBefore = 0;
+  let best:
+    | {
+        distanceMeters: number;
+        traveledMeters: number;
+        remainingMeters: number;
+        bearing: number;
+      }
+    | undefined;
+
+  for (let index = 0; index < path.length - 1; index += 1) {
+    const start = path[index];
+    const end = path[index + 1];
+    const ax = start.lon * metersPerDegreeLon;
+    const ay = start.lat * metersPerDegreeLat;
+    const bx = end.lon * metersPerDegreeLon;
+    const by = end.lat * metersPerDegreeLat;
+    const px = point.lon * metersPerDegreeLon;
+    const py = point.lat * metersPerDegreeLat;
+    const vx = bx - ax;
+    const vy = by - ay;
+    const wx = px - ax;
+    const wy = py - ay;
+    const segmentMeters = distanceMeters(start, end);
+    const segmentSquared = vx * vx + vy * vy;
+    const t = segmentSquared === 0 ? 0 : Math.min(1, Math.max(0, (wx * vx + wy * vy) / segmentSquared));
+    const projected = {
+      lat: start.lat + (end.lat - start.lat) * t,
+      lon: start.lon + (end.lon - start.lon) * t,
+    };
+    const offRouteMeters = distanceMeters(projected, point);
+    const traveledMeters = traveledBefore + segmentMeters * t;
+    const totalMeters = traveledMeters + path.slice(index + 1, -1).reduce((sum, item, pathIndex) => sum + distanceMeters(item, path[index + pathIndex + 2]), 0);
+    const candidate = {
+      distanceMeters: offRouteMeters,
+      traveledMeters,
+      remainingMeters: Math.max(0, totalMeters - traveledMeters),
+      bearing: bearingDegrees(start, end),
+    };
+
+    if (!best || candidate.distanceMeters < best.distanceMeters) best = candidate;
+    traveledBefore += segmentMeters;
+  }
+
+  return best;
+}

@@ -56,6 +56,13 @@
 
 .vehicle-marker-shell {
   will-change: transform;
+  transition: transform 160ms linear;
+}
+
+.leaflet-interactive {
+  transition:
+    stroke-width 160ms ease,
+    opacity 160ms ease;
 }
 
 .vehicle-marker {

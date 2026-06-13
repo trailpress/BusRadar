@@ -314,6 +314,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     [visibleVehicles, selectedLine, showRouteForLine],
   );
   const routeStops = useMemo(() => {
+    if (!showRouteForLine && !selectedLine && zoom < 15) return [];
     const byStop = new Map<string, { stop: GtfsStop; routeIds: Set<string>; stopSequencesByRoute: Record<string, number[]> }>();
     highlightedRoutes.forEach((route) => {
       getGtfsStopEntriesForRoute(route).forEach(({ stop, sequence }) => {
@@ -326,7 +327,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       });
     });
     return [...byStop.values()];
-  }, [highlightedRoutes]);
+  }, [highlightedRoutes, selectedLine, showRouteForLine, zoom]);
   const followedVehicle = vehicles.find((vehicle) => vehicle.vehicleId === followedVehicleId);
   const routeIsHighlighted = (route: GtfsRouteVariant) => (
     showRouteForLine === route.routeId ||
@@ -343,10 +344,17 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         zoom={13}
         minZoom={3}
         maxZoom={18}
-        zoomSnap={0.5}
-        zoomDelta={1}
+        zoomSnap={0.25}
+        zoomDelta={0.5}
+        wheelPxPerZoomLevel={90}
         zoomControl={false}
         markerZoomAnimation
+        zoomAnimation
+        fadeAnimation
+        inertia
+        inertiaDeceleration={2400}
+        easeLinearity={0.18}
+        preferCanvas
         attributionControl={false}
         className="bus-map"
       >
@@ -355,9 +363,9 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           attribution={tileLayer.attribution}
           opacity={1}
           maxNativeZoom={18}
-          updateWhenZooming={false}
+          updateWhenZooming
           updateWhenIdle
-          keepBuffer={2}
+          keepBuffer={4}
         />
         {highlightedRoutes.map((route) => (
           <Polyline
@@ -365,8 +373,10 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
             positions={route.path.map(toLeafletPoint)}
             pathOptions={{
               color: route.color || getLineColor(route.line),
-              weight: routeIsHighlighted(route) ? 8 : 4,
-              opacity: routeIsHighlighted(route) ? 0.94 : 0.45,
+              weight: routeIsHighlighted(route) ? 8 : 5,
+              opacity: routeIsHighlighted(route) ? 0.94 : 0.68,
+              lineCap: 'round',
+              lineJoin: 'round',
             }}
           />
         ))}
