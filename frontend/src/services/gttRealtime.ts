@@ -95,8 +95,8 @@ function vehicleLengthClass(vehicleId: string | null, vehicleType: Vehicle['vehi
   const number = vehicleNumber(vehicleId);
   if (!number) return 'standard';
 
-  // GTT 18m articulated bus series: 800-899 and 9300+ including 9700+.
-  return (number >= 800 && number < 900) || number >= 9300 ? 'articulated-18m' : 'standard';
+  // GTT 18m articulated bus series: 800-899 and 1300+.
+  return (number >= 800 && number < 900) || number >= 1300 ? 'articulated-18m' : 'standard';
 }
 
 let tripUpdatesCache: { at: number; updates: GttTripUpdate[] } | undefined;
