@@ -27,6 +27,9 @@ export type GttRealtimeSnapshot = {
   checkedAt: string;
 };
 
+export const GTT_REALTIME_API_BASE =
+  import.meta.env.VITE_REALTIME_API_BASE ?? 'https://mtuwzlbxhmpnqpaahity.supabase.co/functions/v1/gtt-realtime';
+
 const tramRoutes = new Set(['3', '4', '9', '10', '13', '15', '16']);
 
 function normalizeRouteName(routeId: string) {
@@ -89,7 +92,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
 export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | undefined> {
   let response: Response;
   try {
-    response = await fetch('/api/gtt/realtime/vehicles');
+    response = await fetch(`${GTT_REALTIME_API_BASE}/vehicles`);
   } catch {
     return undefined;
   }

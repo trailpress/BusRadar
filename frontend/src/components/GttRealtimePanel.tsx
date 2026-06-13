@@ -1,5 +1,6 @@
 import { RefreshCw, Radio, ShieldAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { GTT_REALTIME_API_BASE } from '../services/gttRealtime';
 
 type FeedSummary = {
   kind: string;
@@ -45,7 +46,7 @@ export function GttRealtimePanel() {
   async function refresh() {
     setLoading(true);
     try {
-      const response = await fetch('/api/gtt/realtime/all');
+      const response = await fetch(`${GTT_REALTIME_API_BASE}/all`);
       setPayload((await response.json()) as ProxyPayload);
     } catch (error) {
       setPayload({ status: 'proxy-error', error: error instanceof Error ? error.message : String(error) });
@@ -70,7 +71,7 @@ export function GttRealtimePanel() {
         </div>
         <div>
           <strong>GTT realtime</strong>
-          <span>Proxy locale: Vehicle Positions, Trip Updates, Alerts</span>
+          <span>Proxy pubblico: Vehicle Positions, Trip Updates, Alerts</span>
         </div>
         <button className="icon-action" type="button" onClick={refresh} disabled={loading} aria-label="Aggiorna GTT realtime">
           <RefreshCw size={18} />
@@ -117,7 +118,7 @@ export function GttRealtimePanel() {
       ) : (
         <div className="realtime-empty">
           <ShieldAlert size={18} />
-          <span>Avvia `npm run dev`: GitHub Pages non puo usare il proxy locale.</span>
+          <span>Proxy realtime non disponibile. La mappa resta in fallback simulato.</span>
         </div>
       )}
     </section>

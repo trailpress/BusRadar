@@ -2,15 +2,43 @@
 
 Branch: `realtime-spike`
 
-Scopo: preparare BusRadar per test GTFS/GTFS-RT autorizzati senza modificare la UI principale e senza sostituire la simulazione locale.
+Scopo: preparare BusRadar per test GTFS/GTFS-RT autorizzati e pubblicare un proxy tecnico controllato senza sostituire definitivamente la simulazione locale.
 
 ## Stato attuale
 
-- L'app continua a usare `SimulationAdapter`.
-- `TransitDataProvider` non attiva feed reali.
-- Nessun endpoint reale e nessuna chiave API sono hardcoded.
+- L'app usa dati GTFS-RT GTT tramite proxy Supabase quando disponibile.
+- Se il proxy non risponde, la simulazione locale resta il fallback.
+- Nessun endpoint reale e nessuna chiave API sono hardcoded nella UI.
 - Nessuno scraping.
 - I percorsi demo restano attivi finche' non viene importato e validato un GTFS statico autorizzato.
+
+## Proxy pubblico Supabase
+
+La funzione Edge `supabase/functions/gtt-realtime` espone un JSON CORS-safe per GitHub Pages:
+
+```text
+https://mtuwzlbxhmpnqpaahity.supabase.co/functions/v1/gtt-realtime
+https://mtuwzlbxhmpnqpaahity.supabase.co/functions/v1/gtt-realtime/vehicles
+https://mtuwzlbxhmpnqpaahity.supabase.co/functions/v1/gtt-realtime/trips
+https://mtuwzlbxhmpnqpaahity.supabase.co/functions/v1/gtt-realtime/alerts
+https://mtuwzlbxhmpnqpaahity.supabase.co/functions/v1/gtt-realtime/all
+```
+
+La funzione:
+
+- scarica i feed GTFS-RT lato server;
+- decodifica protobuf;
+- restituisce solo JSON normalizzato;
+- abilita CORS per la webapp;
+- non usa database;
+- non richiede JWT perche' legge solo dati pubblici/proxy;
+- non salva dati.
+
+Deploy:
+
+```bash
+supabase functions deploy gtt-realtime --project-ref mtuwzlbxhmpnqpaahity --no-verify-jwt --use-api
+```
 
 ## Feed necessari
 
@@ -41,6 +69,7 @@ GTFS_RT_TRIP_UPDATES_URL=
 GTFS_RT_ALERTS_URL=
 GTFS_RT_API_KEY=
 VITE_TRANSIT_DATA_MODE=simulation
+VITE_REALTIME_API_BASE=https://mtuwzlbxhmpnqpaahity.supabase.co/functions/v1/gtt-realtime
 ```
 
 `VITE_TRANSIT_DATA_MODE` resta `simulation` finche' il test legale/tecnico non e' completato.
