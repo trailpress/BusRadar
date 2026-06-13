@@ -1,12 +1,15 @@
 import L from 'leaflet';
 import { LocateFixed } from 'lucide-react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
-import { routes, stops, userPosition } from '../data/demoData';
+import { userPosition } from '../data/demoData';
+import { getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopsForRoute, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
+import { fetchGttStopArrivals, type GttStopArrival } from '../services/gttRealtime';
 import type { LatLng, Vehicle } from '../types';
 import { getLineColor } from '../utils/lineColors';
 import { toLeafletPoint } from '../utils/geo';
 import { IconButton } from './IconButton';
+import { LineBadge } from './LineBadge';
 
 type Props = {
   vehicles: Vehicle[];
@@ -27,9 +30,9 @@ function createBusIcon(vehicle: Vehicle, selected: boolean) {
   const color = getLineColor(vehicle.line);
   return L.divIcon({
     className: 'vehicle-marker-shell',
-    html: `<div class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${selected ? 'is-selected' : ''}" style="--line-color:${color};--bearing:${vehicle.bearing}deg"><i></i><span>${vehicle.line}</span></div>`,
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
+    html: `<div class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${selected ? 'is-selected' : ''}" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--label-bearing:${-vehicle.bearing}deg"><i></i><span>${vehicle.line}</span></div>`,
+    iconSize: [50, 50],
+    iconAnchor: [25, 25],
   });
 }
 
@@ -50,6 +53,7 @@ function updateVehicleMarkerElement(marker: L.Marker, vehicle: Vehicle, selected
 
   element.classList.toggle('is-selected', selected);
   element.style.setProperty('--bearing', `${vehicle.bearing}deg`);
+  element.style.setProperty('--label-bearing', `${-vehicle.bearing}deg`);
   element.querySelector('span')?.replaceChildren(document.createTextNode(vehicle.line));
 }
 
@@ -69,9 +73,9 @@ function FitRoute({ line }: { line?: string }) {
 
   useEffect(() => {
     if (!line) return;
-    const route = routes.find((item) => item.line === line);
-    if (!route) return;
-    map.fitBounds(route.path.map(toLeafletPoint), { paddingTopLeft: [40, 120], paddingBottomRight: [40, 220] });
+    const routeBounds = getGtfsRoutesForLine(line).flatMap((route) => route.path.map(toLeafletPoint));
+    if (routeBounds.length === 0) return;
+    map.fitBounds(routeBounds, { paddingTopLeft: [40, 120], paddingBottomRight: [40, 220], maxZoom: 15 });
   }, [line, map]);
 
   return null;
@@ -195,17 +199,85 @@ function VehicleMarkers({
   return null;
 }
 
+function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, showRouteForLine?: string) {
+  if (showRouteForLine) return getGtfsRoutesForLine(showRouteForLine);
+  if (selectedLine) return getGtfsRoutesForLine(selectedLine);
+
+  const byRoute = new Map<string, GtfsRouteVariant>();
+  vehicles.slice(0, 120).forEach((vehicle) => {
+    const routeId = vehicle.routeId.replace(/^gtt-/, '');
+    getGtfsRoutesForRouteId(routeId).forEach((route) => byRoute.set(route.id, route));
+  });
+
+  return [...byRoute.values()];
+}
+
+function StopPopup({ stop, routeIds, stopSequencesByRoute }: { stop: GtfsStop; routeIds: string[]; stopSequencesByRoute: Record<string, number[]> }) {
+  const [arrivals, setArrivals] = useState<GttStopArrival[]>();
+
+  useEffect(() => {
+    let cancelled = false;
+    setArrivals(undefined);
+    fetchGttStopArrivals(stop.id, routeIds, stopSequencesByRoute)
+      .then((items) => {
+        if (!cancelled) setArrivals(items);
+      })
+      .catch(() => {
+        if (!cancelled) setArrivals([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [stop.id, routeIds.join('|'), JSON.stringify(stopSequencesByRoute)]);
+
+  return (
+    <div className="stop-popup">
+      <strong>{stop.name}</strong>
+      <span>Palina {stop.code}</span>
+      <div className="stop-popup-lines">
+        {stop.lines.slice(0, 6).map((line) => <LineBadge key={line} line={line} size="sm" />)}
+      </div>
+      <div className="arrival-list">
+        {!arrivals && <small>Carico passaggi reali...</small>}
+        {arrivals?.length === 0 && <small>Nessun passaggio realtime nei prossimi minuti</small>}
+        {arrivals?.map((arrival) => (
+          <div key={`${arrival.tripId}-${arrival.routeId}-${arrival.timeLabel}`}>
+            <LineBadge line={arrival.line} size="sm" />
+            <span>{arrival.timeLabel}</span>
+            <em>{arrival.minutes === 0 ? 'ora' : `${arrival.minutes} min`}</em>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, showRouteForLine, onSelectVehicle }: Props) {
   const visibleVehicles = useMemo(
     () => vehicles.filter((vehicle) => !selectedLine || vehicle.line === selectedLine),
     [vehicles, selectedLine],
   );
-  const highlightedRoutes = routes.filter((route) => !selectedLine || route.line === selectedLine);
+  const highlightedRoutes = useMemo(
+    () => routeVariantsForVehicles(visibleVehicles, selectedLine, showRouteForLine),
+    [visibleVehicles, selectedLine, showRouteForLine],
+  );
+  const routeStops = useMemo(() => {
+    const byStop = new Map<string, { stop: GtfsStop; routeIds: Set<string>; stopSequencesByRoute: Record<string, number[]> }>();
+    highlightedRoutes.forEach((route) => {
+      getGtfsStopsForRoute(route).forEach((stop, index) => {
+        const existing = byStop.get(stop.id) ?? { stop, routeIds: new Set<string>(), stopSequencesByRoute: {} };
+        existing.routeIds.add(route.routeId);
+        existing.stopSequencesByRoute[route.routeId] = [...(existing.stopSequencesByRoute[route.routeId] ?? []), index + 1];
+        byStop.set(stop.id, existing);
+      });
+    });
+    return [...byStop.values()];
+  }, [highlightedRoutes]);
   const followedVehicle = vehicles.find((vehicle) => vehicle.vehicleId === followedVehicleId);
 
   return (
     <div className="map-shell map-shell--standard">
-      <div className="map-mode-label">Mappa bus demo</div>
+      <div className="map-mode-label">Live transit map</div>
       <MapContainer
         center={[45.0706, 7.6867]}
         zoom={13}
@@ -228,17 +300,27 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           keepBuffer={2}
         />
         {highlightedRoutes.map((route) => (
-          <Polyline key={route.id} positions={route.path.map(toLeafletPoint)} pathOptions={{ color: getLineColor(route.line), weight: showRouteForLine === route.line ? 8 : 4, opacity: showRouteForLine === route.line ? 0.95 : 0.62 }} />
+          <Polyline
+            key={route.id}
+            positions={route.path.map(toLeafletPoint)}
+            pathOptions={{
+              color: route.color || getLineColor(route.line),
+              weight: showRouteForLine === route.line || selectedLine === route.line ? 7 : 4,
+              opacity: showRouteForLine === route.line || selectedLine === route.line ? 0.92 : 0.5,
+            }}
+          />
         ))}
-        {stops
-          .filter((stop) => !selectedLine || stop.lines.includes(selectedLine))
-          .map((stop) => (
+        {routeStops
+          .slice(0, showRouteForLine || selectedLine ? 260 : 160)
+          .map(({ stop, routeIds, stopSequencesByRoute }) => (
             <Marker
               key={stop.id}
               position={[stop.lat, stop.lon]}
-              icon={L.divIcon({ className: '', html: '<div class="stop-marker"></div>', iconSize: [12, 12], iconAnchor: [6, 6] })}
+              icon={L.divIcon({ className: '', html: '<div class="stop-marker"></div>', iconSize: [14, 14], iconAnchor: [7, 7] })}
             >
-              <Popup>{stop.name}</Popup>
+              <Popup>
+                <StopPopup stop={stop} routeIds={[...routeIds]} stopSequencesByRoute={stopSequencesByRoute} />
+              </Popup>
             </Marker>
           ))}
         <Marker

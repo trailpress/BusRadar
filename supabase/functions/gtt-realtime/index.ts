@@ -70,6 +70,23 @@ function summarizeFeed(kind: FeedKind, bytes: Uint8Array) {
       speed: item.vehicle?.position?.speed ?? null,
       timestamp: item.vehicle?.timestamp?.toString?.() ?? null,
     }));
+  const tripUpdates = entity
+    .filter((item) => item.tripUpdate)
+    .map((item) => ({
+      id: item.id ?? null,
+      routeId: item.tripUpdate?.trip?.routeId ?? null,
+      tripId: item.tripUpdate?.trip?.tripId ?? null,
+      vehicleId: item.tripUpdate?.vehicle?.id ?? item.tripUpdate?.vehicle?.label ?? null,
+      timestamp: item.tripUpdate?.timestamp?.toString?.() ?? null,
+      stopTimeUpdates: (item.tripUpdate?.stopTimeUpdate ?? []).map((update) => ({
+        stopId: update.stopId ?? null,
+        stopSequence: update.stopSequence ?? null,
+        arrivalDelay: update.arrival?.delay ?? null,
+        arrivalTime: update.arrival?.time?.toString?.() ?? null,
+        departureDelay: update.departure?.delay ?? null,
+        departureTime: update.departure?.time?.toString?.() ?? null,
+      })),
+    }));
 
   return {
     kind,
@@ -87,6 +104,7 @@ function summarizeFeed(kind: FeedKind, bytes: Uint8Array) {
     alertCount: entity.filter((item) => item.alert).length,
     vehicles,
     firstVehicles: vehicles.slice(0, 10),
+    tripUpdates,
   };
 }
 

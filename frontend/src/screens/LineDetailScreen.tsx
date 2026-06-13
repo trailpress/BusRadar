@@ -2,7 +2,7 @@ import { ArrowLeft, Clock3, MapPinned, Route as RouteIcon, Star, Timer, TramFron
 import { useState } from 'react';
 import { BusMap } from '../components/BusMap';
 import { LineBadge } from '../components/LineBadge';
-import { routes, stops } from '../data/demoData';
+import { getGtfsRoutesForLine, getGtfsStopsForRoute } from '../data/gtfsNetwork';
 import type { TransitLine, Vehicle } from '../types';
 import { notify } from '../utils/notify';
 
@@ -15,8 +15,8 @@ type Props = {
 
 export function LineDetailScreen({ line, vehicles, onBack, onSelectVehicle }: Props) {
   const [tab, setTab] = useState<'details' | 'route' | 'stops'>('route');
-  const route = routes.find((item) => item.id === line.routeId);
-  const lineStops = route?.stops.map((stopId) => stops.find((stop) => stop.id === stopId)).filter(Boolean) ?? [];
+  const routeVariants = getGtfsRoutesForLine(line.id);
+  const lineStops = routeVariants.flatMap(getGtfsStopsForRoute).filter((stop, index, list) => list.findIndex((item) => item.id === stop.id) === index);
 
   return (
     <main className="screen line-detail">
@@ -49,10 +49,13 @@ export function LineDetailScreen({ line, vehicles, onBack, onSelectVehicle }: Pr
       {tab === 'stops' && (
         <section className="list-section">
           <h2>Fermate</h2>
-          {lineStops.map((stop) => (
-            <div className="stop-row" key={stop!.id}>
+          {lineStops.slice(0, 180).map((stop) => (
+            <div className="stop-row" key={stop.id}>
               <MapPinned size={17} />
-              <span>{stop!.name}</span>
+              <div>
+                <strong>{stop.name}</strong>
+                <span>Palina {stop.code}</span>
+              </div>
             </div>
           ))}
         </section>

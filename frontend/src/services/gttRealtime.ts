@@ -1,4 +1,5 @@
 import type { Vehicle } from '../types';
+import { getGtfsLine } from '../data/gtfsNetwork';
 
 type GttVehiclePosition = {
   routeId: string | null;
@@ -20,11 +21,42 @@ type GttVehiclesResponse = {
   error?: string;
 };
 
+type GttTripUpdate = {
+  routeId: string | null;
+  tripId: string | null;
+  vehicleId: string | null;
+  timestamp: string | null;
+  stopTimeUpdates: Array<{
+    stopId: string | null;
+    stopSequence: number | null;
+    arrivalDelay: number | null;
+    arrivalTime: string | null;
+    departureDelay: number | null;
+    departureTime: string | null;
+  }>;
+};
+
+type GttTripUpdatesResponse = {
+  status: 'ok' | string;
+  checkedAt?: string;
+  tripUpdates?: GttTripUpdate[];
+};
+
 export type GttRealtimeSnapshot = {
   vehicles: Vehicle[];
   entityCount: number;
   vehiclePositionCount: number;
   checkedAt: string;
+};
+
+export type GttStopArrival = {
+  routeId: string;
+  line: string;
+  tripId: string;
+  vehicleId?: string;
+  timeLabel: string;
+  minutes: number;
+  delaySeconds?: number;
 };
 
 export const GTT_REALTIME_API_BASE =
@@ -38,7 +70,73 @@ function normalizeRouteName(routeId: string) {
 
 function vehicleTypeForRoute(routeId: string): Vehicle['vehicleType'] {
   const routeName = normalizeRouteName(routeId).replace(/\D/g, '');
-  return tramRoutes.has(routeName) ? 'tram' : 'bus';
+  return getGtfsLine(normalizeRouteName(routeId))?.vehicleType ?? (tramRoutes.has(routeName) ? 'tram' : 'bus');
+}
+
+let tripUpdatesCache: { at: number; updates: GttTripUpdate[] } | undefined;
+let rawVehiclesCache: { at: number; vehicles: GttVehiclePosition[] } | undefined;
+
+async function fetchRawVehicles() {
+  if (rawVehiclesCache && Date.now() - rawVehiclesCache.at < 15000) return rawVehiclesCache.vehicles;
+
+  const response = await fetch(`${GTT_REALTIME_API_BASE}/vehicles`);
+  if (!response.ok) return [];
+
+  const payload = (await response.json()) as GttVehiclesResponse;
+  const vehicles = payload.status === 'ok' && Array.isArray(payload.vehicles) ? payload.vehicles : [];
+  rawVehiclesCache = { at: Date.now(), vehicles };
+  return vehicles;
+}
+
+async function fetchTripUpdates() {
+  if (tripUpdatesCache && Date.now() - tripUpdatesCache.at < 15000) return tripUpdatesCache.updates;
+
+  const response = await fetch(`${GTT_REALTIME_API_BASE}/trips`);
+  if (!response.ok) return [];
+
+  const payload = (await response.json()) as GttTripUpdatesResponse;
+  const updates = payload.status === 'ok' && Array.isArray(payload.tripUpdates) ? payload.tripUpdates : [];
+  tripUpdatesCache = { at: Date.now(), updates };
+  return updates;
+}
+
+export async function fetchGttStopArrivals(
+  stopId: string,
+  allowedRouteIds: string[] = [],
+  stopSequencesByRoute: Record<string, number[]> = {},
+): Promise<GttStopArrival[]> {
+  const [updates, rawVehicles] = await Promise.all([fetchTripUpdates(), fetchRawVehicles()]);
+  const now = Date.now();
+  const allowed = new Set(allowedRouteIds);
+  const routeByVehicle = new Map(rawVehicles.map((vehicle) => [vehicle.vehicleId, vehicle.routeId]).filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1])));
+
+  return updates
+    .flatMap((trip) => {
+      const routeId = trip.routeId || routeByVehicle.get(trip.vehicleId ?? '') || '';
+      const sequenceSet = new Set(stopSequencesByRoute[routeId] ?? []);
+
+      return trip.stopTimeUpdates
+        .filter((stopUpdate) => stopUpdate.stopId === stopId || (routeId && stopUpdate.stopSequence != null && sequenceSet.has(stopUpdate.stopSequence)))
+        .map((stopUpdate) => {
+          const seconds = Number(stopUpdate.arrivalTime ?? stopUpdate.departureTime ?? 0);
+          const time = seconds > 0 ? seconds * 1000 : now;
+          const delaySeconds = stopUpdate.arrivalDelay ?? stopUpdate.departureDelay ?? undefined;
+
+          return {
+            routeId,
+            line: normalizeRouteName(routeId),
+            tripId: trip.tripId ?? '-',
+            vehicleId: trip.vehicleId ?? undefined,
+            timeLabel: seconds > 0 ? new Date(time).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : 'live',
+            minutes: Math.max(0, Math.round((time - now) / 60000)),
+            delaySeconds,
+          };
+        });
+    })
+    .filter((arrival) => allowed.size === 0 || allowed.has(arrival.routeId))
+    .filter((arrival) => arrival.minutes <= 90)
+    .sort((a, b) => a.minutes - b.minutes)
+    .slice(0, 8);
 }
 
 function formatTimestamp(timestamp: string | null) {
@@ -67,6 +165,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const routeId = vehicle.routeId || 'GTT';
   const line = normalizeRouteName(routeId);
   const speed = speedKmh(vehicle.speed);
+  const gtfsLine = getGtfsLine(line);
 
   return {
     vehicleId: vehicle.vehicleId || `GTT-${index}`,
@@ -82,7 +181,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     status: speed > 1 ? 'moving' : 'unknown',
     line,
     lineId: line,
-    direction: `Linea ${line}`,
+    direction: gtfsLine?.direction ?? `Linea ${line}`,
     reliability: 100,
     progress: 0,
     nextStop: vehicle.tripId ? `Trip ${vehicle.tripId}` : undefined,

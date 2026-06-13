@@ -61,54 +61,61 @@
 .vehicle-marker {
   --line-color: #2f7dff;
   --bearing: 0deg;
+  --label-bearing: 0deg;
   position: relative;
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 2px solid rgba(255, 255, 255, 0.48);
-  border-radius: 9px;
-  background: var(--line-color);
+  width: 42px;
+  height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.86) 0 16%, transparent 16% 84%, rgba(255, 255, 255, 0.86) 84%),
+    linear-gradient(180deg, color-mix(in srgb, var(--line-color) 88%, #ffffff), var(--line-color));
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
-  transform: none;
+  transform: rotate(var(--bearing));
   box-shadow:
     0 0 0 5px color-mix(in srgb, var(--line-color) 14%, transparent),
     0 10px 26px rgba(0, 0, 0, 0.45);
 }
 
 .vehicle-marker--tram {
+  height: 26px;
   border-radius: 999px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 42%),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.28) 0 12%, transparent 12% 88%, rgba(15, 23, 42, 0.28) 88%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 46%),
     var(--line-color);
 }
 
 .vehicle-marker i {
   position: absolute;
-  left: 50%;
-  top: -8px;
-  width: 0;
-  height: 0;
-  border-right: 5px solid transparent;
-  border-bottom: 8px solid #ffffff;
-  border-left: 5px solid transparent;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-  transform: translateX(-50%) rotate(var(--bearing));
-  transform-origin: 50% 25px;
+  right: -7px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-left: 0;
+  border-bottom: 0;
+  transform: translateY(-50%) rotate(45deg);
+  background: var(--line-color);
 }
 
 .vehicle-marker--tram i {
-  border-right-width: 4px;
-  border-left-width: 4px;
-  border-bottom-color: #0f172a;
+  right: -5px;
+  width: 8px;
+  height: 8px;
 }
 
 .vehicle-marker span {
   position: relative;
   z-index: 1;
-  transform: none;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  transform: rotate(var(--label-bearing));
 }
 
 .vehicle-marker.is-selected {
@@ -122,6 +129,47 @@
   border-radius: 50%;
   background: #334155;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.stop-popup {
+  display: grid;
+  gap: 8px;
+  min-width: 190px;
+}
+
+.stop-popup > span,
+.arrival-list small {
+  color: #9aa4b2;
+  font-size: 12px;
+}
+
+.stop-popup-lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.arrival-list {
+  display: grid;
+  gap: 6px;
+}
+
+.arrival-list div {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.arrival-list span {
+  font-weight: 800;
+}
+
+.arrival-list em {
+  color: #3ddc84;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
 }
 
 .leaflet-marker-pane {

@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "realtime:spike": "node scripts/realtime-spike.mjs",
+    "gtfs:generate": "node scripts/generate-gtfs-network.mjs",
     "deploy": "npm run build && gh-pages -d dist --dotfiles"
   },
   "dependencies": {

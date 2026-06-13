@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
-import { lines } from './data/demoData';
+import { gtfsNetwork } from './data/gtfsNetwork';
 import { fetchGttRealtimeVehicles } from './services/gttRealtime';
 import { transitDataProvider } from './services/TransitDataProvider';
 import { LineDetailScreen } from './screens/LineDetailScreen';
@@ -148,7 +148,7 @@ function App() {
             notify(`Segui vettura ${vehicle.vehicleId} attivo`);
           }}
           onShowRoute={(line) => {
-            const routeLine = lines.find((item) => item.id === line);
+            const routeLine = gtfsNetwork.lines.find((item) => item.id === line);
             if (routeLine) setSelectedLine(routeLine);
             setShowRouteForLine(line);
             setLineFilter(line);
