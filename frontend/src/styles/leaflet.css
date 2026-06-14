@@ -169,6 +169,37 @@
   min-width: 40px;
 }
 
+.vehicle-marker--sprite {
+  width: 100%;
+  height: 100%;
+  filter: none;
+}
+
+.vehicle-marker--sprite img {
+  position: absolute;
+  left: 50%;
+  top: 48%;
+  width: var(--sprite-width);
+  height: var(--sprite-height);
+  object-fit: contain;
+  transform: translate(-50%, -50%) rotate(var(--sprite-bearing));
+  transform-origin: 50% 50%;
+  backface-visibility: hidden;
+  filter: drop-shadow(0 4px 7px rgba(15, 23, 42, 0.28));
+}
+
+.vehicle-marker--sprite strong {
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  min-width: 24px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  transform: translateX(-50%);
+}
+
 .vehicle-marker em {
   position: absolute;
   right: -2px;
@@ -195,6 +226,16 @@
 
 .vehicle-marker.is-selected {
   animation: pulse-marker 1.4s ease-in-out infinite;
+}
+
+.vehicle-marker--sprite.is-selected {
+  animation: none;
+}
+
+.vehicle-marker--sprite.is-selected img {
+  filter:
+    drop-shadow(0 0 0 color-mix(in srgb, var(--line-color) 32%, transparent))
+    drop-shadow(0 5px 10px rgba(15, 23, 42, 0.3));
 }
 
 .stop-marker {
