@@ -117,7 +117,11 @@ function isVehicleNumberInRange(vehicleId: string | null, min: number, max: numb
 }
 
 function isBydElectric12m(vehicleId: string | null) {
-  return isVehicleNumberInRange(vehicleId, 9000, 9099) || isVehicleNumberInRange(vehicleId, 9200, 9299);
+  return isVehicleNumberInRange(vehicleId, 9000, 9099);
+}
+
+function isMethane12m(vehicleId: string | null) {
+  return isVehicleNumberInRange(vehicleId, 9200, 9299);
 }
 
 function isIveco12m(vehicleId: string | null) {
@@ -156,6 +160,7 @@ function vehicleFleetLabel(vehicleId: string | null, vehicleType: Vehicle['vehic
   if (isVehicleNumberInRange(vehicleId, 9300, 9399)) return 'Iveco 18m';
   if (isVehicleNumberInRange(vehicleId, 9400, 9499)) return 'BYD 18m';
   if (isBydElectric12m(vehicleId)) return 'BYD elettrico 12m';
+  if (isMethane12m(vehicleId)) return 'Metano 12m';
   if (isIveco12m(vehicleId)) return 'Iveco 12m';
   if (isVehicleNumberInRange(vehicleId, 800, 899)) return 'Iveco 18m';
   if (isVehicleNumberInRange(vehicleId, 1300, 1399)) return 'Mercedes 18m';
