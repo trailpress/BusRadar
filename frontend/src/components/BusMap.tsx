@@ -34,13 +34,14 @@ const tileLayer = {
 };
 
 const vehicleAssetBase = import.meta.env.BASE_URL;
+const spriteZoomThreshold = 17.5;
 
 function createBusIcon(vehicle: Vehicle, selected: boolean, zoom: number) {
   const color = getLineColor(vehicle.line);
   const isArticulated = vehicle.vehicleLengthClass === 'articulated-18m';
   const isInterurbanBlue = vehicle.vehicleLivery === 'interurban-blue';
   const isElectricCompact = vehicle.vehicleLivery === 'electric-compact';
-  const useSprite = zoom >= 17.25;
+  const useSprite = zoom >= spriteZoomThreshold;
   const spriteBearing = vehicle.bearing - 90;
   const asset = vehicle.vehicleType === 'tram'
     ? `${vehicleAssetBase}assets/vehicles/tram-top.png`
@@ -53,7 +54,7 @@ function createBusIcon(vehicle: Vehicle, selected: boolean, zoom: number) {
     ? vehicle.vehicleType === 'tram'
       ? [72, 28]
       : isElectricCompact
-        ? [50, 16]
+        ? [58, 18]
       : isArticulated
         ? [92, isInterurbanBlue ? 18 : 22]
         : [isInterurbanBlue ? 70 : 58, isInterurbanBlue ? 20 : 18]
@@ -67,14 +68,25 @@ function createBusIcon(vehicle: Vehicle, selected: boolean, zoom: number) {
   });
 }
 
+function vehicleIconKey(vehicle: Vehicle, selected: boolean, zoom: number) {
+  return [
+    zoom >= spriteZoomThreshold ? 'sprite' : 'badge',
+    selected ? 'selected' : 'normal',
+    vehicle.vehicleType,
+    vehicle.vehicleLengthClass ?? 'standard',
+    vehicle.vehicleLivery ?? 'urban',
+  ].join('|');
+}
+
 function createVehiclePopup(vehicle: Vehicle) {
   const color = getLineColor(vehicle.line);
   const labelSuffix = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? ` · label ${vehicle.realtimeVehicleLabel}` : '';
+  const vehicleKind = vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus');
   return `
     <div class="map-popup">
       <span class="line-badge" style="--line-color:${color}">${vehicle.line}</span>
       <strong>Vettura ${vehicle.vehicleId}</strong>
-      <span>${vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus'} · ${vehicle.direction} · ${vehicle.source}${labelSuffix}</span>
+      <span>${vehicleKind} · ${vehicle.direction} · ${vehicle.source}${labelSuffix}</span>
     </div>
   `;
 }
@@ -197,6 +209,7 @@ function ViewportTracker({ onViewport }: { onViewport: (bounds: ViewportBounds) 
 
 type VehicleMarkerEntry = {
   marker: L.Marker;
+  iconKey: string;
   from: L.LatLng;
   to: L.LatLng;
   startedAt: number;
@@ -240,6 +253,7 @@ function VehicleMarkers({
       const existing = markers.get(vehicle.vehicleId);
 
       if (!existing) {
+        const iconKey = vehicleIconKey(vehicle, selected, zoom);
         const marker = L.marker(nextLatLng, {
           icon: createBusIcon(vehicle, selected, zoom),
           zIndexOffset: selected ? 700 : 520,
@@ -255,6 +269,7 @@ function VehicleMarkers({
         });
         markers.set(vehicle.vehicleId, {
           marker,
+          iconKey,
           from: nextLatLng,
           to: nextLatLng,
           startedAt: now,
@@ -268,7 +283,11 @@ function VehicleMarkers({
       existing.startedAt = now;
       existing.vehicle = vehicle;
       existing.marker.setZIndexOffset(selected ? 700 : 520);
-      existing.marker.setIcon(createBusIcon(vehicle, selected, zoom));
+      const nextIconKey = vehicleIconKey(vehicle, selected, zoom);
+      if (existing.iconKey !== nextIconKey) {
+        existing.marker.setIcon(createBusIcon(vehicle, selected, zoom));
+        existing.iconKey = nextIconKey;
+      }
       updateVehicleMarkerElement(existing.marker, vehicle, selected);
       existing.marker.setPopupContent(createVehiclePopup(vehicle));
     });
@@ -308,7 +327,7 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
   if (selectedLine) return getGtfsRoutesForLine(selectedLine);
 
   const byRoute = new Map<string, GtfsRouteVariant>();
-  vehicles.slice(0, 90).forEach((vehicle) => {
+  vehicles.slice(0, 48).forEach((vehicle) => {
     const routeId = vehicle.routeId.replace(/^gtt-/, '');
     const variants = getGtfsRoutesForRouteId(routeId);
     const lineVariants = variants.length > 0 ? variants : getGtfsRoutesForLine(vehicle.line);
@@ -417,7 +436,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         maxZoom={18}
         zoomSnap={0.25}
         zoomDelta={0.5}
-        wheelPxPerZoomLevel={90}
+        wheelPxPerZoomLevel={70}
         zoomControl={false}
         markerZoomAnimation
         zoomAnimation
@@ -434,9 +453,9 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           attribution={tileLayer.attribution}
           opacity={1}
           maxNativeZoom={18}
-          updateWhenZooming
+          updateWhenZooming={false}
           updateWhenIdle
-          keepBuffer={4}
+          keepBuffer={2}
         />
         {highlightedRoutes.map((route) => (
           <Polyline

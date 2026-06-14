@@ -111,21 +111,36 @@ function vehicleNumber(vehicleId: string | null) {
   return match ? Number(match[0]) : undefined;
 }
 
+function isBydElectric12m(vehicleId: string | null) {
+  const number = vehicleNumber(vehicleId);
+  return Boolean(number && number >= 9200);
+}
+
 function vehicleLengthClass(vehicleId: string | null, vehicleType: Vehicle['vehicleType']): Vehicle['vehicleLengthClass'] {
   if (vehicleType !== 'bus') return 'standard';
   const number = vehicleNumber(vehicleId);
   if (!number) return 'standard';
+  if (isBydElectric12m(vehicleId)) return 'standard';
 
-  // GTT 18m articulated bus series: 800-899 and 1300+.
-  return (number >= 800 && number < 900) || number >= 1300 ? 'articulated-18m' : 'standard';
+  // Known articulated 18m series. 9200+ are BYD electric 12m and must stay standard length.
+  return (number >= 800 && number < 900) || (number >= 1300 && number < 9200) ? 'articulated-18m' : 'standard';
 }
 
 function vehicleLiveryForVehicle(routeId: string, line: string, vehicleId: string | null): Vehicle['vehicleLivery'] {
   const number = vehicleNumber(vehicleId);
+  if (isBydElectric12m(vehicleId)) return 'electric-compact';
   if (number && number >= 50 && number <= 81) return 'electric-compact';
 
   const routeNumber = Number(normalizeRouteName(routeId).replace(/\D/g, '') || line.replace(/\D/g, ''));
   return routeNumber >= 1000 ? 'interurban-blue' : 'urban';
+}
+
+function vehicleFleetLabel(vehicleId: string | null, vehicleType: Vehicle['vehicleType'], livery?: Vehicle['vehicleLivery'], lengthClass?: Vehicle['vehicleLengthClass']) {
+  if (vehicleType === 'tram') return 'Tram';
+  if (isBydElectric12m(vehicleId)) return 'BYD elettrico 12m';
+  if (livery === 'electric-compact') return 'Bus elettrico';
+  if (livery === 'interurban-blue') return lengthClass === 'articulated-18m' ? 'Bus suburbano blu 18m' : 'Bus suburbano blu';
+  return lengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus';
 }
 
 let tripUpdatesCache: { at: number; updates: GttTripUpdate[] } | undefined;
@@ -391,6 +406,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const gtfsLine = getGtfsLine(line);
   const vehicleType = vehicleTypeForRoute(routeId);
   const vehicleLivery = vehicleLiveryForVehicle(routeId, line, vehicle.vehicleId);
+  const lengthClass = vehicleLengthClass(vehicle.vehicleId, vehicleType);
   const vehicleId = normalizeVehicleId(vehicle.vehicleId) || normalizeVehicleId(vehicle.vehicleLabel ?? null);
   const vehicleIdSource: Vehicle['vehicleIdSource'] = normalizeVehicleId(vehicle.vehicleId) ? 'vehicle.id' : 'vehicle.label';
   const { speed, source: speedSource } = observedSpeed(vehicleId || String(index), vehicle);
@@ -411,7 +427,8 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     routeShortName: line,
     vehicleType,
     vehicleLivery,
-    vehicleLengthClass: vehicleLengthClass(vehicle.vehicleId, vehicleType),
+    vehicleLengthClass: lengthClass,
+    vehicleFleetLabel: vehicleFleetLabel(vehicle.vehicleId, vehicleType, vehicleLivery, lengthClass),
     lat: displayPoint.lat,
     lon: displayPoint.lon,
     bearing: isSnappedToRoute ? estimate.bearing ?? 0 : vehicle.bearing && vehicle.bearing > 0 ? vehicle.bearing : estimate.bearing ?? 0,

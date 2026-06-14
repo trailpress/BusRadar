@@ -16,6 +16,7 @@ export type TransitVehicle = {
   vehicleType: VehicleType;
   vehicleLengthClass?: VehicleLengthClass;
   vehicleLivery?: VehicleLivery;
+  vehicleFleetLabel?: string;
   lat: number;
   lon: number;
   bearing: number;

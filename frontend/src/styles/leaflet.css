@@ -55,14 +55,11 @@
 }
 
 .vehicle-marker-shell {
-  will-change: transform;
-  contain: layout style;
+  contain: layout paint style;
 }
 
 .leaflet-interactive {
-  transition:
-    stroke-width 160ms ease,
-    opacity 160ms ease;
+  transition: none;
 }
 
 .vehicle-marker {
@@ -186,7 +183,7 @@
   object-fit: contain;
   transform: rotate(var(--sprite-bearing));
   transform-origin: 50% 50%;
-  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .vehicle-marker--sprite strong {

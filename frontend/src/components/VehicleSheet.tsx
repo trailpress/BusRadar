@@ -11,7 +11,7 @@ type Props = {
 };
 
 export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
-  const vehicleKind = vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus';
+  const vehicleKind = vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus');
   const speedSource = vehicle.speedSource === 'feed' ? 'Feed realtime' : vehicle.speedSource === 'observed' ? 'Calcolata da GPS' : 'Non disponibile';
   const rawVehicleLabel = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? vehicle.realtimeVehicleLabel : undefined;
   const isInterurbanBlue = vehicle.vehicleLivery === 'interurban-blue';
@@ -44,7 +44,7 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         <LineBadge line={vehicle.line} size="lg" />
         <div>
           <strong>{vehicle.vehicleId}</strong>
-          <span>{vehicleKind}{isInterurbanBlue ? ' suburbano blu' : isElectricCompact ? ' elettrico compatto' : ''} · {vehicle.source === 'gtfs-rt' ? 'GTFS-RT reale' : 'dato non realtime'}</span>
+          <span>{vehicleKind} · {vehicle.source === 'gtfs-rt' ? 'GTFS-RT reale' : 'dato non realtime'}</span>
         </div>
       </div>
       <div className="direction-block">
