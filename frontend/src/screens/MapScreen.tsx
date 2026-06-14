@@ -8,6 +8,7 @@ type Props = {
   vehicles: Vehicle[];
   selectedLine?: string;
   selectedVehicle?: Vehicle;
+  selectedVehicleFallback?: Vehicle;
   followedVehicleId?: string;
   focusPoint?: LatLng;
   userLocation: LatLng;
@@ -27,6 +28,7 @@ export function MapScreen({
   vehicles,
   selectedLine,
   selectedVehicle,
+  selectedVehicleFallback,
   followedVehicleId,
   focusPoint,
   userLocation,
@@ -63,12 +65,12 @@ export function MapScreen({
           <span>La mappa resta centrata sul mezzo realtime</span>
         </div>
       )}
-      {selectedVehicle && (
+      {(selectedVehicle ?? selectedVehicleFallback) && (
         <VehicleSheet
-          vehicle={selectedVehicle}
+          vehicle={(selectedVehicle ?? selectedVehicleFallback)!}
           onClose={onClearVehicle}
-          onFollow={() => onFollowVehicle(selectedVehicle)}
-          onRoute={() => onShowRoute(selectedVehicle.line)}
+          onFollow={() => onFollowVehicle((selectedVehicle ?? selectedVehicleFallback)!)}
+          onRoute={() => onShowRoute((selectedVehicle ?? selectedVehicleFallback)!.line)}
         />
       )}
     </main>

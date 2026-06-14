@@ -17,6 +17,7 @@ function App() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [search, setSearch] = useState('');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>();
+  const [selectedVehicleFallback, setSelectedVehicleFallback] = useState<Vehicle>();
   const [selectedLine, setSelectedLine] = useState<TransitLine>();
   const [lineFilter, setLineFilter] = useState<string>();
   const [showRouteForLine, setShowRouteForLine] = useState<string>();
@@ -137,6 +138,7 @@ function App() {
 
   function openVehicle(vehicle: Vehicle) {
     setSelectedVehicleId(vehicle.vehicleId);
+    setSelectedVehicleFallback(vehicle);
     setLineFilter(vehicle.line);
     setShowRouteForLine(vehicle.routeId.replace(/^gtt-/, ''));
     setActiveTab('map');
@@ -145,6 +147,7 @@ function App() {
 
   function trackVehicleFromRadar(vehicle: Vehicle) {
     setSelectedVehicleId(undefined);
+    setSelectedVehicleFallback(undefined);
     setFollowedVehicleId(vehicle.vehicleId);
     setLineFilter(vehicle.line);
     setShowRouteForLine(vehicle.routeId.replace(/^gtt-/, ''));
@@ -154,6 +157,7 @@ function App() {
 
   function openLine(line: TransitLine) {
     setSelectedLine(line);
+    setSelectedVehicleFallback(undefined);
     setLineFilter(line.id);
     setShowRouteForLine(line.id);
     notify(`Linea ${line.id} selezionata`);
@@ -161,7 +165,10 @@ function App() {
 
   function handleTabChange(tab: TabKey) {
     setActiveTab(tab);
-    if (tab !== 'map') setSelectedVehicleId(undefined);
+    if (tab !== 'map') {
+      setSelectedVehicleId(undefined);
+      setSelectedVehicleFallback(undefined);
+    }
     if (tab !== 'lines') setSelectedLine(undefined);
     if (tab !== 'map') setFollowedVehicleId(undefined);
   }
@@ -169,6 +176,7 @@ function App() {
   function openStop(stop: Stop) {
     setMapFocus({ lat: stop.lat, lon: stop.lon });
     setSelectedVehicleId(undefined);
+    setSelectedVehicleFallback(undefined);
     setFollowedVehicleId(undefined);
     setLineFilter(undefined);
     setShowRouteForLine(undefined);
@@ -193,6 +201,7 @@ function App() {
           vehicles={searchedVehicles}
           selectedLine={lineFilter}
           selectedVehicle={selectedVehicle}
+          selectedVehicleFallback={selectedVehicleFallback}
           followedVehicleId={followedVehicleId}
           focusPoint={mapFocus}
           userLocation={userLocation}
@@ -203,7 +212,10 @@ function App() {
           onSearch={setSearch}
           onRadar={() => setActiveTab('more')}
           onSelectVehicle={openVehicle}
-          onClearVehicle={() => setSelectedVehicleId(undefined)}
+          onClearVehicle={() => {
+            setSelectedVehicleId(undefined);
+            setSelectedVehicleFallback(undefined);
+          }}
           onFollowVehicle={(vehicle) => {
             setSelectedVehicleId(undefined);
             setFollowedVehicleId(vehicle.vehicleId);

@@ -35,47 +35,24 @@ const tileLayer = {
   attribution: '&copy; OpenStreetMap contributors',
 };
 
-const vehicleAssetBase = import.meta.env.BASE_URL;
-const spriteZoomThreshold = 17.5;
-
-function createBusIcon(vehicle: Vehicle, selected: boolean, zoom: number) {
+function createBusIcon(vehicle: Vehicle, selected: boolean) {
   const color = getLineColor(vehicle.line);
   const isArticulated = vehicle.vehicleLengthClass === 'articulated-18m';
   const isInterurbanBlue = vehicle.vehicleLivery === 'interurban-blue';
   const isElectricCompact = vehicle.vehicleLivery === 'electric-compact';
-  const useSprite = zoom >= spriteZoomThreshold;
-  const spriteBearing = vehicle.bearing - 90;
-  const asset = vehicle.vehicleType === 'tram'
-    ? `${vehicleAssetBase}assets/vehicles/tram-top.png`
-    : isElectricCompact
-      ? `${vehicleAssetBase}assets/vehicles/bus-electric-compact-top.png`
-    : isInterurbanBlue
-      ? `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'interurban-blue-articulated-top.png' : 'interurban-blue-bus-top.png'}`
-      : `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'bus-articulated-top.png' : 'bus-top.png'}`;
-  const spriteSize: [number, number] = vehicle.vehicleType === 'tram'
-    ? [78, 30]
-    : isElectricCompact
-      ? [70, 22]
-    : isArticulated
-      ? [108, isInterurbanBlue ? 24 : 30]
-      : [isInterurbanBlue ? 78 : 70, isInterurbanBlue ? 24 : 22];
-  const spriteShellSize = Math.ceil(Math.hypot(spriteSize[0], spriteSize[1]) + 18);
-  const iconSize: [number, number] = useSprite
-    ? [spriteShellSize, spriteShellSize]
-    : [42, 38];
-  const spriteStyle = useSprite ? `--sprite-width:${spriteSize[0]}px;--sprite-height:${spriteSize[1]}px;` : '';
+  const iconSize: [number, number] = [42, 38];
   const iconAnchor: [number, number] = [iconSize[0] / 2, iconSize[1] / 2];
   return L.divIcon({
     className: 'vehicle-marker-shell',
-    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${isInterurbanBlue ? 'vehicle-marker--interurban' : ''} ${isElectricCompact ? 'vehicle-marker--electric' : ''} ${useSprite ? 'vehicle-marker--sprite' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--sprite-bearing:${spriteBearing}deg;${spriteStyle}" aria-label="${vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus')} linea ${vehicle.line}">${useSprite ? `<img src="${asset}" alt="" />` : '<i></i>'}<strong>${vehicle.line}</strong>${isArticulated && !useSprite ? '<em>18</em>' : ''}<span class="vehicle-tooltip"><b>Vettura ${vehicle.vehicleId}</b><small>${vehicle.direction || 'Direzione non disponibile'}</small></span></button>`,
+    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${isInterurbanBlue ? 'vehicle-marker--interurban' : ''} ${isElectricCompact ? 'vehicle-marker--electric' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg" aria-label="${vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus')} linea ${vehicle.line}"><i></i><strong>${vehicle.line}</strong>${isArticulated ? '<em>18</em>' : ''}<span class="vehicle-tooltip"><b>Vettura ${vehicle.vehicleId}</b><small>${vehicle.direction || 'Direzione non disponibile'}</small></span></button>`,
     iconSize,
     iconAnchor,
   });
 }
 
-function vehicleIconKey(vehicle: Vehicle, selected: boolean, zoom: number) {
+function vehicleIconKey(vehicle: Vehicle, selected: boolean) {
   return [
-    zoom >= spriteZoomThreshold ? 'sprite' : 'badge',
+    'badge',
     selected ? 'selected' : 'normal',
     vehicle.vehicleType,
     vehicle.vehicleLengthClass ?? 'standard',
@@ -230,13 +207,11 @@ function VehicleMarkers({
   vehicles,
   selectedVehicleId,
   followedVehicleId,
-  zoom,
   onSelectVehicle,
 }: {
   vehicles: Vehicle[];
   selectedVehicleId?: string;
   followedVehicleId?: string;
-  zoom: number;
   onSelectVehicle: (vehicle: Vehicle) => void;
 }) {
   const map = useMap();
@@ -263,9 +238,9 @@ function VehicleMarkers({
       const existing = markers.get(vehicle.vehicleId);
 
       if (!existing) {
-        const iconKey = vehicleIconKey(vehicle, selected, zoom);
+        const iconKey = vehicleIconKey(vehicle, selected);
         const marker = L.marker(nextLatLng, {
-          icon: createBusIcon(vehicle, selected, zoom),
+          icon: createBusIcon(vehicle, selected),
           zIndexOffset: selected ? 700 : 520,
           riseOnHover: true,
         }).addTo(map);
@@ -288,24 +263,26 @@ function VehicleMarkers({
         return;
       }
 
-      existing.from = existing.marker.getLatLng();
+      const currentLatLng = existing.marker.getLatLng();
+      const jumpMeters = currentLatLng.distanceTo(nextLatLng);
+      existing.from = jumpMeters > 180 ? nextLatLng : currentLatLng;
       existing.to = nextLatLng;
-      existing.startedAt = now;
+      existing.startedAt = jumpMeters > 180 ? now - 15000 : now;
       existing.vehicle = vehicle;
       existing.marker.setZIndexOffset(selected ? 700 : 520);
-      const nextIconKey = vehicleIconKey(vehicle, selected, zoom);
+      const nextIconKey = vehicleIconKey(vehicle, selected);
       if (existing.iconKey !== nextIconKey) {
-        existing.marker.setIcon(createBusIcon(vehicle, selected, zoom));
+        existing.marker.setIcon(createBusIcon(vehicle, selected));
         existing.iconKey = nextIconKey;
       }
       updateVehicleMarkerElement(existing.marker, vehicle, selected);
       existing.marker.setPopupContent(createVehiclePopup(vehicle));
     });
-  }, [vehicles, selectedVehicleId, followedVehicleId, map, zoom]);
+  }, [vehicles, selectedVehicleId, followedVehicleId, map]);
 
   useEffect(() => {
     let frameId = 0;
-    const duration = 14500;
+    const duration = 18000;
 
     const tick = (time: number) => {
       markersRef.current.forEach((entry) => {
@@ -503,7 +480,6 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           vehicles={visibleVehicles}
           selectedVehicleId={selectedVehicleId}
           followedVehicleId={followedVehicleId}
-          zoom={zoom}
           onSelectVehicle={onSelectVehicle}
         />
         <ZoomTracker onZoom={setZoom} />
