@@ -24,6 +24,8 @@ type Props = {
   followedVehicleId?: string;
   focusPoint?: LatLng;
   userLocation: LatLng;
+  hasUserLocation?: boolean;
+  onLocateUser?: () => Promise<LatLng | undefined>;
   showRouteForLine?: string;
   onSelectVehicle: (vehicle: Vehicle) => void;
 };
@@ -112,11 +114,16 @@ function updateVehicleMarkerElement(marker: L.Marker, vehicle: Vehicle, selected
   }
 }
 
-function RecenterButton({ userLocation }: { userLocation: LatLng }) {
+function RecenterButton({ userLocation, onLocateUser }: { userLocation: LatLng; onLocateUser?: () => Promise<LatLng | undefined> }) {
   const map = useMap();
+  const centerOnUser = async () => {
+    const located = await onLocateUser?.();
+    const target = located ?? userLocation;
+    map.flyTo([target.lat, target.lon], 15);
+  };
   return (
     <div className="map-floating-controls">
-      <IconButton label="Centra posizione" onClick={() => map.flyTo([userLocation.lat, userLocation.lon], 15)}>
+      <IconButton label="Centra posizione" onClick={() => void centerOnUser()}>
         <LocateFixed size={20} />
       </IconButton>
     </div>
@@ -386,7 +393,7 @@ function StopPopup({ stop, routeIds, stopSequencesByRoute }: { stop: GtfsStop; r
   );
 }
 
-export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, showRouteForLine, onSelectVehicle }: Props) {
+export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, hasUserLocation, onLocateUser, showRouteForLine, onSelectVehicle }: Props) {
   const [zoom, setZoom] = useState(13);
   const [viewport, setViewport] = useState<ViewportBounds>();
   const visibleVehicles = useMemo(
@@ -483,10 +490,12 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
               </Popup>
             </Marker>
           ))}
-        <Marker
-          position={[userLocation.lat, userLocation.lon]}
-          icon={L.divIcon({ className: '', html: '<div class="user-marker"></div>', iconSize: [24, 24], iconAnchor: [12, 12] })}
-        />
+        {hasUserLocation && (
+          <Marker
+            position={[userLocation.lat, userLocation.lon]}
+            icon={L.divIcon({ className: '', html: '<div class="user-marker"></div>', iconSize: [24, 24], iconAnchor: [12, 12] })}
+          />
+        )}
         <VehicleMarkers
           vehicles={visibleVehicles}
           selectedVehicleId={selectedVehicleId}
@@ -496,7 +505,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         />
         <ZoomTracker onZoom={setZoom} />
         <ViewportTracker onViewport={setViewport} />
-        <RecenterButton userLocation={userLocation} />
+        <RecenterButton userLocation={userLocation} onLocateUser={onLocateUser} />
         <FitRoute line={showRouteForLine} />
         <FollowVehicle vehicle={followedVehicle} />
         <FocusPoint point={focusPoint} />

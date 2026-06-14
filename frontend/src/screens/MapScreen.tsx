@@ -11,6 +11,8 @@ type Props = {
   followedVehicleId?: string;
   focusPoint?: LatLng;
   userLocation: LatLng;
+  hasUserLocation: boolean;
+  onLocateUser: () => Promise<LatLng | undefined>;
   showRouteForLine?: string;
   search: string;
   onSearch: (value: string) => void;
@@ -28,6 +30,8 @@ export function MapScreen({
   followedVehicleId,
   focusPoint,
   userLocation,
+  hasUserLocation,
+  onLocateUser,
   showRouteForLine,
   search,
   onSearch,
@@ -46,6 +50,8 @@ export function MapScreen({
         followedVehicleId={followedVehicleId}
         focusPoint={focusPoint}
         userLocation={userLocation}
+        hasUserLocation={hasUserLocation}
+        onLocateUser={onLocateUser}
         showRouteForLine={showRouteForLine}
         onSelectVehicle={onSelectVehicle}
       />

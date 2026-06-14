@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import { gtfsNetwork } from './data/gtfsNetwork';
 import { fetchGttRealtimeVehicles } from './services/gttRealtime';
@@ -23,17 +23,70 @@ function App() {
   const [followedVehicleId, setFollowedVehicleId] = useState<string>();
   const [mapFocus, setMapFocus] = useState<LatLng>();
   const [userLocation, setUserLocation] = useState<LatLng>({ lat: 45.0706, lon: 7.6867 });
+  const [hasUserLocation, setHasUserLocation] = useState(false);
   const [toast, setToast] = useState<string>();
+  const locationWatchRef = useRef<number | undefined>(undefined);
+
+  const startLocationWatch = useCallback(() => {
+    if (!navigator.geolocation) return;
+    if (locationWatchRef.current != null) navigator.geolocation.clearWatch(locationWatchRef.current);
+    locationWatchRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        setHasUserLocation(true);
+        setUserLocation({ lat: position.coords.latitude, lon: position.coords.longitude });
+      },
+      () => undefined,
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 },
+    );
+  }, []);
+
+  const requestUserLocation = useCallback(() => new Promise<LatLng | undefined>((resolve) => {
+    if (!navigator.geolocation) {
+      notify('Geolocalizzazione non disponibile su questo browser');
+      resolve(undefined);
+      return;
+    }
+
+    const isSecure = window.isSecureContext || ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    if (!isSecure) {
+      notify('Apri BusRadar in HTTPS per usare la posizione su iPhone');
+      resolve(undefined);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const nextLocation = { lat: position.coords.latitude, lon: position.coords.longitude };
+        setHasUserLocation(true);
+        setUserLocation(nextLocation);
+        startLocationWatch();
+        notify(`Posizione aggiornata · precisione ${Math.round(position.coords.accuracy)} m`);
+        resolve(nextLocation);
+      },
+      (error) => {
+        const message = error.code === error.PERMISSION_DENIED
+          ? 'Consenti la posizione per Safari/iPhone e riprova'
+          : error.code === error.TIMEOUT
+            ? 'Posizione non trovata: riprova tra qualche secondo'
+            : 'Posizione iPhone non disponibile ora';
+        notify(message);
+        resolve(undefined);
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+    );
+  }), [startLocationWatch]);
 
   useEffect(() => {
-    if (!navigator.geolocation) return;
-    const id = navigator.geolocation.watchPosition(
-      (position) => setUserLocation({ lat: position.coords.latitude, lon: position.coords.longitude }),
-      () => undefined,
-      { enableHighAccuracy: true, maximumAge: 30000, timeout: 12000 },
-    );
-    return () => navigator.geolocation.clearWatch(id);
-  }, []);
+    navigator.permissions?.query({ name: 'geolocation' as PermissionName })
+      .then((permission) => {
+        if (permission.state === 'granted') startLocationWatch();
+      })
+      .catch(() => undefined);
+
+    return () => {
+      if (locationWatchRef.current != null) navigator.geolocation?.clearWatch(locationWatchRef.current);
+    };
+  }, [startLocationWatch]);
 
   useEffect(() => {
     let cancelled = false;
@@ -143,6 +196,8 @@ function App() {
           followedVehicleId={followedVehicleId}
           focusPoint={mapFocus}
           userLocation={userLocation}
+          hasUserLocation={hasUserLocation}
+          onLocateUser={requestUserLocation}
           showRouteForLine={showRouteForLine}
           search={search}
           onSearch={setSearch}
