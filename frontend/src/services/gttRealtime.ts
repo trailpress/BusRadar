@@ -111,19 +111,35 @@ function vehicleNumber(vehicleId: string | null) {
   return match ? Number(match[0]) : undefined;
 }
 
-function isBydElectric12m(vehicleId: string | null) {
+function isVehicleNumberInRange(vehicleId: string | null, min: number, max: number) {
   const number = vehicleNumber(vehicleId);
-  return Boolean(number && number >= 9200);
+  return Boolean(number && number >= min && number <= max);
+}
+
+function isBydElectric12m(vehicleId: string | null) {
+  return isVehicleNumberInRange(vehicleId, 9000, 9099) || isVehicleNumberInRange(vehicleId, 9200, 9299);
+}
+
+function isIveco12m(vehicleId: string | null) {
+  return isVehicleNumberInRange(vehicleId, 3000, 3099);
+}
+
+function isMercedes12m(vehicleId: string | null) {
+  return isVehicleNumberInRange(vehicleId, 2400, 2499);
+}
+
+function isArticulated18m(vehicleId: string | null) {
+  return (
+    isVehicleNumberInRange(vehicleId, 800, 899) ||
+    isVehicleNumberInRange(vehicleId, 1300, 1399) ||
+    isVehicleNumberInRange(vehicleId, 9300, 9399) ||
+    isVehicleNumberInRange(vehicleId, 9400, 9499)
+  );
 }
 
 function vehicleLengthClass(vehicleId: string | null, vehicleType: Vehicle['vehicleType']): Vehicle['vehicleLengthClass'] {
   if (vehicleType !== 'bus') return 'standard';
-  const number = vehicleNumber(vehicleId);
-  if (!number) return 'standard';
-  if (isBydElectric12m(vehicleId)) return 'standard';
-
-  // Known articulated 18m series. 9200+ are BYD electric 12m and must stay standard length.
-  return (number >= 800 && number < 900) || (number >= 1300 && number < 9200) ? 'articulated-18m' : 'standard';
+  return isArticulated18m(vehicleId) ? 'articulated-18m' : 'standard';
 }
 
 function vehicleLiveryForVehicle(routeId: string, line: string, vehicleId: string | null): Vehicle['vehicleLivery'] {
@@ -137,7 +153,13 @@ function vehicleLiveryForVehicle(routeId: string, line: string, vehicleId: strin
 
 function vehicleFleetLabel(vehicleId: string | null, vehicleType: Vehicle['vehicleType'], livery?: Vehicle['vehicleLivery'], lengthClass?: Vehicle['vehicleLengthClass']) {
   if (vehicleType === 'tram') return 'Tram';
+  if (isVehicleNumberInRange(vehicleId, 9300, 9399)) return 'Iveco 18m';
+  if (isVehicleNumberInRange(vehicleId, 9400, 9499)) return 'BYD 18m';
   if (isBydElectric12m(vehicleId)) return 'BYD elettrico 12m';
+  if (isIveco12m(vehicleId)) return 'Iveco 12m';
+  if (isVehicleNumberInRange(vehicleId, 800, 899)) return 'Iveco 18m';
+  if (isVehicleNumberInRange(vehicleId, 1300, 1399)) return 'Mercedes 18m';
+  if (isMercedes12m(vehicleId)) return 'Mercedes 12m';
   if (livery === 'electric-compact') return 'Bus elettrico';
   if (livery === 'interurban-blue') return lengthClass === 'articulated-18m' ? 'Bus suburbano blu 18m' : 'Bus suburbano blu';
   return lengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus';

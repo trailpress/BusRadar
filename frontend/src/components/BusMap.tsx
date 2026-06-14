@@ -52,19 +52,22 @@ function createBusIcon(vehicle: Vehicle, selected: boolean, zoom: number) {
     : isInterurbanBlue
       ? `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'interurban-blue-articulated-top.png' : 'interurban-blue-bus-top.png'}`
       : `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'bus-articulated-top.png' : 'bus-top.png'}`;
+  const spriteSize: [number, number] = vehicle.vehicleType === 'tram'
+    ? [78, 30]
+    : isElectricCompact
+      ? [70, 22]
+    : isArticulated
+      ? [108, isInterurbanBlue ? 24 : 30]
+      : [isInterurbanBlue ? 78 : 70, isInterurbanBlue ? 24 : 22];
+  const spriteShellSize = Math.ceil(Math.hypot(spriteSize[0], spriteSize[1]) + 18);
   const iconSize: [number, number] = useSprite
-    ? vehicle.vehicleType === 'tram'
-      ? [72, 28]
-      : isElectricCompact
-        ? [58, 18]
-      : isArticulated
-        ? [92, isInterurbanBlue ? 18 : 22]
-        : [isInterurbanBlue ? 70 : 58, isInterurbanBlue ? 20 : 18]
+    ? [spriteShellSize, spriteShellSize]
     : [42, 38];
+  const spriteStyle = useSprite ? `--sprite-width:${spriteSize[0]}px;--sprite-height:${spriteSize[1]}px;` : '';
   const iconAnchor: [number, number] = [iconSize[0] / 2, iconSize[1] / 2];
   return L.divIcon({
     className: 'vehicle-marker-shell',
-    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${isInterurbanBlue ? 'vehicle-marker--interurban' : ''} ${isElectricCompact ? 'vehicle-marker--electric' : ''} ${useSprite ? 'vehicle-marker--sprite' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--sprite-bearing:${spriteBearing}deg" aria-label="${vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus'} linea ${vehicle.line}">${useSprite ? `<img src="${asset}" alt="" />` : '<i></i>'}<strong>${vehicle.line}</strong>${isArticulated && !useSprite ? '<em>18</em>' : ''}<span class="vehicle-tooltip"><b>Vettura ${vehicle.vehicleId}</b><small>${vehicle.direction || 'Direzione non disponibile'}</small></span></button>`,
+    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${isInterurbanBlue ? 'vehicle-marker--interurban' : ''} ${isElectricCompact ? 'vehicle-marker--electric' : ''} ${useSprite ? 'vehicle-marker--sprite' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg;--sprite-bearing:${spriteBearing}deg;${spriteStyle}" aria-label="${vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus')} linea ${vehicle.line}">${useSprite ? `<img src="${asset}" alt="" />` : '<i></i>'}<strong>${vehicle.line}</strong>${isArticulated && !useSprite ? '<em>18</em>' : ''}<span class="vehicle-tooltip"><b>Vettura ${vehicle.vehicleId}</b><small>${vehicle.direction || 'Direzione non disponibile'}</small></span></button>`,
     iconSize,
     iconAnchor,
   });
@@ -334,7 +337,7 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
   if (selectedLine) return getGtfsRoutesForLine(selectedLine);
 
   const byRoute = new Map<string, GtfsRouteVariant>();
-  vehicles.slice(0, 48).forEach((vehicle) => {
+  vehicles.slice(0, 28).forEach((vehicle) => {
     const routeId = vehicle.routeId.replace(/^gtt-/, '');
     const variants = getGtfsRoutesForRouteId(routeId);
     const lineVariants = variants.length > 0 ? variants : getGtfsRoutesForLine(vehicle.line);
@@ -445,9 +448,9 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         zoomDelta={0.5}
         wheelPxPerZoomLevel={70}
         zoomControl={false}
-        markerZoomAnimation
+        markerZoomAnimation={false}
         zoomAnimation
-        fadeAnimation
+        fadeAnimation={false}
         inertia
         inertiaDeceleration={2400}
         easeLinearity={0.18}
@@ -462,7 +465,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           maxNativeZoom={18}
           updateWhenZooming={false}
           updateWhenIdle
-          keepBuffer={2}
+          keepBuffer={1}
         />
         {highlightedRoutes.map((route) => (
           <Polyline
