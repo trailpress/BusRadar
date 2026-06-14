@@ -16,18 +16,15 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
   const rawVehicleLabel = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? vehicle.realtimeVehicleLabel : undefined;
   const isInterurbanBlue = vehicle.vehicleLivery === 'interurban-blue';
   const isElectricCompact = vehicle.vehicleLivery === 'electric-compact';
-  const usesRealisticRender = vehicle.vehicleType === 'bus' && vehicle.vehicleLengthClass === 'articulated-18m' && !isInterurbanBlue && !isElectricCompact;
-  const vehicleAsset = `${import.meta.env.BASE_URL}assets/vehicles/${
-    usesRealisticRender
-      ? 'detail/urban-articulated-18m-3d.jpg'
-      : vehicle.vehicleType === 'tram'
-      ? 'tram-top.png'
-      : isElectricCompact
-        ? 'bus-electric-compact-top.png'
-      : isInterurbanBlue
-        ? vehicle.vehicleLengthClass === 'articulated-18m' ? 'interurban-blue-articulated-top.png' : 'interurban-blue-bus-top.png'
-        : vehicle.vehicleLengthClass === 'articulated-18m' ? 'bus-articulated-top.png' : 'bus-top.png'
-  }`;
+  const isArticulated = vehicle.vehicleLengthClass === 'articulated-18m';
+  const vehicleModelClass = [
+    'vehicle-model',
+    vehicle.vehicleType === 'tram' ? 'vehicle-model--tram' : 'vehicle-model--bus',
+    isArticulated ? 'vehicle-model--articulated' : 'vehicle-model--standard',
+    isElectricCompact ? 'vehicle-model--electric' : '',
+    isInterurbanBlue ? 'vehicle-model--interurban' : '',
+    vehicleKind.toLowerCase().includes('metano') ? 'vehicle-model--methane' : '',
+  ].filter(Boolean).join(' ');
 
   return (
     <section className="vehicle-sheet" aria-label={`Dettaglio vettura ${vehicle.vehicleId}`}>
@@ -57,7 +54,12 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         </span>
       </div>
       <div className="bus-photo">
-        <img src={vehicleAsset} alt="" />
+        <div className={vehicleModelClass} aria-hidden="true">
+          <i />
+          <span />
+          <b />
+        </div>
+        <em>{vehicleKind}</em>
       </div>
       <div className="metric-grid">
         <div>

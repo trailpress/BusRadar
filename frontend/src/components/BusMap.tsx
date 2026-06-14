@@ -36,7 +36,7 @@ const tileLayer = {
 };
 
 const vehicleAssetBase = import.meta.env.BASE_URL;
-const spriteZoomThreshold = 18.35;
+const spriteZoomThreshold = 17.55;
 
 function createBusIcon(vehicle: Vehicle, selected: boolean, zoom: number) {
   const color = getLineColor(vehicle.line);
@@ -53,11 +53,11 @@ function createBusIcon(vehicle: Vehicle, selected: boolean, zoom: number) {
         ? `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'interurban-blue-articulated-top.png' : 'interurban-blue-bus-top.png'}`
         : `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'bus-articulated-top.png' : 'bus-top.png'}`;
   const spriteSize: [number, number] = vehicle.vehicleType === 'tram'
-    ? [58, 20]
+    ? [54, 18]
     : isArticulated
-      ? [70, 18]
-      : [52, 17];
-  const spriteShellSize = Math.ceil(Math.hypot(spriteSize[0], spriteSize[1]) + 12);
+      ? [64, 17]
+      : [48, 16];
+  const spriteShellSize = Math.ceil(Math.hypot(spriteSize[0], spriteSize[1]) + 16);
   const iconSize: [number, number] = useSprite ? [spriteShellSize, spriteShellSize] : [42, 38];
   const spriteStyle = useSprite ? `--sprite-width:${spriteSize[0]}px;--sprite-height:${spriteSize[1]}px;--sprite-bearing:${spriteBearing}deg;` : '';
   const iconAnchor: [number, number] = [iconSize[0] / 2, iconSize[1] / 2];
@@ -149,8 +149,15 @@ function FollowVehicle({ vehicle }: { vehicle?: Vehicle }) {
 
   useEffect(() => {
     if (!vehicle) return;
-    map.flyTo([vehicle.lat, vehicle.lon], Math.max(map.getZoom(), 14.2), { duration: 0.65 });
-  }, [map, vehicle?.vehicleId]);
+    const target = L.latLng(vehicle.lat, vehicle.lon);
+    if (map.getZoom() < 14.2) {
+      map.flyTo(target, 14.2, { duration: 0.45 });
+      return;
+    }
+    if (map.getCenter().distanceTo(target) > 18) {
+      map.panTo(target, { animate: true, duration: 0.45 });
+    }
+  }, [map, vehicle?.lat, vehicle?.lon]);
 
   return null;
 }
@@ -441,7 +448,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         center={[45.0706, 7.6867]}
         zoom={13}
         minZoom={3}
-        maxZoom={19}
+        maxZoom={18}
         zoomSnap={0.25}
         zoomDelta={0.5}
         wheelPxPerZoomLevel={70}
@@ -460,7 +467,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           url={tileLayer.url}
           attribution={tileLayer.attribution}
           opacity={1}
-          maxNativeZoom={19}
+          maxNativeZoom={18}
           updateWhenZooming={false}
           updateWhenIdle
           keepBuffer={1}
