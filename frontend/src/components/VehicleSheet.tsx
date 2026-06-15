@@ -10,11 +10,19 @@ type Props = {
   onClose: () => void;
 };
 
+function vehicleDetailImage(vehicle: Vehicle) {
+  const base = import.meta.env.BASE_URL;
+  if (vehicle.vehicleType === 'tram') return `${base}assets/vehicles/detail/tram-3d.png`;
+  if (vehicle.vehicleLivery === 'electric-compact') return `${base}assets/vehicles/detail/electric-standard-12m-3d.png`;
+  if (vehicle.vehicleLengthClass === 'articulated-18m') return `${base}assets/vehicles/detail/urban-articulated-18m-3d.png`;
+  return `${base}assets/vehicles/detail/urban-standard-12m-3d.png`;
+}
+
 export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
   const vehicleKind = vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus');
   const speedSource = vehicle.speedSource === 'feed' ? 'Feed realtime' : vehicle.speedSource === 'observed' ? 'Calcolata da GPS' : 'Non disponibile';
   const rawVehicleLabel = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? vehicle.realtimeVehicleLabel : undefined;
-  const detailImage = `${import.meta.env.BASE_URL}assets/vehicles/detail/urban-articulated-18m-3d.jpg`;
+  const detailImage = vehicleDetailImage(vehicle);
   const isInterurbanBlue = vehicle.vehicleLivery === 'interurban-blue';
   const isElectricCompact = vehicle.vehicleLivery === 'electric-compact';
   const isArticulated = vehicle.vehicleLengthClass === 'articulated-18m';
@@ -46,10 +54,10 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         </div>
       </div>
       <div className="direction-block">
-        <strong>{vehicle.direction}</strong>
-        <span>Direzione: {vehicle.direction}</span>
+        <strong>Linea {vehicle.routeShortName || vehicle.line}</strong>
+        <span>Direzione: {vehicle.terminalName ?? vehicle.direction}</span>
         <span>
-          ID mezzo da feed: {vehicle.vehicleIdSource ?? 'vehicle.id'}
+          Vettura: {vehicle.vehicleId || '-'} · Route GTFS: {vehicle.routeId.replace(/^gtt-/, '')}
           {rawVehicleLabel ? ` · label GTFS-RT: ${rawVehicleLabel}` : ''}
           {vehicle.realtimeEntityId && vehicle.realtimeEntityId !== vehicle.vehicleId ? ` · entity: ${vehicle.realtimeEntityId}` : ''}
           {vehicle.tripId ? ` · trip: ${vehicle.tripId}` : ''}

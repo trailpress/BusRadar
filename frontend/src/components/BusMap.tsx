@@ -282,6 +282,17 @@ function installTransitLayers(map: maplibregl.Map) {
   });
 
   map.addLayer({
+    id: 'vehicle-hit-area',
+    type: 'circle',
+    source: 'vehicles',
+    paint: {
+      'circle-radius': ['case', ['get', 'selected'], 30, 24],
+      'circle-color': '#000000',
+      'circle-opacity': 0,
+    },
+  });
+
+  map.addLayer({
     id: 'vehicle-heading',
     type: 'symbol',
     source: 'vehicles',
@@ -316,6 +327,29 @@ function installTransitLayers(map: maplibregl.Map) {
       'icon-ignore-placement': true,
     },
     paint: { 'icon-opacity': 0.96 },
+  });
+
+  map.addLayer({
+    id: 'vehicle-selected-sprites',
+    type: 'symbol',
+    source: 'vehicles',
+    minzoom: 14.8,
+    maxzoom: spriteZoomThreshold,
+    filter: ['==', ['get', 'selected'], true],
+    layout: {
+      'icon-image': ['get', 'icon'],
+      'icon-size': [
+        'case',
+        ['get', 'isArticulated'],
+        ['interpolate', ['linear'], ['zoom'], 14.8, 0.078, 17, 0.112, 18, 0.128],
+        ['interpolate', ['linear'], ['zoom'], 14.8, 0.102, 17, 0.142, 18, 0.158],
+      ],
+      'icon-rotate': ['get', 'spriteBearing'],
+      'icon-rotation-alignment': 'map',
+      'icon-allow-overlap': true,
+      'icon-ignore-placement': true,
+    },
+    paint: { 'icon-opacity': 0.98 },
   });
 
   map.addLayer({
@@ -547,7 +581,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     const map = mapRef.current;
-    const vehicleLayers = ['vehicle-badges', 'vehicle-badge-labels', 'vehicle-heading', 'vehicle-sprites', 'vehicle-sprite-labels'];
+    const vehicleLayers = ['vehicle-selected-sprites', 'vehicle-sprites', 'vehicle-hit-area', 'vehicle-badges', 'vehicle-badge-labels', 'vehicle-heading', 'vehicle-sprite-labels'];
     const hoverPopup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: '260px', offset: 18 });
 
     const handleVehicleClick = (event: MapMouseEvent) => {
