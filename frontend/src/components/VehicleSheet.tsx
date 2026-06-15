@@ -14,6 +14,7 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
   const vehicleKind = vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus');
   const speedSource = vehicle.speedSource === 'feed' ? 'Feed realtime' : vehicle.speedSource === 'observed' ? 'Calcolata da GPS' : 'Non disponibile';
   const rawVehicleLabel = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? vehicle.realtimeVehicleLabel : undefined;
+  const detailImage = `${import.meta.env.BASE_URL}assets/vehicles/detail/urban-articulated-18m-3d.jpg`;
   const isInterurbanBlue = vehicle.vehicleLivery === 'interurban-blue';
   const isElectricCompact = vehicle.vehicleLivery === 'electric-compact';
   const isArticulated = vehicle.vehicleLengthClass === 'articulated-18m';
@@ -40,21 +41,23 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
       <div className="sheet-title">
         <LineBadge line={vehicle.line} size="lg" />
         <div>
-          <strong>{vehicle.vehicleId}</strong>
-          <span>{vehicleKind} · {vehicle.source === 'gtfs-rt' ? 'GTFS-RT reale' : 'dato non realtime'}</span>
+          <strong>Vettura {vehicle.vehicleId || '-'}</strong>
+          <span>Linea {vehicle.routeShortName || vehicle.line} · {vehicleKind}</span>
         </div>
       </div>
       <div className="direction-block">
         <strong>{vehicle.direction}</strong>
         <span>Direzione: {vehicle.direction}</span>
         <span>
-          Numero da feed: {vehicle.vehicleIdSource ?? 'vehicle.id'}
+          ID mezzo da feed: {vehicle.vehicleIdSource ?? 'vehicle.id'}
           {rawVehicleLabel ? ` · label GTFS-RT: ${rawVehicleLabel}` : ''}
           {vehicle.realtimeEntityId && vehicle.realtimeEntityId !== vehicle.vehicleId ? ` · entity: ${vehicle.realtimeEntityId}` : ''}
+          {vehicle.tripId ? ` · trip: ${vehicle.tripId}` : ''}
         </span>
       </div>
       <div className="bus-photo">
-        <div className={vehicleModelClass} aria-hidden="true">
+        <img className="vehicle-render" src={detailImage} alt={`Rendering ${vehicleKind}`} />
+        <div className={`${vehicleModelClass} vehicle-model--fallback`} aria-hidden="true">
           <i />
           <small />
           <span />

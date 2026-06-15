@@ -12,6 +12,11 @@ import { VehiclesScreen } from './screens/VehiclesScreen';
 import type { LatLng, Stop, TabKey, TransitLine, Vehicle } from './types';
 import { notify } from './utils/notify';
 
+function isIosLikeDevice() {
+  const ua = navigator.userAgent;
+  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('map');
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -45,7 +50,7 @@ function App() {
   const requestUserLocation = useCallback(() => new Promise<LatLng | undefined>((resolve) => {
     if (!navigator.geolocation) {
       notify('Geolocalizzazione non disponibile su questo browser');
-      setShowLocationHelp(true);
+      if (isIosLikeDevice()) setShowLocationHelp(true);
       resolve(undefined);
       return;
     }
@@ -53,7 +58,7 @@ function App() {
     const isSecure = window.isSecureContext || ['localhost', '127.0.0.1'].includes(window.location.hostname);
     if (!isSecure) {
       notify('Apri BusRadar in HTTPS per usare la posizione su iPhone');
-      setShowLocationHelp(true);
+      if (isIosLikeDevice()) setShowLocationHelp(true);
       resolve(undefined);
       return;
     }
@@ -74,7 +79,7 @@ function App() {
           : error.code === error.TIMEOUT
             ? 'Posizione non trovata: riprova tra qualche secondo'
             : 'Posizione iPhone non disponibile ora';
-        setShowLocationHelp(true);
+        if (isIosLikeDevice()) setShowLocationHelp(true);
         notify(message);
         resolve(undefined);
       },
@@ -221,11 +226,11 @@ function App() {
             setSelectedVehicleFallback(undefined);
           }}
           onFollowVehicle={(vehicle) => {
-            setSelectedVehicleId(undefined);
+            setSelectedVehicleId(vehicle.vehicleId);
+            setSelectedVehicleFallback(vehicle);
             setFollowedVehicleId(vehicle.vehicleId);
             setLineFilter(vehicle.line);
             setShowRouteForLine(vehicle.routeId.replace(/^gtt-/, ''));
-            notify(`Segui vettura ${vehicle.vehicleId} attivo`);
           }}
           onShowRoute={(line) => {
             const routeLine = gtfsNetwork.lines.find((item) => item.id === line);

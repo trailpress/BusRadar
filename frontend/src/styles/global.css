@@ -509,12 +509,23 @@ button {
 
 .bus-photo > em {
   position: absolute;
+  z-index: 2;
   right: 14px;
   bottom: 10px;
   color: #9aa4b2;
   font-size: 11px;
   font-style: normal;
   font-weight: 800;
+}
+
+.vehicle-render {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
 }
 
 .vehicle-model {
@@ -535,6 +546,10 @@ button {
     inset 0 -7px 12px rgba(15, 23, 42, 0.22);
   transform: perspective(560px) rotateX(8deg) rotateY(-21deg) rotateZ(-3deg);
   transform-origin: center;
+}
+
+.vehicle-model--fallback {
+  display: none;
 }
 
 .vehicle-model::before,

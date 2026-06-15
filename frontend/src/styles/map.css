@@ -100,6 +100,32 @@
     transform 120ms ease;
 }
 
+.maplibregl-popup .vehicle-tooltip {
+  position: static;
+  min-width: 150px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: 1;
+  transform: none;
+}
+
+.maplibregl-popup .vehicle-tooltip::after {
+  display: none;
+}
+
+.maplibregl-popup .vehicle-tooltip strong {
+  font-size: 13px;
+}
+
+.maplibregl-popup .vehicle-tooltip span,
+.maplibregl-popup .vehicle-tooltip small {
+  color: #cbd5e1;
+  font-size: 11px;
+}
+
 .vehicle-tooltip::after {
   position: absolute;
   bottom: -6px;

@@ -449,6 +449,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     realtimeVehicleId: normalizeOptionalVehicleId(vehicle.vehicleId),
     realtimeVehicleLabel: normalizeOptionalVehicleId(vehicle.vehicleLabel),
     licensePlate: vehicle.licensePlate || undefined,
+    tripId: vehicle.tripId || undefined,
     vehicleIdSource,
     routeId: `gtt-${routeId}`,
     routeShortName: line,

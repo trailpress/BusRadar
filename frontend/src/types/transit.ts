@@ -10,6 +10,7 @@ export type TransitVehicle = {
   realtimeVehicleId?: string;
   realtimeVehicleLabel?: string;
   licensePlate?: string;
+  tripId?: string;
   vehicleIdSource?: 'vehicle.id' | 'vehicle.label';
   routeId: string;
   routeShortName: string;
