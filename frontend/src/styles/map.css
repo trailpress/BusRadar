@@ -1,4 +1,4 @@
-@import "leaflet/dist/leaflet.css";
+@import "maplibre-gl/dist/maplibre-gl.css";
 
 .map-shell,
 .bus-map {
@@ -7,12 +7,12 @@
   background: #eef2f7;
 }
 
-.leaflet-container {
+.maplibregl-map {
   font-family: inherit;
   background: #eef2f7;
 }
 
-.leaflet-control-container {
+.maplibregl-control-container {
   display: none;
 }
 
@@ -32,16 +32,16 @@
   pointer-events: none;
 }
 
-.leaflet-popup-content-wrapper,
-.leaflet-popup-tip {
+.maplibregl-popup-content {
   background: rgba(16, 23, 34, 0.96);
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
   box-shadow: 0 16px 38px rgba(0, 0, 0, 0.42);
 }
 
-.leaflet-popup-content {
-  margin: 10px;
+.maplibregl-popup-tip {
+  border-top-color: rgba(16, 23, 34, 0.96);
 }
 
 .map-popup {
@@ -56,10 +56,6 @@
 
 .vehicle-marker-shell {
   contain: layout paint style;
-}
-
-.leaflet-interactive {
-  transition: none;
 }
 
 .vehicle-marker {
@@ -286,10 +282,6 @@
   font-size: 12px;
   font-style: normal;
   font-weight: 900;
-}
-
-.leaflet-marker-pane {
-  will-change: transform;
 }
 
 .user-marker {

@@ -1,14 +1,11 @@
-import L from 'leaflet';
+import maplibregl, { type GeoJSONSource, type LngLatBoundsLike, type MapMouseEvent } from 'maplibre-gl';
 import { LocateFixed } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import { getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
-import { fetchGttStopArrivals, type GttStopArrival } from '../services/gttRealtime';
+import { fetchGttStopArrivals } from '../services/gttRealtime';
 import type { LatLng, Vehicle } from '../types';
 import { getLineColor } from '../utils/lineColors';
-import { toLeafletPoint } from '../utils/geo';
 import { IconButton } from './IconButton';
-import { LineBadge } from './LineBadge';
 
 type ViewportBounds = {
   north: number;
@@ -30,308 +27,38 @@ type Props = {
   onSelectVehicle: (vehicle: Vehicle) => void;
 };
 
-const tileLayer = {
-  url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  attribution: '&copy; OpenStreetMap contributors',
-};
-
-const vehicleAssetBase = import.meta.env.BASE_URL;
-const spriteZoomThreshold = 17.55;
-
-function createBusIcon(vehicle: Vehicle, selected: boolean, zoom: number) {
-  const color = getLineColor(vehicle.line);
-  const isArticulated = vehicle.vehicleLengthClass === 'articulated-18m';
-  const isInterurbanBlue = vehicle.vehicleLivery === 'interurban-blue';
-  const isElectricCompact = vehicle.vehicleLivery === 'electric-compact';
-  const useSprite = zoom >= spriteZoomThreshold;
-  const spriteBearing = vehicle.bearing - 90;
-  const asset = vehicle.vehicleType === 'tram'
-    ? `${vehicleAssetBase}assets/vehicles/tram-top.png`
-    : isElectricCompact
-      ? `${vehicleAssetBase}assets/vehicles/bus-electric-compact-top.png`
-      : isInterurbanBlue
-        ? `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'interurban-blue-articulated-top.png' : 'interurban-blue-bus-top.png'}`
-        : `${vehicleAssetBase}assets/vehicles/${isArticulated ? 'bus-articulated-top.png' : 'bus-top.png'}`;
-  const spriteSize: [number, number] = vehicle.vehicleType === 'tram'
-    ? [54, 18]
-    : isArticulated
-      ? [64, 17]
-      : [48, 16];
-  const spriteShellSize = Math.ceil(Math.hypot(spriteSize[0], spriteSize[1]) + 16);
-  const iconSize: [number, number] = useSprite ? [spriteShellSize, spriteShellSize] : [42, 38];
-  const spriteStyle = useSprite ? `--sprite-width:${spriteSize[0]}px;--sprite-height:${spriteSize[1]}px;--sprite-bearing:${spriteBearing}deg;` : '';
-  const iconAnchor: [number, number] = [iconSize[0] / 2, iconSize[1] / 2];
-  return L.divIcon({
-    className: 'vehicle-marker-shell',
-    html: `<button class="vehicle-marker vehicle-marker--${vehicle.vehicleType} ${isArticulated ? 'vehicle-marker--articulated' : ''} ${isInterurbanBlue ? 'vehicle-marker--interurban' : ''} ${isElectricCompact ? 'vehicle-marker--electric' : ''} ${useSprite ? 'vehicle-marker--sprite' : ''} ${selected ? 'is-selected' : ''}" type="button" style="--line-color:${color};--bearing:${vehicle.bearing}deg;${spriteStyle}" aria-label="${vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : isArticulated ? 'Bus 18m' : 'Bus')} linea ${vehicle.line}">${useSprite ? `<img src="${asset}" alt="" />` : '<i></i>'}<strong>${vehicle.line}</strong>${isArticulated && !useSprite ? '<em>18</em>' : ''}<span class="vehicle-tooltip"><b>Vettura ${vehicle.vehicleId}</b><small>${vehicle.direction || 'Direzione non disponibile'}</small></span></button>`,
-    iconSize,
-    iconAnchor,
-  });
-}
-
-function vehicleIconKey(vehicle: Vehicle, selected: boolean, zoom: number) {
-  return [
-    zoom >= spriteZoomThreshold ? 'sprite' : 'badge',
-    selected ? 'selected' : 'normal',
-    vehicle.vehicleType,
-    vehicle.vehicleLengthClass ?? 'standard',
-    vehicle.vehicleLivery ?? 'urban',
-  ].join('|');
-}
-
-function createVehiclePopup(vehicle: Vehicle) {
-  const color = getLineColor(vehicle.line);
-  const labelSuffix = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? ` · label ${vehicle.realtimeVehicleLabel}` : '';
-  const vehicleKind = vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus');
-  return `
-    <div class="map-popup">
-      <span class="line-badge" style="--line-color:${color}">${vehicle.line}</span>
-      <strong>Vettura ${vehicle.vehicleId}</strong>
-      <span>${vehicleKind} · ${vehicle.direction} · ${vehicle.source}${labelSuffix}</span>
-    </div>
-  `;
-}
-
-function updateVehicleMarkerElement(marker: L.Marker, vehicle: Vehicle, selected: boolean) {
-  const element = marker.getElement()?.querySelector<HTMLElement>('.vehicle-marker');
-  if (!element) return;
-
-  element.classList.toggle('is-selected', selected);
-  element.classList.toggle('vehicle-marker--articulated', vehicle.vehicleLengthClass === 'articulated-18m');
-  element.classList.toggle('vehicle-marker--interurban', vehicle.vehicleLivery === 'interurban-blue');
-  element.classList.toggle('vehicle-marker--electric', vehicle.vehicleLivery === 'electric-compact');
-  element.style.setProperty('--bearing', `${vehicle.bearing}deg`);
-  element.style.setProperty('--sprite-bearing', `${vehicle.bearing - 90}deg`);
-  element.querySelector('strong')?.replaceChildren(document.createTextNode(vehicle.line));
-  element.querySelector('.vehicle-tooltip b')?.replaceChildren(document.createTextNode(`Vettura ${vehicle.vehicleId}`));
-  element.querySelector('.vehicle-tooltip small')?.replaceChildren(document.createTextNode(vehicle.direction || 'Direzione non disponibile'));
-  const articulatedBadge = element.querySelector('em');
-  if (vehicle.vehicleLengthClass === 'articulated-18m' && !articulatedBadge) {
-    element.insertAdjacentHTML('beforeend', '<em>18</em>');
-  } else if (vehicle.vehicleLengthClass !== 'articulated-18m') {
-    articulatedBadge?.remove();
-  }
-}
-
-function RecenterButton({ userLocation, onLocateUser }: { userLocation: LatLng; onLocateUser?: () => Promise<LatLng | undefined> }) {
-  const map = useMap();
-  const centerOnUser = async () => {
-    const located = await onLocateUser?.();
-    const target = located ?? userLocation;
-    map.flyTo([target.lat, target.lon], 15);
-  };
-  return (
-    <div className="map-floating-controls">
-      <IconButton label="Centra posizione" onClick={() => void centerOnUser()}>
-        <LocateFixed size={20} />
-      </IconButton>
-    </div>
-  );
-}
-
-function FitRoute({ line }: { line?: string }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!line) return;
-    const routesById = getGtfsRoutesForRouteId(line);
-    const routes = routesById.length > 0 ? routesById : getGtfsRoutesForLine(line);
-    const routeBounds = routes.flatMap((route) => route.path.map(toLeafletPoint));
-    if (routeBounds.length === 0) return;
-    map.fitBounds(routeBounds, { paddingTopLeft: [40, 120], paddingBottomRight: [40, 220], maxZoom: 15 });
-  }, [line, map]);
-
-  return null;
-}
-
-function FollowVehicle({ vehicle }: { vehicle?: Vehicle }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!vehicle) return;
-    const target = L.latLng(vehicle.lat, vehicle.lon);
-    if (map.getZoom() < 14.2) {
-      map.flyTo(target, 14.2, { duration: 0.45 });
-      return;
-    }
-    if (map.getCenter().distanceTo(target) > 18) {
-      map.panTo(target, { animate: true, duration: 0.45 });
-    }
-  }, [map, vehicle?.lat, vehicle?.lon]);
-
-  return null;
-}
-
-function FocusPoint({ point }: { point?: LatLng }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!point) return;
-    map.flyTo([point.lat, point.lon], 16, { duration: 0.9 });
-  }, [map, point?.lat, point?.lon]);
-
-  return null;
-}
-
-function ZoomTracker({ onZoom }: { onZoom: (zoom: number) => void }) {
-  const map = useMapEvents({
-    zoomend: () => onZoom(map.getZoom()),
-  });
-
-  useEffect(() => {
-    onZoom(map.getZoom());
-  }, [map, onZoom]);
-
-  return null;
-}
-
-function ViewportTracker({ onViewport }: { onViewport: (bounds: ViewportBounds) => void }) {
-  const map = useMapEvents({
-    moveend: () => {
-      const bounds = map.getBounds().pad(0.25);
-      onViewport({
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-      });
-    },
-    zoomend: () => {
-      const bounds = map.getBounds().pad(0.25);
-      onViewport({
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-      });
-    },
-  });
-
-  useEffect(() => {
-    const bounds = map.getBounds().pad(0.25);
-    onViewport({
-      north: bounds.getNorth(),
-      south: bounds.getSouth(),
-      east: bounds.getEast(),
-      west: bounds.getWest(),
-    });
-  }, [map, onViewport]);
-
-  return null;
-}
-
-type VehicleMarkerEntry = {
-  marker: L.Marker;
-  iconKey: string;
-  from: L.LatLng;
-  to: L.LatLng;
+type VehicleFrame = {
+  from: LatLng;
+  to: LatLng;
   startedAt: number;
   vehicle: Vehicle;
 };
 
-function VehicleMarkers({
-  vehicles,
-  selectedVehicleId,
-  followedVehicleId,
-  zoom,
-  onSelectVehicle,
-}: {
-  vehicles: Vehicle[];
-  selectedVehicleId?: string;
-  followedVehicleId?: string;
-  zoom: number;
-  onSelectVehicle: (vehicle: Vehicle) => void;
-}) {
-  const map = useMap();
-  const markersRef = useRef<Map<string, VehicleMarkerEntry>>(new Map());
-  const latestSelectRef = useRef(onSelectVehicle);
+type StopFeatureProperties = {
+  id: string;
+  name: string;
+  code: string;
+  lines: string;
+  routeIds: string;
+  stopSequencesByRoute: string;
+};
 
-  latestSelectRef.current = onSelectVehicle;
+const spriteZoomThreshold = 17.35;
+const vehicleAssetBase = import.meta.env.BASE_URL;
 
-  useEffect(() => {
-    const markers = markersRef.current;
-    const activeIds = new Set(vehicles.map((vehicle) => vehicle.vehicleId));
-    const now = performance.now();
-
-    markers.forEach((entry, vehicleId) => {
-      if (!activeIds.has(vehicleId)) {
-        entry.marker.remove();
-        markers.delete(vehicleId);
-      }
-    });
-
-    vehicles.forEach((vehicle) => {
-      const nextLatLng = L.latLng(vehicle.lat, vehicle.lon);
-      const selected = vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId;
-      const existing = markers.get(vehicle.vehicleId);
-
-      if (!existing) {
-        const iconKey = vehicleIconKey(vehicle, selected, zoom);
-        const marker = L.marker(nextLatLng, {
-          icon: createBusIcon(vehicle, selected, zoom),
-          zIndexOffset: selected ? 700 : 520,
-          riseOnHover: true,
-        }).addTo(map);
-
-        marker.bindPopup(createVehiclePopup(vehicle));
-        const selectVehicle = () => latestSelectRef.current(markersRef.current.get(vehicle.vehicleId)?.vehicle ?? vehicle);
-        marker.on('click', selectVehicle);
-        marker.getElement()?.addEventListener('click', (event) => {
-          event.stopPropagation();
-          selectVehicle();
-        });
-        markers.set(vehicle.vehicleId, {
-          marker,
-          iconKey,
-          from: nextLatLng,
-          to: nextLatLng,
-          startedAt: now,
-          vehicle,
-        });
-        return;
-      }
-
-      const currentLatLng = existing.marker.getLatLng();
-      const jumpMeters = currentLatLng.distanceTo(nextLatLng);
-      existing.from = jumpMeters > 180 ? nextLatLng : currentLatLng;
-      existing.to = nextLatLng;
-      existing.startedAt = jumpMeters > 180 ? now - 15000 : now;
-      existing.vehicle = vehicle;
-      existing.marker.setZIndexOffset(selected ? 700 : 520);
-      const nextIconKey = vehicleIconKey(vehicle, selected, zoom);
-      if (existing.iconKey !== nextIconKey) {
-        existing.marker.setIcon(createBusIcon(vehicle, selected, zoom));
-        existing.iconKey = nextIconKey;
-      }
-      updateVehicleMarkerElement(existing.marker, vehicle, selected);
-      existing.marker.setPopupContent(createVehiclePopup(vehicle));
-    });
-  }, [vehicles, selectedVehicleId, followedVehicleId, map, zoom]);
-
-  useEffect(() => {
-    let frameId = 0;
-    const duration = 18000;
-
-    const tick = (time: number) => {
-      markersRef.current.forEach((entry) => {
-        const elapsed = Math.min(1, Math.max(0, (time - entry.startedAt) / duration));
-        const eased = elapsed * elapsed * (3 - 2 * elapsed);
-        const lat = entry.from.lat + (entry.to.lat - entry.from.lat) * eased;
-        const lng = entry.from.lng + (entry.to.lng - entry.from.lng) * eased;
-        entry.marker.setLatLng([lat, lng]);
-      });
-      frameId = requestAnimationFrame(tick);
-    };
-
-    frameId = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(frameId);
-      markersRef.current.forEach((entry) => entry.marker.remove());
-      markersRef.current.clear();
-    };
-  }, []);
-
-  return null;
+function createMapStyle(): maplibregl.StyleSpecification {
+  return {
+    version: 8,
+    sources: {
+      osm: {
+        type: 'raster',
+        tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png', 'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png', 'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        attribution: '&copy; OpenStreetMap contributors',
+      },
+    },
+    layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+  };
 }
 
 function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, showRouteForLine?: string) {
@@ -352,58 +79,318 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
   return [...byRoute.values()];
 }
 
-function displayRoutePath(route: GtfsRouteVariant, highlighted: boolean, zoom: number) {
-  if (highlighted || zoom >= 15.5 || route.path.length <= 180) return route.path.map(toLeafletPoint);
-
-  const step = zoom < 12.8 ? 12 : zoom < 14.2 ? 8 : 4;
-  return route.path
-    .filter((_, index) => index === 0 || index === route.path.length - 1 || index % step === 0)
-    .map(toLeafletPoint);
+function routesToGeoJson(routes: GtfsRouteVariant[], selectedLine?: string, showRouteForLine?: string): GeoJSON.FeatureCollection<GeoJSON.LineString> {
+  return {
+    type: 'FeatureCollection',
+    features: routes.map((route) => {
+      const highlighted = showRouteForLine === route.routeId || showRouteForLine === route.line || selectedLine === route.routeId || selectedLine === route.line;
+      return {
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: route.path.map((point) => [point.lon, point.lat]) },
+        properties: {
+          id: route.id,
+          line: route.line,
+          color: route.color || getLineColor(route.line),
+          width: highlighted ? 8 : 5,
+          opacity: highlighted ? 0.95 : 0.62,
+        },
+      };
+    }),
+  };
 }
 
-function StopPopup({ stop, routeIds, stopSequencesByRoute }: { stop: GtfsStop; routeIds: string[]; stopSequencesByRoute: Record<string, number[]> }) {
-  const [arrivals, setArrivals] = useState<GttStopArrival[]>();
+function stopsForRoutes(routes: GtfsRouteVariant[]) {
+  const byStop = new Map<string, { stop: GtfsStop; routeIds: Set<string>; stopSequencesByRoute: Record<string, number[]> }>();
+  routes.forEach((route) => {
+    getGtfsStopEntriesForRoute(route).forEach(({ stop, sequence }) => {
+      const existing = byStop.get(stop.id) ?? { stop, routeIds: new Set<string>(), stopSequencesByRoute: {} };
+      existing.routeIds.add(route.routeId);
+      existing.routeIds.add(route.line);
+      existing.stopSequencesByRoute[route.routeId] = [...(existing.stopSequencesByRoute[route.routeId] ?? []), sequence];
+      existing.stopSequencesByRoute[route.line] = [...(existing.stopSequencesByRoute[route.line] ?? []), sequence];
+      byStop.set(stop.id, existing);
+    });
+  });
+  return [...byStop.values()];
+}
 
-  useEffect(() => {
-    let cancelled = false;
-    setArrivals(undefined);
-    fetchGttStopArrivals(stop.id, routeIds, stopSequencesByRoute)
-      .then((items) => {
-        if (!cancelled) setArrivals(items);
+function stopsToGeoJson(stops: ReturnType<typeof stopsForRoutes>): GeoJSON.FeatureCollection<GeoJSON.Point, StopFeatureProperties> {
+  return {
+    type: 'FeatureCollection',
+    features: stops.map(({ stop, routeIds, stopSequencesByRoute }) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [stop.lon, stop.lat] },
+      properties: {
+        id: stop.id,
+        name: stop.name,
+        code: stop.code,
+        lines: stop.lines.slice(0, 8).join(', '),
+        routeIds: JSON.stringify([...routeIds]),
+        stopSequencesByRoute: JSON.stringify(stopSequencesByRoute),
+      },
+    })),
+  };
+}
+
+function vehicleIconName(vehicle: Vehicle) {
+  if (vehicle.vehicleType === 'tram') return 'tram-top';
+  if (vehicle.vehicleLivery === 'electric-compact') return 'bus-electric';
+  if (vehicle.vehicleLivery === 'interurban-blue') return vehicle.vehicleLengthClass === 'articulated-18m' ? 'interurban-articulated' : 'interurban-bus';
+  return vehicle.vehicleLengthClass === 'articulated-18m' ? 'bus-articulated' : 'bus-top';
+}
+
+function vehicleKind(vehicle: Vehicle) {
+  return vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus');
+}
+
+function vehiclesToGeoJson(vehicles: Vehicle[], positions: Map<string, LatLng>): GeoJSON.FeatureCollection<GeoJSON.Point> {
+  return {
+    type: 'FeatureCollection',
+    features: vehicles.map((vehicle) => {
+      const position = positions.get(vehicle.vehicleId) ?? vehicle;
+      const selected = false;
+      return {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [position.lon, position.lat] },
+        properties: {
+          id: vehicle.vehicleId,
+          line: vehicle.line,
+          direction: vehicle.direction || 'Direzione non disponibile',
+          color: getLineColor(vehicle.line),
+          bearing: vehicle.bearing - 90,
+          icon: vehicleIconName(vehicle),
+          selected,
+          isArticulated: vehicle.vehicleLengthClass === 'articulated-18m',
+        },
+      };
+    }),
+  };
+}
+
+function emptyPointCollection(): GeoJSON.FeatureCollection<GeoJSON.Point> {
+  return { type: 'FeatureCollection', features: [] };
+}
+
+function setSourceData(map: maplibregl.Map, sourceId: string, data: GeoJSON.GeoJSON) {
+  const source = map.getSource(sourceId) as GeoJSONSource | undefined;
+  source?.setData(data);
+}
+
+function boundsFromRoutes(routes: GtfsRouteVariant[]): LngLatBoundsLike | undefined {
+  const points = routes.flatMap((route) => route.path);
+  if (points.length === 0) return undefined;
+  const bounds = new maplibregl.LngLatBounds();
+  points.forEach((point) => bounds.extend([point.lon, point.lat]));
+  return bounds;
+}
+
+async function loadVehicleImages(map: maplibregl.Map) {
+  const images: Array<[string, string]> = [
+    ['bus-top', `${vehicleAssetBase}assets/vehicles/bus-top.png`],
+    ['bus-articulated', `${vehicleAssetBase}assets/vehicles/bus-articulated-top.png`],
+    ['bus-electric', `${vehicleAssetBase}assets/vehicles/bus-electric-compact-top.png`],
+    ['interurban-bus', `${vehicleAssetBase}assets/vehicles/interurban-blue-bus-top.png`],
+    ['interurban-articulated', `${vehicleAssetBase}assets/vehicles/interurban-blue-articulated-top.png`],
+    ['tram-top', `${vehicleAssetBase}assets/vehicles/tram-top.png`],
+  ];
+
+  await Promise.all(images.map(([name, url]) => new Promise<void>((resolve) => {
+    if (map.hasImage(name)) {
+      resolve();
+      return;
+    }
+    void map.loadImage(url)
+      .then((image) => {
+        if (image && !map.hasImage(name)) map.addImage(name, image.data);
+        resolve();
       })
-      .catch(() => {
-        if (!cancelled) setArrivals([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [stop.id, routeIds.join('|'), JSON.stringify(stopSequencesByRoute)]);
+      .catch(() => resolve());
+  })));
+}
 
-  return (
-    <div className="stop-popup">
-      <strong>{stop.name}</strong>
-      <span>Palina {stop.code}</span>
-      <div className="stop-popup-lines">
-        {stop.lines.slice(0, 6).map((line) => <LineBadge key={line} line={line} size="sm" />)}
-      </div>
-      <div className="arrival-list">
-        {!arrivals && <small>Carico passaggi reali...</small>}
-        {arrivals?.length === 0 && <small>Nessun passaggio programmato trovato per questa palina nelle prossime ore.</small>}
-        {arrivals?.map((arrival) => (
-          <div key={`${arrival.tripId}-${arrival.routeId}-${arrival.timeLabel}`}>
-            <LineBadge line={arrival.line} size="sm" />
-            <span>{arrival.timeLabel}</span>
-            <em>{arrival.source === 'scheduled' ? 'prog.' : arrival.minutes === 0 ? 'ora' : `${arrival.minutes} min`}</em>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+function installTransitLayers(map: maplibregl.Map) {
+  map.addSource('routes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  map.addSource('stops', { type: 'geojson', data: emptyPointCollection() });
+  map.addSource('vehicles', { type: 'geojson', data: emptyPointCollection() });
+  map.addSource('user', { type: 'geojson', data: emptyPointCollection() });
+
+  map.addLayer({
+    id: 'routes-line',
+    type: 'line',
+    source: 'routes',
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': ['get', 'color'],
+      'line-width': ['get', 'width'],
+      'line-opacity': ['get', 'opacity'],
+    },
+  });
+
+  map.addLayer({
+    id: 'stops-circle',
+    type: 'circle',
+    source: 'stops',
+    minzoom: 15,
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 15, 4, 18, 7],
+      'circle-color': '#334155',
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 2,
+      'circle-opacity': 0.92,
+    },
+  });
+
+  map.addLayer({
+    id: 'vehicle-badges',
+    type: 'circle',
+    source: 'vehicles',
+    maxzoom: spriteZoomThreshold,
+    paint: {
+      'circle-radius': ['case', ['get', 'selected'], 20, 16],
+      'circle-color': ['get', 'color'],
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 2,
+      'circle-opacity': 0.96,
+    },
+  });
+
+  map.addLayer({
+    id: 'vehicle-badge-labels',
+    type: 'symbol',
+    source: 'vehicles',
+    maxzoom: spriteZoomThreshold,
+    layout: {
+      'text-field': ['get', 'line'],
+      'text-size': 13,
+      'text-allow-overlap': true,
+      'text-ignore-placement': true,
+      'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+    },
+    paint: { 'text-color': '#ffffff' },
+  });
+
+  map.addLayer({
+    id: 'vehicle-heading',
+    type: 'symbol',
+    source: 'vehicles',
+    maxzoom: spriteZoomThreshold,
+    layout: {
+      'text-field': '▲',
+      'text-size': 11,
+      'text-rotate': ['get', 'bearing'],
+      'text-offset': [0, -1.55],
+      'text-allow-overlap': true,
+      'text-ignore-placement': true,
+    },
+    paint: { 'text-color': ['get', 'color'], 'text-halo-color': '#ffffff', 'text-halo-width': 1 },
+  });
+
+  map.addLayer({
+    id: 'vehicle-sprites',
+    type: 'symbol',
+    source: 'vehicles',
+    minzoom: spriteZoomThreshold,
+    layout: {
+      'icon-image': ['get', 'icon'],
+      'icon-size': ['case', ['get', 'isArticulated'], 0.31, 0.28],
+      'icon-rotate': ['get', 'bearing'],
+      'icon-rotation-alignment': 'map',
+      'icon-allow-overlap': true,
+      'icon-ignore-placement': true,
+    },
+    paint: { 'icon-opacity': 0.96 },
+  });
+
+  map.addLayer({
+    id: 'vehicle-sprite-labels',
+    type: 'symbol',
+    source: 'vehicles',
+    minzoom: spriteZoomThreshold,
+    layout: {
+      'text-field': ['get', 'line'],
+      'text-size': 10,
+      'text-offset': [0, 1.18],
+      'text-allow-overlap': true,
+      'text-ignore-placement': true,
+    },
+    paint: {
+      'text-color': '#ffffff',
+      'text-halo-color': ['get', 'color'],
+      'text-halo-width': 2,
+    },
+  });
+
+  map.addLayer({
+    id: 'user-circle',
+    type: 'circle',
+    source: 'user',
+    paint: {
+      'circle-radius': 9,
+      'circle-color': '#2f7dff',
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 3,
+      'circle-opacity': 0.95,
+    },
+  });
 }
 
 export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, hasUserLocation, onLocateUser, showRouteForLine, onSelectVehicle }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | undefined>(undefined);
+  const vehicleFramesRef = useRef<Map<string, VehicleFrame>>(new Map());
+  const currentPositionsRef = useRef<Map<string, LatLng>>(new Map());
+  const latestVehiclesRef = useRef<Vehicle[]>(vehicles);
+  const [mapReady, setMapReady] = useState(false);
   const [zoom, setZoom] = useState(13);
   const [viewport, setViewport] = useState<ViewportBounds>();
+
+  latestVehiclesRef.current = vehicles;
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: createMapStyle(),
+      center: [7.6867, 45.0706],
+      zoom: 13,
+      minZoom: 3,
+      maxZoom: 18,
+      attributionControl: false,
+      fadeDuration: 0,
+      dragRotate: false,
+      pitchWithRotate: false,
+    });
+    mapRef.current = map;
+
+    map.on('load', () => {
+      void loadVehicleImages(map).then(() => {
+        if (!mapRef.current) return;
+        installTransitLayers(map);
+        setMapReady(true);
+      });
+    });
+
+    const updateViewState = () => {
+      const bounds = map.getBounds();
+      setZoom(map.getZoom());
+      setViewport({
+        north: bounds.getNorth(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        west: bounds.getWest(),
+      });
+    };
+    map.on('moveend', updateViewState);
+    map.on('zoomend', updateViewState);
+
+    return () => {
+      map.remove();
+      mapRef.current = undefined;
+      setMapReady(false);
+    };
+  }, []);
+
   const visibleVehicles = useMemo(
     () => vehicles
       .filter((vehicle) => !selectedLine || vehicle.line === selectedLine)
@@ -414,110 +401,175 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       }),
     [vehicles, selectedLine, showRouteForLine, viewport, selectedVehicleId, followedVehicleId],
   );
+
   const highlightedRoutes = useMemo(
     () => routeVariantsForVehicles(visibleVehicles, selectedLine, showRouteForLine),
     [visibleVehicles, selectedLine, showRouteForLine],
   );
+
   const routeStops = useMemo(() => {
     if (!showRouteForLine && !selectedLine && zoom < 15) return [];
-    const byStop = new Map<string, { stop: GtfsStop; routeIds: Set<string>; stopSequencesByRoute: Record<string, number[]> }>();
-    highlightedRoutes.forEach((route) => {
-      getGtfsStopEntriesForRoute(route).forEach(({ stop, sequence }) => {
-        const existing = byStop.get(stop.id) ?? { stop, routeIds: new Set<string>(), stopSequencesByRoute: {} };
-        existing.routeIds.add(route.routeId);
-        existing.routeIds.add(route.line);
-        existing.stopSequencesByRoute[route.routeId] = [...(existing.stopSequencesByRoute[route.routeId] ?? []), sequence];
-        existing.stopSequencesByRoute[route.line] = [...(existing.stopSequencesByRoute[route.line] ?? []), sequence];
-        byStop.set(stop.id, existing);
+    return stopsForRoutes(highlightedRoutes).slice(0, showRouteForLine || selectedLine ? undefined : 220);
+  }, [highlightedRoutes, selectedLine, showRouteForLine, zoom]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    setSourceData(mapRef.current, 'routes', routesToGeoJson(highlightedRoutes, selectedLine, showRouteForLine));
+  }, [highlightedRoutes, mapReady, selectedLine, showRouteForLine]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    setSourceData(mapRef.current, 'stops', stopsToGeoJson(routeStops));
+  }, [routeStops, mapReady]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    setSourceData(
+      mapRef.current,
+      'user',
+      hasUserLocation
+        ? { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [userLocation.lon, userLocation.lat] }, properties: {} }] }
+        : emptyPointCollection(),
+    );
+  }, [hasUserLocation, mapReady, userLocation.lat, userLocation.lon]);
+
+  useEffect(() => {
+    if (!mapReady) return;
+    const now = performance.now();
+    const active = new Set(visibleVehicles.map((vehicle) => vehicle.vehicleId));
+    vehicleFramesRef.current.forEach((_, id) => {
+      if (!active.has(id)) {
+        vehicleFramesRef.current.delete(id);
+        currentPositionsRef.current.delete(id);
+      }
+    });
+    visibleVehicles.forEach((vehicle) => {
+      const previous = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
+      const next = { lat: vehicle.lat, lon: vehicle.lon };
+      const meters = new maplibregl.LngLat(previous.lon, previous.lat).distanceTo(new maplibregl.LngLat(next.lon, next.lat));
+      vehicleFramesRef.current.set(vehicle.vehicleId, {
+        from: meters > 180 ? next : previous,
+        to: next,
+        startedAt: meters > 180 ? now - 18000 : now,
+        vehicle,
       });
     });
-    return [...byStop.values()];
-  }, [highlightedRoutes, selectedLine, showRouteForLine, zoom]);
-  const followedVehicle = vehicles.find((vehicle) => vehicle.vehicleId === followedVehicleId);
-  const routeIsHighlighted = (route: GtfsRouteVariant) => (
-    showRouteForLine === route.routeId ||
-    showRouteForLine === route.line ||
-    selectedLine === route.routeId ||
-    selectedLine === route.line
-  );
+  }, [visibleVehicles, mapReady]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    let frameId = 0;
+    const duration = 18000;
+    const tick = (time: number) => {
+      const animatedVehicles: Vehicle[] = [];
+      vehicleFramesRef.current.forEach((frame, id) => {
+        const elapsed = Math.min(1, Math.max(0, (time - frame.startedAt) / duration));
+        const eased = elapsed * elapsed * (3 - 2 * elapsed);
+        const position = {
+          lat: frame.from.lat + (frame.to.lat - frame.from.lat) * eased,
+          lon: frame.from.lon + (frame.to.lon - frame.from.lon) * eased,
+        };
+        currentPositionsRef.current.set(id, position);
+        animatedVehicles.push(frame.vehicle);
+      });
+      setSourceData(mapRef.current!, 'vehicles', vehiclesToGeoJson(animatedVehicles, currentPositionsRef.current));
+      frameId = requestAnimationFrame(tick);
+    };
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, [mapReady]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !showRouteForLine) return;
+    const bounds = boundsFromRoutes(highlightedRoutes);
+    if (!bounds) return;
+    mapRef.current.fitBounds(bounds, { padding: { top: 120, bottom: 220, left: 40, right: 40 }, maxZoom: 15, duration: 550 });
+  }, [highlightedRoutes, mapReady, showRouteForLine]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !focusPoint) return;
+    mapRef.current.flyTo({ center: [focusPoint.lon, focusPoint.lat], zoom: 16, duration: 550 });
+  }, [focusPoint, mapReady]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !followedVehicleId) return;
+    const vehicle = vehicles.find((item) => item.vehicleId === followedVehicleId);
+    if (!vehicle) return;
+    const map = mapRef.current;
+    const target: [number, number] = [vehicle.lon, vehicle.lat];
+    if (map.getZoom() < 14.2) {
+      map.flyTo({ center: target, zoom: 14.2, duration: 450 });
+      return;
+    }
+    if (map.getCenter().distanceTo(new maplibregl.LngLat(vehicle.lon, vehicle.lat)) > 18) {
+      map.easeTo({ center: target, duration: 450 });
+    }
+  }, [followedVehicleId, mapReady, vehicles]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const map = mapRef.current;
+    const handleVehicleClick = (event: MapMouseEvent) => {
+      const feature = map.queryRenderedFeatures(event.point, { layers: ['vehicle-badges', 'vehicle-sprites'] })[0];
+      const vehicleId = feature?.properties?.id as string | undefined;
+      const vehicle = latestVehiclesRef.current.find((item) => item.vehicleId === vehicleId);
+      if (vehicle) onSelectVehicle(vehicle);
+    };
+    const handleStopClick = (event: MapMouseEvent) => {
+      const feature = map.queryRenderedFeatures(event.point, { layers: ['stops-circle'] })[0];
+      if (!feature) return;
+      const properties = feature.properties as StopFeatureProperties;
+      const coordinates = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
+      const popup = new maplibregl.Popup({ closeButton: true, maxWidth: '260px' })
+        .setLngLat(coordinates)
+        .setHTML(`<div class="stop-popup"><strong>${properties.name}</strong><span>Palina ${properties.code}</span><small>Carico passaggi...</small></div>`)
+        .addTo(map);
+      let routeIds: string[] = [];
+      let stopSequencesByRoute: Record<string, number[]> = {};
+      try {
+        routeIds = JSON.parse(properties.routeIds);
+        stopSequencesByRoute = JSON.parse(properties.stopSequencesByRoute);
+      } catch {
+        routeIds = [];
+      }
+      void fetchGttStopArrivals(properties.id, routeIds, stopSequencesByRoute)
+        .then((arrivals) => {
+          const items = arrivals.length
+            ? arrivals.map((arrival) => `<div><span class="line-badge" style="--line-color:${getLineColor(arrival.line)}">${arrival.line}</span><span>${arrival.timeLabel}</span><em>${arrival.source === 'scheduled' ? 'prog.' : arrival.minutes === 0 ? 'ora' : `${arrival.minutes} min`}</em></div>`).join('')
+            : '<small>Nessun passaggio programmato trovato per questa palina nelle prossime ore.</small>';
+          popup.setHTML(`<div class="stop-popup"><strong>${properties.name}</strong><span>Palina ${properties.code}</span><div class="arrival-list">${items}</div></div>`);
+        })
+        .catch(() => popup.setHTML(`<div class="stop-popup"><strong>${properties.name}</strong><span>Palina ${properties.code}</span><small>Passaggi non disponibili ora.</small></div>`));
+    };
+    const handleMove = (event: MapMouseEvent) => {
+      const hover = map.queryRenderedFeatures(event.point, { layers: ['vehicle-badges', 'vehicle-sprites', 'stops-circle'] }).length > 0;
+      map.getCanvas().style.cursor = hover ? 'pointer' : '';
+    };
+    map.on('click', handleVehicleClick);
+    map.on('click', handleStopClick);
+    map.on('mousemove', handleMove);
+    return () => {
+      map.off('click', handleVehicleClick);
+      map.off('click', handleStopClick);
+      map.off('mousemove', handleMove);
+    };
+  }, [mapReady, onSelectVehicle]);
+
+  const centerOnUser = async () => {
+    const located = await onLocateUser?.();
+    const target = located ?? userLocation;
+    mapRef.current?.flyTo({ center: [target.lon, target.lat], zoom: 15, duration: 450 });
+  };
 
   return (
     <div className="map-shell map-shell--standard">
       <div className="map-mode-label">Live transit map</div>
-      <MapContainer
-        center={[45.0706, 7.6867]}
-        zoom={13}
-        minZoom={3}
-        maxZoom={18}
-        zoomSnap={0.25}
-        zoomDelta={0.5}
-        wheelPxPerZoomLevel={70}
-        zoomControl={false}
-        markerZoomAnimation={false}
-        zoomAnimation
-        fadeAnimation={false}
-        inertia
-        inertiaDeceleration={2400}
-        easeLinearity={0.18}
-        preferCanvas
-        attributionControl={false}
-        className="bus-map"
-      >
-        <TileLayer
-          url={tileLayer.url}
-          attribution={tileLayer.attribution}
-          opacity={1}
-          maxNativeZoom={18}
-          updateWhenZooming={false}
-          updateWhenIdle
-          keepBuffer={1}
-        />
-        {highlightedRoutes.map((route) => (
-          <Polyline
-            key={route.id}
-            positions={displayRoutePath(route, routeIsHighlighted(route), zoom)}
-            pathOptions={{
-              color: route.color || getLineColor(route.line),
-              weight: routeIsHighlighted(route) ? 8 : 5,
-              opacity: routeIsHighlighted(route) ? 0.94 : 0.68,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
-        ))}
-        {routeStops
-          .slice(0, showRouteForLine || selectedLine ? routeStops.length : 220)
-          .map(({ stop, routeIds, stopSequencesByRoute }) => (
-            <Marker
-              key={stop.id}
-              position={[stop.lat, stop.lon]}
-              icon={L.divIcon({ className: '', html: '<div class="stop-marker"></div>', iconSize: [14, 14], iconAnchor: [7, 7] })}
-            >
-              <Popup>
-                <StopPopup stop={stop} routeIds={[...routeIds]} stopSequencesByRoute={stopSequencesByRoute} />
-              </Popup>
-            </Marker>
-          ))}
-        {hasUserLocation && (
-          <Marker
-            position={[userLocation.lat, userLocation.lon]}
-            icon={L.divIcon({ className: '', html: '<div class="user-marker"></div>', iconSize: [24, 24], iconAnchor: [12, 12] })}
-          />
-        )}
-        <VehicleMarkers
-          vehicles={visibleVehicles}
-          selectedVehicleId={selectedVehicleId}
-          followedVehicleId={followedVehicleId}
-          zoom={zoom}
-          onSelectVehicle={onSelectVehicle}
-        />
-        <ZoomTracker onZoom={setZoom} />
-        <ViewportTracker onViewport={setViewport} />
-        <RecenterButton userLocation={userLocation} onLocateUser={onLocateUser} />
-        <FitRoute line={showRouteForLine} />
-        <FollowVehicle vehicle={followedVehicle} />
-        <FocusPoint point={focusPoint} />
-      </MapContainer>
+      <div ref={containerRef} className="bus-map" />
+      <div className="map-floating-controls">
+        <IconButton label="Centra posizione" onClick={() => void centerOnUser()}>
+          <LocateFixed size={20} />
+        </IconButton>
+      </div>
     </div>
   );
 }
