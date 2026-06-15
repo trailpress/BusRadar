@@ -186,6 +186,11 @@ function setSourceData(map: maplibregl.Map, sourceId: string, data: GeoJSON.GeoJ
   source?.setData(data);
 }
 
+function queryFeaturesNearPoint(map: maplibregl.Map, point: maplibregl.PointLike, layers: string[], radius = 18) {
+  const { x, y } = point as { x: number; y: number };
+  return map.queryRenderedFeatures([[x - radius, y - radius], [x + radius, y + radius]], { layers });
+}
+
 function escapeHtml(value: unknown) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -278,11 +283,23 @@ function installTransitLayers(map: maplibregl.Map) {
     source: 'stops',
     minzoom: 15,
     paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 15, 4, 18, 7],
-      'circle-color': '#334155',
-      'circle-stroke-color': '#ffffff',
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 15, 3, 18, 5],
+      'circle-color': '#111827',
+      'circle-stroke-color': '#cbd5e1',
       'circle-stroke-width': 2,
       'circle-opacity': 0.92,
+    },
+  });
+
+  map.addLayer({
+    id: 'stops-hit-area',
+    type: 'circle',
+    source: 'stops',
+    minzoom: 14,
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 16, 18, 24],
+      'circle-color': '#000000',
+      'circle-opacity': 0,
     },
   });
 
@@ -606,17 +623,18 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     if (!mapReady || !mapRef.current) return;
     const map = mapRef.current;
     const vehicleLayers = ['vehicle-selected-sprites', 'vehicle-sprites', 'vehicle-hit-area', 'vehicle-badges', 'vehicle-badge-labels', 'vehicle-heading', 'vehicle-sprite-labels'];
+    const stopLayers = ['stops-hit-area', 'stops-circle'];
     const hoverPopup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: '260px', offset: 18 });
 
     const handleVehicleClick = (event: MapMouseEvent) => {
-      const feature = map.queryRenderedFeatures(event.point, { layers: vehicleLayers })[0];
+      const feature = queryFeaturesNearPoint(map, event.point, vehicleLayers, 22)[0];
       const vehicleId = feature?.properties?.id as string | undefined;
       const vehicle = latestVehiclesRef.current.find((item) => item.vehicleId === vehicleId);
       if (vehicle) onSelectVehicle(vehicle);
     };
     const handleStopClick = (event: MapMouseEvent) => {
-      if (map.queryRenderedFeatures(event.point, { layers: vehicleLayers }).length > 0) return;
-      const feature = map.queryRenderedFeatures(event.point, { layers: ['stops-circle'] })[0];
+      if (queryFeaturesNearPoint(map, event.point, vehicleLayers, 22).length > 0) return;
+      const feature = queryFeaturesNearPoint(map, event.point, stopLayers, 22)[0];
       if (!feature) return;
       const properties = feature.properties as StopFeatureProperties;
       const coordinates = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
@@ -646,7 +664,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         });
     };
     const handleMove = (event: MapMouseEvent) => {
-      const vehicleFeature = map.queryRenderedFeatures(event.point, { layers: vehicleLayers })[0];
+      const vehicleFeature = queryFeaturesNearPoint(map, event.point, vehicleLayers, 12)[0];
       if (vehicleFeature) {
         const props = vehicleFeature.properties ?? {};
         hoverPopup
@@ -656,7 +674,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       } else {
         hoverPopup.remove();
       }
-      const hover = Boolean(vehicleFeature) || map.queryRenderedFeatures(event.point, { layers: ['stops-circle'] }).length > 0;
+      const hover = Boolean(vehicleFeature) || queryFeaturesNearPoint(map, event.point, stopLayers, 12).length > 0;
       map.getCanvas().style.cursor = hover ? 'pointer' : '';
     };
     map.on('click', handleVehicleClick);
