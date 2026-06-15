@@ -66,6 +66,14 @@ export type GttStopArrival = {
   source: 'realtime' | 'scheduled';
 };
 
+export type GttStopArrivalsResult = {
+  arrivals: GttStopArrival[];
+  source: 'realtime' | 'scheduled' | 'unavailable';
+  checkedAt: string;
+  realtimeCount: number;
+  scheduledCount: number;
+};
+
 type StopTimeIndex = {
   calendar?: {
     services: Record<string, {
@@ -308,6 +316,15 @@ export async function fetchGttStopArrivals(
   allowedRouteIds: string[] = [],
   stopSequencesByRoute: Record<string, number[]> = {},
 ): Promise<GttStopArrival[]> {
+  const result = await fetchGttStopArrivalsInfo(stopId, allowedRouteIds, stopSequencesByRoute);
+  return result.arrivals;
+}
+
+export async function fetchGttStopArrivalsInfo(
+  stopId: string,
+  allowedRouteIds: string[] = [],
+  stopSequencesByRoute: Record<string, number[]> = {},
+): Promise<GttStopArrivalsResult> {
   const [updates, rawVehicles, stopTimeIndex] = await Promise.all([fetchTripUpdates(), fetchRawVehicles(), fetchStopTimeIndex()]);
   const now = Date.now();
   const allowed = new Set(allowedRouteIds.flatMap((routeId) => [routeId, normalizeRouteName(routeId)]));
@@ -355,9 +372,16 @@ export async function fetchGttStopArrivals(
     .sort((a, b) => a.minutes - b.minutes)
     .slice(0, 8);
 
-  return realtimeArrivals.length > 0
-    ? realtimeArrivals
-    : scheduledStopArrivals(stopId, allowedRouteIds, stopSequencesByRoute, stopTimeIndex);
+  const scheduledArrivals = scheduledStopArrivals(stopId, allowedRouteIds, stopSequencesByRoute, stopTimeIndex);
+  const arrivals = realtimeArrivals.length > 0 ? realtimeArrivals : scheduledArrivals;
+
+  return {
+    arrivals,
+    source: realtimeArrivals.length > 0 ? 'realtime' : scheduledArrivals.length > 0 ? 'scheduled' : 'unavailable',
+    checkedAt: new Date(now).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    realtimeCount: realtimeArrivals.length,
+    scheduledCount: scheduledArrivals.length,
+  };
 }
 
 function formatTimestamp(timestamp: string | null) {

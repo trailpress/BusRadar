@@ -2,7 +2,7 @@ import maplibregl, { type GeoJSONSource, type LngLatBoundsLike, type MapMouseEve
 import { LocateFixed } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
-import { fetchGttStopArrivals } from '../services/gttRealtime';
+import { fetchGttStopArrivalsInfo, type GttStopArrival, type GttStopArrivalsResult } from '../services/gttRealtime';
 import type { LatLng, Vehicle } from '../types';
 import { getLineColor } from '../utils/lineColors';
 import { IconButton } from './IconButton';
@@ -186,6 +186,33 @@ function escapeHtml(value: unknown) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function formatStopLines(lines: string) {
+  return lines.split(',').map((line) => line.trim()).filter(Boolean).slice(0, 10);
+}
+
+function renderStopPopup(name: string, code: string, lines: string, content: string, checkedAt?: string) {
+  const lineBadges = formatStopLines(lines)
+    .map((line) => `<span class="line-badge" style="--line-color:${getLineColor(line)}">${escapeHtml(line)}</span>`)
+    .join('');
+  const meta = checkedAt ? `<small class="stop-popup-meta">Aggiornato ${escapeHtml(checkedAt)}</small>` : '';
+  return `<div class="stop-popup"><strong>${escapeHtml(name)}</strong><span>Palina ${escapeHtml(code)}</span><div class="stop-popup-lines">${lineBadges || '<em>Linee non disponibili</em>'}</div>${content}${meta}</div>`;
+}
+
+function renderArrivalItems(arrivals: GttStopArrival[]) {
+  return arrivals
+    .map((arrival) => `<div><span class="line-badge" style="--line-color:${getLineColor(arrival.line)}">${escapeHtml(arrival.line)}</span><span>${escapeHtml(arrival.timeLabel)}</span><em>${arrival.source === 'scheduled' ? 'prog.' : arrival.minutes === 0 ? 'ora' : `${arrival.minutes} min`}</em></div>`)
+    .join('');
+}
+
+function renderStopArrivals(result: GttStopArrivalsResult) {
+  if (result.arrivals.length > 0) {
+    const label = result.source === 'realtime' ? 'Previsioni realtime GTFS-RT' : 'Orari programmati GTFS statico';
+    return `<div class="stop-popup-source">${label}</div><div class="arrival-list">${renderArrivalItems(result.arrivals)}</div>`;
+  }
+
+  return '<div class="stop-popup-source">Dati disponibili: fermata e linee</div><div class="arrival-list"><small>Nessun passaggio pubblicato nei prossimi minuti o nelle prossime ore del calendario caricato.</small></div>';
 }
 
 function boundsFromRoutes(routes: GtfsRouteVariant[]): LngLatBoundsLike | undefined {
@@ -588,7 +615,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       const coordinates = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
       const popup = new maplibregl.Popup({ closeButton: true, maxWidth: '260px' })
         .setLngLat(coordinates)
-        .setHTML(`<div class="stop-popup"><strong>${properties.name}</strong><span>Palina ${properties.code}</span><small>Carico passaggi...</small></div>`)
+        .setHTML(renderStopPopup(properties.name, properties.code, properties.lines, '<div class="arrival-list"><small>Carico passaggi...</small></div>'))
         .addTo(map);
       let routeIds: string[] = [];
       let stopSequencesByRoute: Record<string, number[]> = {};
@@ -598,14 +625,18 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       } catch {
         routeIds = [];
       }
-      void fetchGttStopArrivals(properties.id, routeIds, stopSequencesByRoute)
-        .then((arrivals) => {
-          const items = arrivals.length
-            ? arrivals.map((arrival) => `<div><span class="line-badge" style="--line-color:${getLineColor(arrival.line)}">${arrival.line}</span><span>${arrival.timeLabel}</span><em>${arrival.source === 'scheduled' ? 'prog.' : arrival.minutes === 0 ? 'ora' : `${arrival.minutes} min`}</em></div>`).join('')
-            : '<small>Nessun passaggio programmato trovato per questa palina nelle prossime ore.</small>';
-          popup.setHTML(`<div class="stop-popup"><strong>${properties.name}</strong><span>Palina ${properties.code}</span><div class="arrival-list">${items}</div></div>`);
+      void fetchGttStopArrivalsInfo(properties.id, routeIds, stopSequencesByRoute)
+        .then((result) => {
+          popup.setHTML(renderStopPopup(properties.name, properties.code, properties.lines, renderStopArrivals(result), result.checkedAt));
         })
-        .catch(() => popup.setHTML(`<div class="stop-popup"><strong>${properties.name}</strong><span>Palina ${properties.code}</span><small>Passaggi non disponibili ora.</small></div>`));
+        .catch(() => {
+          popup.setHTML(renderStopPopup(
+            properties.name,
+            properties.code,
+            properties.lines,
+            '<div class="stop-popup-source">Dati disponibili: fermata e linee</div><div class="arrival-list"><small>Passaggi non caricabili ora. Riprova tra qualche secondo.</small></div>',
+          ));
+        });
     };
     const handleMove = (event: MapMouseEvent) => {
       const vehicleFeature = map.queryRenderedFeatures(event.point, { layers: vehicleLayers })[0];
