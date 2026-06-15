@@ -1142,6 +1142,76 @@ button {
   font-size: 11px;
 }
 
+.live-line-section {
+  gap: 10px;
+}
+
+.line-live-vehicle {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "badge main speed"
+    "badge main status";
+  align-items: center;
+  gap: 6px 10px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.76);
+  text-align: left;
+}
+
+.line-live-vehicle .line-badge {
+  grid-area: badge;
+}
+
+.line-live-vehicle div {
+  grid-area: main;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.line-live-vehicle strong,
+.line-live-empty strong {
+  color: #fff;
+}
+
+.line-live-vehicle span,
+.line-live-empty span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-live-vehicle em {
+  grid-area: speed;
+  color: #fff;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.line-live-vehicle small {
+  grid-area: status;
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.line-live-empty {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.52);
+}
+
 .stop-lines {
   display: flex;
   flex: 0 0 auto;

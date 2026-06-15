@@ -143,6 +143,12 @@ function vehicleKind(vehicle: Vehicle) {
   return vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus');
 }
 
+function trackingLabel(vehicle: Vehicle) {
+  if (vehicle.routeMatchStatus === 'on-route') return 'su percorso GTFS';
+  if (vehicle.routeMatchStatus === 'gps-only') return 'GPS reale, fuori shape';
+  return 'GPS reale';
+}
+
 function vehiclesToGeoJson(vehicles: Vehicle[], positions: Map<string, LatLng>, selectedVehicleId?: string, followedVehicleId?: string): GeoJSON.FeatureCollection<GeoJSON.Point> {
   return {
     type: 'FeatureCollection',
@@ -156,6 +162,7 @@ function vehiclesToGeoJson(vehicles: Vehicle[], positions: Map<string, LatLng>, 
           id: vehicle.vehicleId,
           line: vehicle.line,
           direction: vehicle.direction || 'Direzione non disponibile',
+          tracking: trackingLabel(vehicle),
           color: getLineColor(vehicle.line),
           routeColor: getLineColor(vehicle.line),
           bearing: vehicle.bearing,
@@ -644,7 +651,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         const props = vehicleFeature.properties ?? {};
         hoverPopup
           .setLngLat(event.lngLat)
-          .setHTML(`<div class="vehicle-tooltip"><strong>Vettura ${escapeHtml(props.id)}</strong><span>Linea ${escapeHtml(props.line)}</span><small>${escapeHtml(props.direction)}</small></div>`)
+          .setHTML(`<div class="vehicle-tooltip"><strong>Vettura ${escapeHtml(props.id)}</strong><span>Linea ${escapeHtml(props.line)} · ${escapeHtml(props.tracking)}</span><small>${escapeHtml(props.direction)}</small></div>`)
           .addTo(map);
       } else {
         hoverPopup.remove();

@@ -490,6 +490,11 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const snapLimitMeters = vehicleLivery === 'interurban-blue' ? 45 : 24;
   const isSnappedToRoute = Boolean(estimate.snappedPoint && estimate.offRouteMeters != null && estimate.offRouteMeters <= snapLimitMeters);
   const displayPoint = isSnappedToRoute ? estimate.snappedPoint! : rawPoint;
+  const routeMatchStatus: Vehicle['routeMatchStatus'] = estimate.offRouteMeters == null
+    ? 'unmatched'
+    : isSnappedToRoute
+      ? 'on-route'
+      : 'gps-only';
 
   return {
     vehicleId,
@@ -506,6 +511,8 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     vehicleLengthClass: lengthClass,
     vehicleFleetLabel: vehicleFleetLabel(vehicle.vehicleId, vehicleType, vehicleLivery, lengthClass),
     vehicleFleetKey: fleetKey,
+    routeMatchStatus,
+    offRouteMeters: estimate.offRouteMeters,
     lat: displayPoint.lat,
     lon: displayPoint.lon,
     bearing: isSnappedToRoute ? estimate.bearing ?? 0 : vehicle.bearing && vehicle.bearing > 0 ? vehicle.bearing : estimate.bearing ?? 0,

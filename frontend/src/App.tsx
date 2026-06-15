@@ -182,6 +182,7 @@ function App() {
     setSelectedVehicleFallback(vehicle);
     setLineFilter(vehicle.line);
     setShowRouteForLine(vehicle.routeId.replace(/^gtt-/, ''));
+    setMapFocus({ lat: vehicle.lat, lon: vehicle.lon });
     setActiveTab('map');
   }
 

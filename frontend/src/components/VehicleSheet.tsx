@@ -23,6 +23,15 @@ function vehicleDetailImage(vehicle: Vehicle) {
   return `${base}assets/vehicles/detail/urban-standard-12m-3d.png`;
 }
 
+function routeTrackingText(vehicle: Vehicle) {
+  if (vehicle.routeMatchStatus === 'on-route') return 'Tracciamento GTT: posizione agganciata al percorso';
+  if (vehicle.routeMatchStatus === 'gps-only') {
+    const distance = vehicle.offRouteMeters != null ? ` · scarto shape ${vehicle.offRouteMeters} m` : '';
+    return `Tracciamento GTT: GPS reale non forzato${distance}`;
+  }
+  return 'Tracciamento GTT: GPS reale, percorso non associato';
+}
+
 export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
   const vehicleKind = vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus');
   const speedSource = vehicle.speedSource === 'feed' ? 'Feed realtime' : vehicle.speedSource === 'observed' ? 'Calcolata da GPS' : 'Non disponibile';
@@ -67,6 +76,7 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
           {vehicle.realtimeEntityId && vehicle.realtimeEntityId !== vehicle.vehicleId ? ` · entity: ${vehicle.realtimeEntityId}` : ''}
           {vehicle.tripId ? ` · trip: ${vehicle.tripId}` : ''}
         </span>
+        <span>{routeTrackingText(vehicle)}</span>
       </div>
       <div className="bus-photo">
         <img className="vehicle-render" src={detailImage} alt={`Rendering ${vehicleKind}`} />

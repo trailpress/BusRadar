@@ -21,6 +21,15 @@ export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelec
   const fallbackStops = gtfsNetwork.stops.filter((stop) => stop.lines.includes(line.id));
   const lineStops = (routeStops.length > 0 ? routeStops : fallbackStops)
     .filter((stop, index, list) => list.findIndex((item) => item.id === stop.id) === index);
+  const liveVehicles = vehicles
+    .filter((vehicle) => vehicle.line === line.id)
+    .sort((a, b) => (a.etaTerminalMinutes ?? 999) - (b.etaTerminalMinutes ?? 999));
+
+  const trackingText = (vehicle: Vehicle) => {
+    if (vehicle.routeMatchStatus === 'on-route') return 'su percorso';
+    if (vehicle.routeMatchStatus === 'gps-only') return 'GPS reale';
+    return 'solo feed';
+  };
 
   return (
     <main className="screen line-detail">
@@ -45,8 +54,28 @@ export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelec
       </section>
 
       {tab === 'route' && (
-        <section className="list-section">
+        <section className="list-section live-line-section">
           <div className="route-endpoint"><LineBadge line={line.id} /> {line.direction}</div>
+          <div className="section-heading">
+            <h2>Mezzi live GTT</h2>
+            <button type="button" onClick={() => notify(`Aggiornamento automatico linea ${line.id}`)}>{liveVehicles.length} live</button>
+          </div>
+          {liveVehicles.length > 0 ? liveVehicles.map((vehicle) => (
+            <button className="line-live-vehicle" key={vehicle.vehicleId} type="button" onClick={() => onSelectVehicle(vehicle)}>
+              <LineBadge line={vehicle.line} />
+              <div>
+                <strong>Vettura {vehicle.vehicleId}</strong>
+                <span>{vehicle.terminalName ?? vehicle.direction}</span>
+              </div>
+              <em>{vehicle.speed} km/h</em>
+              <small>{trackingText(vehicle)}</small>
+            </button>
+          )) : (
+            <div className="line-live-empty">
+              <strong>Nessun mezzo pubblicato ora dal feed GTFS-RT</strong>
+              <span>Il percorso e le fermate restano disponibili dal GTFS statico GTT.</span>
+            </div>
+          )}
         </section>
       )}
 

@@ -33,6 +33,8 @@ export type TransitVehicle = {
   vehicleLivery?: VehicleLivery;
   vehicleFleetLabel?: string;
   vehicleFleetKey?: VehicleFleetKey;
+  routeMatchStatus?: 'on-route' | 'gps-only' | 'unmatched';
+  offRouteMeters?: number;
   lat: number;
   lon: number;
   bearing: number;
