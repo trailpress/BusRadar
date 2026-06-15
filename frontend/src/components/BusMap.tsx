@@ -7,13 +7,6 @@ import type { LatLng, Vehicle } from '../types';
 import { getLineColor } from '../utils/lineColors';
 import { IconButton } from './IconButton';
 
-type ViewportBounds = {
-  north: number;
-  south: number;
-  east: number;
-  west: number;
-};
-
 type Props = {
   vehicles: Vehicle[];
   selectedLine?: string;
@@ -54,6 +47,7 @@ function createMapStyle(): maplibregl.StyleSpecification {
         type: 'raster',
         tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png', 'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png', 'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'],
         tileSize: 256,
+        maxzoom: 19,
         attribution: '&copy; OpenStreetMap contributors',
       },
     },
@@ -381,6 +375,32 @@ function installTransitLayers(map: maplibregl.Map) {
   });
 
   map.addLayer({
+    id: 'vehicle-vector-fallback',
+    type: 'symbol',
+    source: 'vehicles',
+    minzoom: 14.4,
+    layout: {
+      'text-field': '▬',
+      'text-size': [
+        'case',
+        ['get', 'isArticulated'],
+        ['interpolate', ['linear'], ['zoom'], 14.4, 30, 18, 44],
+        ['interpolate', ['linear'], ['zoom'], 14.4, 23, 18, 34],
+      ],
+      'text-rotate': ['get', 'spriteBearing'],
+      'text-rotation-alignment': 'map',
+      'text-allow-overlap': true,
+      'text-ignore-placement': true,
+    },
+    paint: {
+      'text-color': '#ffffff',
+      'text-opacity': 0.42,
+      'text-halo-color': ['get', 'color'],
+      'text-halo-width': 1.8,
+    },
+  });
+
+  map.addLayer({
     id: 'vehicle-selected-sprites',
     type: 'symbol',
     source: 'vehicles',
@@ -447,7 +467,6 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const lastFollowCameraAtRef = useRef(0);
   const [mapReady, setMapReady] = useState(false);
   const [zoom, setZoom] = useState(13);
-  const [viewport, setViewport] = useState<ViewportBounds>();
 
   latestVehiclesRef.current = vehicles;
   selectedVehicleIdRef.current = selectedVehicleId;
@@ -462,7 +481,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       center: [7.6867, 45.0706],
       zoom: 13,
       minZoom: 3,
-      maxZoom: 18,
+      maxZoom: 20,
       attributionControl: false,
       fadeDuration: 0,
       dragRotate: false,
@@ -479,14 +498,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     });
 
     const updateViewState = () => {
-      const bounds = map.getBounds();
       setZoom(map.getZoom());
-      setViewport({
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-      });
     };
     map.on('moveend', updateViewState);
     map.on('zoomend', updateViewState);
@@ -499,14 +511,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   }, []);
 
   const visibleVehicles = useMemo(
-    () => vehicles
-      .filter((vehicle) => !selectedLine || vehicle.line === selectedLine)
-      .filter((vehicle) => {
-        if (!viewport || selectedLine || showRouteForLine) return true;
-        if (vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId) return true;
-        return vehicle.lat >= viewport.south && vehicle.lat <= viewport.north && vehicle.lon >= viewport.west && vehicle.lon <= viewport.east;
-      }),
-    [vehicles, selectedLine, showRouteForLine, viewport, selectedVehicleId, followedVehicleId],
+    () => vehicles.filter((vehicle) => !selectedLine || vehicle.line === selectedLine),
+    [vehicles, selectedLine],
   );
 
   const highlightedRoutes = useMemo(
@@ -622,18 +628,34 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     const map = mapRef.current;
-    const vehicleLayers = ['vehicle-selected-sprites', 'vehicle-sprites', 'vehicle-hit-area', 'vehicle-badges', 'vehicle-badge-labels', 'vehicle-heading', 'vehicle-sprite-labels'];
+    const vehicleLayers = ['vehicle-selected-sprites', 'vehicle-sprites', 'vehicle-vector-fallback', 'vehicle-hit-area', 'vehicle-badges', 'vehicle-badge-labels', 'vehicle-heading', 'vehicle-sprite-labels'];
     const stopLayers = ['stops-hit-area', 'stops-circle'];
     const hoverPopup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: '260px', offset: 18 });
 
-    const handleVehicleClick = (event: MapMouseEvent) => {
+    const vehicleAtPoint = (event: MapMouseEvent) => {
       const feature = queryFeaturesNearPoint(map, event.point, vehicleLayers, 22)[0];
       const vehicleId = feature?.properties?.id as string | undefined;
-      const vehicle = latestVehiclesRef.current.find((item) => item.vehicleId === vehicleId);
+      const layerVehicle = latestVehiclesRef.current.find((item) => item.vehicleId === vehicleId);
+      if (layerVehicle) return layerVehicle;
+
+      let nearest: { vehicle: Vehicle; distance: number } | undefined;
+      latestVehiclesRef.current.forEach((vehicle) => {
+        if (selectedLine && vehicle.line !== selectedLine) return;
+        const position = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
+        const projected = map.project([position.lon, position.lat]);
+        const distance = Math.hypot(projected.x - event.point.x, projected.y - event.point.y);
+        if (!nearest || distance < nearest.distance) nearest = { vehicle, distance };
+      });
+      const threshold = map.getZoom() >= 14.5 ? 46 : 30;
+      return nearest && nearest.distance <= threshold ? nearest.vehicle : undefined;
+    };
+
+    const handleVehicleClick = (event: MapMouseEvent) => {
+      const vehicle = vehicleAtPoint(event);
       if (vehicle) onSelectVehicle(vehicle);
     };
     const handleStopClick = (event: MapMouseEvent) => {
-      if (queryFeaturesNearPoint(map, event.point, vehicleLayers, 22).length > 0) return;
+      if (vehicleAtPoint(event)) return;
       const feature = queryFeaturesNearPoint(map, event.point, stopLayers, 22)[0];
       if (!feature) return;
       const properties = feature.properties as StopFeatureProperties;
@@ -664,17 +686,16 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         });
     };
     const handleMove = (event: MapMouseEvent) => {
-      const vehicleFeature = queryFeaturesNearPoint(map, event.point, vehicleLayers, 12)[0];
-      if (vehicleFeature) {
-        const props = vehicleFeature.properties ?? {};
+      const vehicle = vehicleAtPoint(event);
+      if (vehicle) {
         hoverPopup
           .setLngLat(event.lngLat)
-          .setHTML(`<div class="vehicle-tooltip"><strong>Vettura ${escapeHtml(props.id)}</strong><span>Linea ${escapeHtml(props.line)} · ${escapeHtml(props.tracking)}</span><small>${escapeHtml(props.direction)}</small></div>`)
+          .setHTML(`<div class="vehicle-tooltip"><strong>Vettura ${escapeHtml(vehicle.vehicleId)}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small></div>`)
           .addTo(map);
       } else {
         hoverPopup.remove();
       }
-      const hover = Boolean(vehicleFeature) || queryFeaturesNearPoint(map, event.point, stopLayers, 12).length > 0;
+      const hover = Boolean(vehicle) || queryFeaturesNearPoint(map, event.point, stopLayers, 12).length > 0;
       map.getCanvas().style.cursor = hover ? 'pointer' : '';
     };
     map.on('click', handleVehicleClick);
@@ -686,7 +707,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       map.off('mousemove', handleMove);
       hoverPopup.remove();
     };
-  }, [mapReady, onSelectVehicle]);
+  }, [mapReady, onSelectVehicle, selectedLine]);
 
   const centerOnUser = async () => {
     const located = await onLocateUser?.();
