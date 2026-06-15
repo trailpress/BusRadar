@@ -359,6 +359,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const latestVehiclesRef = useRef<Vehicle[]>(vehicles);
   const selectedVehicleIdRef = useRef<string | undefined>(selectedVehicleId);
   const followedVehicleIdRef = useRef<string | undefined>(followedVehicleId);
+  const lastFollowCameraAtRef = useRef(0);
   const [mapReady, setMapReady] = useState(false);
   const [zoom, setZoom] = useState(13);
   const [viewport, setViewport] = useState<ViewportBounds>();
@@ -493,7 +494,24 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         currentPositionsRef.current.set(id, position);
         animatedVehicles.push(frame.vehicle);
       });
-      setSourceData(mapRef.current!, 'vehicles', vehiclesToGeoJson(animatedVehicles, currentPositionsRef.current, selectedVehicleIdRef.current, followedVehicleIdRef.current));
+      const map = mapRef.current!;
+      setSourceData(map, 'vehicles', vehiclesToGeoJson(animatedVehicles, currentPositionsRef.current, selectedVehicleIdRef.current, followedVehicleIdRef.current));
+      const followedId = followedVehicleIdRef.current;
+      const followedPosition = followedId ? currentPositionsRef.current.get(followedId) : undefined;
+      if (followedPosition && time - lastFollowCameraAtRef.current > 420) {
+        const center = map.getCenter();
+        const target = new maplibregl.LngLat(followedPosition.lon, followedPosition.lat);
+        const zoom = Math.max(map.getZoom(), 16.2);
+        if (center.distanceTo(target) > 7 || map.getZoom() < 16) {
+          map.easeTo({
+            center: target,
+            zoom,
+            duration: 360,
+            essential: true,
+          });
+          lastFollowCameraAtRef.current = time;
+        }
+      }
       frameId = requestAnimationFrame(tick);
     };
     frameId = requestAnimationFrame(tick);
@@ -515,16 +533,15 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   useEffect(() => {
     if (!mapReady || !mapRef.current || !followedVehicleId) return;
     const vehicle = vehicles.find((item) => item.vehicleId === followedVehicleId);
-    if (!vehicle) return;
-    const map = mapRef.current;
-    const target: [number, number] = [vehicle.lon, vehicle.lat];
-    if (map.getZoom() < 14.2) {
-      map.flyTo({ center: target, zoom: 14.2, duration: 450 });
-      return;
-    }
-    if (map.getCenter().distanceTo(new maplibregl.LngLat(vehicle.lon, vehicle.lat)) > 18) {
-      map.easeTo({ center: target, duration: 450 });
-    }
+    const position = currentPositionsRef.current.get(followedVehicleId) ?? vehicle;
+    if (!position) return;
+    lastFollowCameraAtRef.current = 0;
+    mapRef.current.easeTo({
+      center: [position.lon, position.lat],
+      zoom: Math.max(mapRef.current.getZoom(), 16.2),
+      duration: 450,
+      essential: true,
+    });
   }, [followedVehicleId, mapReady, vehicles]);
 
   useEffect(() => {
