@@ -50,9 +50,9 @@ function readCsv(fileName, required = true) {
 }
 
 function simplify(points, step = 2) {
-  if (points.length <= 260) return points;
+  if (points.length <= 1200) return points;
   const simplified = points.filter((_, index) => index === 0 || index === points.length - 1 || index % step === 0);
-  return simplified.length > 900 ? simplify(simplified, step + 1) : simplified;
+  return simplified.length > 1600 ? simplify(simplified, step + 1) : simplified;
 }
 
 function cleanLineName(routeShortName, routeId) {
@@ -209,7 +209,7 @@ const networkRoutes = selectedTrips
     }
 
     return {
-      id: `${trip.route_id}-${trip.direction_id || '0'}`,
+      id: `${trip.route_id}-${trip.direction_id || '0'}-${trip.shape_id}`,
       routeId: trip.route_id,
       line: shortName,
       directionId: trip.direction_id || '0',
