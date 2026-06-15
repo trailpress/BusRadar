@@ -75,6 +75,22 @@ function gtfsTimeToSeconds(value) {
   return hours * 3600 + minutes * 60 + seconds;
 }
 
+function distanceMeters(a, b) {
+  const earthRadiusMeters = 6371000;
+  const toRad = (value) => (value * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * earthRadiusMeters * Math.asin(Math.sqrt(h));
+}
+
+function pathLengthKm(pathPoints) {
+  const meters = pathPoints.slice(0, -1).reduce((sum, point, index) => sum + distanceMeters(point, pathPoints[index + 1]), 0);
+  return Math.round((meters / 1000) * 10) / 10;
+}
+
 const routes = readCsv('routes.txt');
 const trips = readCsv('trips.txt');
 const shapes = readCsv('shapes.txt');
@@ -229,7 +245,7 @@ const networkLines = routes
       direction: routeVariants[0]?.headsign ?? route.route_long_name ?? line,
       alternateDirection: routeVariants[1]?.headsign ?? route.route_desc ?? '',
       stats: {
-        lengthKm: Math.round(routeVariants.reduce((total, variant) => total + variant.path.length, 0) / Math.max(routeVariants.length, 1) / 10) / 10,
+        lengthKm: Math.round((routeVariants.reduce((total, variant) => total + pathLengthKm(variant.path), 0) / Math.max(routeVariants.length, 1)) * 10) / 10,
         durationMin: 0,
         tripsToday: trips.filter((trip) => trip.route_id === route.route_id).length,
         firstRun: '--:--',

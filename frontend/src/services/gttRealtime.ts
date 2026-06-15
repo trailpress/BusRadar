@@ -487,7 +487,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const { speed, source: speedSource } = observedSpeed(vehicleId || String(index), vehicle);
   const rawPoint = { lat: vehicle.lat ?? 0, lon: vehicle.lon ?? 0 };
   const estimate = terminalEstimate(routeId, line, rawPoint, speed);
-  const snapLimitMeters = vehicleLivery === 'interurban-blue' ? 260 : 120;
+  const snapLimitMeters = vehicleLivery === 'interurban-blue' ? 45 : 24;
   const isSnappedToRoute = Boolean(estimate.snappedPoint && estimate.offRouteMeters != null && estimate.offRouteMeters <= snapLimitMeters);
   const displayPoint = isSnappedToRoute ? estimate.snappedPoint! : rawPoint;
 

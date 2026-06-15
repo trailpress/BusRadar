@@ -33,6 +33,7 @@ function App() {
   const [showLocationHelp, setShowLocationHelp] = useState(false);
   const [toast, setToast] = useState<string>();
   const locationWatchRef = useRef<number | undefined>(undefined);
+  const locationPermissionRef = useRef<PermissionStatus | undefined>(undefined);
 
   const startLocationWatch = useCallback(() => {
     if (!navigator.geolocation) return;
@@ -46,6 +47,20 @@ function App() {
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 },
     );
   }, []);
+
+  const refreshLocationPermission = useCallback(async () => {
+    if (!navigator.permissions?.query || !navigator.geolocation) return;
+    try {
+      const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+      locationPermissionRef.current = permission;
+      if (permission.state === 'granted') {
+        setShowLocationHelp(false);
+        startLocationWatch();
+      }
+    } catch {
+      // Safari does not expose a reliable Permissions API on every version.
+    }
+  }, [startLocationWatch]);
 
   const requestUserLocation = useCallback(() => new Promise<LatLng | undefined>((resolve) => {
     if (!navigator.geolocation) {
@@ -79,7 +94,7 @@ function App() {
           : error.code === error.TIMEOUT
             ? 'Posizione non trovata: riprova tra qualche secondo'
             : 'Posizione iPhone non disponibile ora';
-        if (isIosLikeDevice()) setShowLocationHelp(true);
+        if (isIosLikeDevice() || error.code === error.PERMISSION_DENIED) setShowLocationHelp(true);
         notify(message);
         resolve(undefined);
       },
@@ -90,14 +105,30 @@ function App() {
   useEffect(() => {
     navigator.permissions?.query({ name: 'geolocation' as PermissionName })
       .then((permission) => {
+        locationPermissionRef.current = permission;
         if (permission.state === 'granted') startLocationWatch();
+        permission.onchange = () => {
+          if (permission.state === 'granted') {
+            setShowLocationHelp(false);
+            startLocationWatch();
+          }
+        };
       })
       .catch(() => undefined);
 
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') void refreshLocationPermission();
+    };
+    window.addEventListener('focus', refreshLocationPermission);
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       if (locationWatchRef.current != null) navigator.geolocation?.clearWatch(locationWatchRef.current);
+      if (locationPermissionRef.current) locationPermissionRef.current.onchange = null;
+      window.removeEventListener('focus', refreshLocationPermission);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [startLocationWatch]);
+  }, [refreshLocationPermission, startLocationWatch]);
 
   useEffect(() => {
     let cancelled = false;
