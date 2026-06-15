@@ -43,7 +43,7 @@ type StopFeatureProperties = {
   stopSequencesByRoute: string;
 };
 
-const spriteZoomThreshold = 16.35;
+const spriteZoomThreshold = 15.55;
 const vehicleAssetBase = import.meta.env.BASE_URL;
 
 function createMapStyle(): maplibregl.StyleSpecification {
@@ -318,15 +318,15 @@ function installTransitLayers(map: maplibregl.Map) {
       'icon-size': [
         'case',
         ['get', 'isArticulated'],
-        ['interpolate', ['linear'], ['zoom'], 16, 0.092, 17, 0.112, 18, 0.128],
-        ['interpolate', ['linear'], ['zoom'], 16, 0.12, 17, 0.142, 18, 0.158],
+        ['interpolate', ['linear'], ['zoom'], 15.5, 0.082, 17, 0.122, 18, 0.148],
+        ['interpolate', ['linear'], ['zoom'], 15.5, 0.106, 17, 0.156, 18, 0.188],
       ],
       'icon-rotate': ['get', 'spriteBearing'],
       'icon-rotation-alignment': 'map',
       'icon-allow-overlap': true,
       'icon-ignore-placement': true,
     },
-    paint: { 'icon-opacity': 0.96 },
+    paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 15.5, 0.42, 16.2, 0.98] },
   });
 
   map.addLayer({
@@ -341,8 +341,8 @@ function installTransitLayers(map: maplibregl.Map) {
       'icon-size': [
         'case',
         ['get', 'isArticulated'],
-        ['interpolate', ['linear'], ['zoom'], 14.8, 0.078, 17, 0.112, 18, 0.128],
-        ['interpolate', ['linear'], ['zoom'], 14.8, 0.102, 17, 0.142, 18, 0.158],
+        ['interpolate', ['linear'], ['zoom'], 14.8, 0.078, 16, 0.11, 18, 0.148],
+        ['interpolate', ['linear'], ['zoom'], 14.8, 0.102, 16, 0.142, 18, 0.188],
       ],
       'icon-rotate': ['get', 'spriteBearing'],
       'icon-rotation-alignment': 'map',
@@ -532,19 +532,11 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       setSourceData(map, 'vehicles', vehiclesToGeoJson(animatedVehicles, currentPositionsRef.current, selectedVehicleIdRef.current, followedVehicleIdRef.current));
       const followedId = followedVehicleIdRef.current;
       const followedPosition = followedId ? currentPositionsRef.current.get(followedId) : undefined;
-      if (followedPosition && time - lastFollowCameraAtRef.current > 420) {
-        const center = map.getCenter();
+      if (followedPosition && time - lastFollowCameraAtRef.current > 180) {
         const target = new maplibregl.LngLat(followedPosition.lon, followedPosition.lat);
         const zoom = Math.max(map.getZoom(), 16.2);
-        if (center.distanceTo(target) > 7 || map.getZoom() < 16) {
-          map.easeTo({
-            center: target,
-            zoom,
-            duration: 360,
-            essential: true,
-          });
-          lastFollowCameraAtRef.current = time;
-        }
+        map.jumpTo({ center: target, zoom });
+        lastFollowCameraAtRef.current = time;
       }
       frameId = requestAnimationFrame(tick);
     };
@@ -570,11 +562,9 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     const position = currentPositionsRef.current.get(followedVehicleId) ?? vehicle;
     if (!position) return;
     lastFollowCameraAtRef.current = 0;
-    mapRef.current.easeTo({
+    mapRef.current.jumpTo({
       center: [position.lon, position.lat],
       zoom: Math.max(mapRef.current.getZoom(), 16.2),
-      duration: 450,
-      essential: true,
     });
   }, [followedVehicleId, mapReady, vehicles]);
 

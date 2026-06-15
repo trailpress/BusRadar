@@ -3,6 +3,20 @@ export type VehicleLengthClass = 'standard' | 'articulated-18m';
 export type VehicleLivery = 'urban' | 'interurban-blue' | 'electric-compact';
 export type VehicleSource = 'simulation' | 'gtfs-rt';
 export type VehicleStatus = 'moving' | 'stopped' | 'unknown';
+export type VehicleFleetKey =
+  | 'tram'
+  | 'byd-k7-electric-9m'
+  | 'byd-k9-electric-12m'
+  | 'iia-citymood-cng-12m'
+  | 'iveco-citelis-12m'
+  | 'iveco-eway-electric-12m'
+  | 'iveco-eway-electric-18m'
+  | 'iveco-urbanway-cng-18m'
+  | 'irisbus-citelis-18m'
+  | 'mercedes-conecto-12m'
+  | 'mercedes-conecto-18m'
+  | 'iveco-crossway-suburban'
+  | 'generic-bus';
 
 export type TransitVehicle = {
   vehicleId: string;
@@ -18,6 +32,7 @@ export type TransitVehicle = {
   vehicleLengthClass?: VehicleLengthClass;
   vehicleLivery?: VehicleLivery;
   vehicleFleetLabel?: string;
+  vehicleFleetKey?: VehicleFleetKey;
   lat: number;
   lon: number;
   bearing: number;

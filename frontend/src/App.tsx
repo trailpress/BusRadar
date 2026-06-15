@@ -229,6 +229,7 @@ function App() {
             setSelectedVehicleId(vehicle.vehicleId);
             setSelectedVehicleFallback(vehicle);
             setFollowedVehicleId(vehicle.vehicleId);
+            setMapFocus({ lat: vehicle.lat, lon: vehicle.lon });
             setLineFilter(vehicle.line);
             setShowRouteForLine(vehicle.routeId.replace(/^gtt-/, ''));
           }}
