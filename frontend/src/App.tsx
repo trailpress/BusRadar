@@ -25,6 +25,7 @@ function App() {
   const [mapFocus, setMapFocus] = useState<LatLng>();
   const [userLocation, setUserLocation] = useState<LatLng>({ lat: 45.0706, lon: 7.6867 });
   const [hasUserLocation, setHasUserLocation] = useState(false);
+  const [showLocationHelp, setShowLocationHelp] = useState(false);
   const [toast, setToast] = useState<string>();
   const locationWatchRef = useRef<number | undefined>(undefined);
 
@@ -44,6 +45,7 @@ function App() {
   const requestUserLocation = useCallback(() => new Promise<LatLng | undefined>((resolve) => {
     if (!navigator.geolocation) {
       notify('Geolocalizzazione non disponibile su questo browser');
+      setShowLocationHelp(true);
       resolve(undefined);
       return;
     }
@@ -51,6 +53,7 @@ function App() {
     const isSecure = window.isSecureContext || ['localhost', '127.0.0.1'].includes(window.location.hostname);
     if (!isSecure) {
       notify('Apri BusRadar in HTTPS per usare la posizione su iPhone');
+      setShowLocationHelp(true);
       resolve(undefined);
       return;
     }
@@ -58,6 +61,7 @@ function App() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const nextLocation = { lat: position.coords.latitude, lon: position.coords.longitude };
+        setShowLocationHelp(false);
         setHasUserLocation(true);
         setUserLocation(nextLocation);
         startLocationWatch();
@@ -70,6 +74,7 @@ function App() {
           : error.code === error.TIMEOUT
             ? 'Posizione non trovata: riprova tra qualche secondo'
             : 'Posizione iPhone non disponibile ora';
+        setShowLocationHelp(true);
         notify(message);
         resolve(undefined);
       },
@@ -142,7 +147,6 @@ function App() {
     setLineFilter(vehicle.line);
     setShowRouteForLine(vehicle.routeId.replace(/^gtt-/, ''));
     setActiveTab('map');
-    notify(`Vettura ${vehicle.vehicleId} aperta`);
   }
 
   function trackVehicleFromRadar(vehicle: Vehicle) {
@@ -238,6 +242,24 @@ function App() {
       {activeTab === 'stops' && <StopsScreen onSelectStop={openStop} />}
       {activeTab === 'vehicles' && <VehiclesScreen vehicles={vehicles} onSelectVehicle={openVehicle} />}
       {activeTab === 'more' && <RadarScreen vehicles={vehicles} userLocation={userLocation} onSelectVehicle={trackVehicleFromRadar} onBack={() => setActiveTab('map')} />}
+      {showLocationHelp && (
+        <div className="location-help" role="dialog" aria-label="Abilita posizione">
+          <div>
+            <strong>Abilita posizione su iPhone</strong>
+            <span>Safari puo mostrare il menu permessi solo dopo un tuo tocco. Se hai gia negato, abilita da Impostazioni.</span>
+            <ol>
+              <li>Impostazioni iPhone</li>
+              <li>Privacy e sicurezza</li>
+              <li>Localizzazione</li>
+              <li>Safari: Consenti durante l'uso</li>
+            </ol>
+            <div>
+              <button type="button" onClick={() => void requestUserLocation()}>Riprova autorizzazione</button>
+              <button type="button" className="secondary" onClick={() => setShowLocationHelp(false)}>Chiudi</button>
+            </div>
+          </div>
+        </div>
+      )}
       {toast && <div className="toast">{toast}</div>}
       <BottomNav active={activeTab} onChange={handleTabChange} />
     </div>

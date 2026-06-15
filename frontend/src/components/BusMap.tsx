@@ -143,12 +143,12 @@ function vehicleKind(vehicle: Vehicle) {
   return vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus');
 }
 
-function vehiclesToGeoJson(vehicles: Vehicle[], positions: Map<string, LatLng>): GeoJSON.FeatureCollection<GeoJSON.Point> {
+function vehiclesToGeoJson(vehicles: Vehicle[], positions: Map<string, LatLng>, selectedVehicleId?: string, followedVehicleId?: string): GeoJSON.FeatureCollection<GeoJSON.Point> {
   return {
     type: 'FeatureCollection',
     features: vehicles.map((vehicle) => {
       const position = positions.get(vehicle.vehicleId) ?? vehicle;
-      const selected = false;
+      const selected = vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId;
       return {
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [position.lon, position.lat] },
@@ -157,10 +157,12 @@ function vehiclesToGeoJson(vehicles: Vehicle[], positions: Map<string, LatLng>):
           line: vehicle.line,
           direction: vehicle.direction || 'Direzione non disponibile',
           color: getLineColor(vehicle.line),
-          bearing: vehicle.bearing - 90,
+          routeColor: getLineColor(vehicle.line),
+          bearing: vehicle.bearing + 90,
           icon: vehicleIconName(vehicle),
           selected,
           isArticulated: vehicle.vehicleLengthClass === 'articulated-18m',
+          isTram: vehicle.vehicleType === 'tram',
         },
       };
     }),
@@ -292,7 +294,12 @@ function installTransitLayers(map: maplibregl.Map) {
     minzoom: spriteZoomThreshold,
     layout: {
       'icon-image': ['get', 'icon'],
-      'icon-size': ['case', ['get', 'isArticulated'], 0.31, 0.28],
+      'icon-size': [
+        'case',
+        ['get', 'isArticulated'],
+        ['interpolate', ['linear'], ['zoom'], 15, 0.062, 17, 0.076, 18, 0.088],
+        ['interpolate', ['linear'], ['zoom'], 15, 0.072, 17, 0.086, 18, 0.098],
+      ],
       'icon-rotate': ['get', 'bearing'],
       'icon-rotation-alignment': 'map',
       'icon-allow-overlap': true,
@@ -340,11 +347,15 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const vehicleFramesRef = useRef<Map<string, VehicleFrame>>(new Map());
   const currentPositionsRef = useRef<Map<string, LatLng>>(new Map());
   const latestVehiclesRef = useRef<Vehicle[]>(vehicles);
+  const selectedVehicleIdRef = useRef<string | undefined>(selectedVehicleId);
+  const followedVehicleIdRef = useRef<string | undefined>(followedVehicleId);
   const [mapReady, setMapReady] = useState(false);
   const [zoom, setZoom] = useState(13);
   const [viewport, setViewport] = useState<ViewportBounds>();
 
   latestVehiclesRef.current = vehicles;
+  selectedVehicleIdRef.current = selectedVehicleId;
+  followedVehicleIdRef.current = followedVehicleId;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -472,7 +483,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         currentPositionsRef.current.set(id, position);
         animatedVehicles.push(frame.vehicle);
       });
-      setSourceData(mapRef.current!, 'vehicles', vehiclesToGeoJson(animatedVehicles, currentPositionsRef.current));
+      setSourceData(mapRef.current!, 'vehicles', vehiclesToGeoJson(animatedVehicles, currentPositionsRef.current, selectedVehicleIdRef.current, followedVehicleIdRef.current));
       frameId = requestAnimationFrame(tick);
     };
     frameId = requestAnimationFrame(tick);

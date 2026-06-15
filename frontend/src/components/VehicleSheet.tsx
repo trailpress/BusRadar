@@ -56,6 +56,7 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
       <div className="bus-photo">
         <div className={vehicleModelClass} aria-hidden="true">
           <i />
+          <small />
           <span />
           <b />
         </div>
