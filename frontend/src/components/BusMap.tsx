@@ -43,7 +43,7 @@ type StopFeatureProperties = {
   stopSequencesByRoute: string;
 };
 
-const spriteZoomThreshold = 15.55;
+const spriteZoomThreshold = 14.75;
 const vehicleAssetBase = import.meta.env.BASE_URL;
 
 function createMapStyle(): maplibregl.StyleSpecification {
@@ -166,7 +166,7 @@ function vehiclesToGeoJson(vehicles: Vehicle[], positions: Map<string, LatLng>, 
           color: getLineColor(vehicle.line),
           routeColor: getLineColor(vehicle.line),
           bearing: vehicle.bearing,
-          spriteBearing: vehicle.bearing + 90,
+          spriteBearing: vehicle.bearing - 90,
           icon: vehicleIconName(vehicle),
           selected,
           isArticulated: vehicle.vehicleLengthClass === 'articulated-18m',
@@ -369,22 +369,22 @@ function installTransitLayers(map: maplibregl.Map) {
       'icon-size': [
         'case',
         ['get', 'isArticulated'],
-        ['interpolate', ['linear'], ['zoom'], 15.5, 0.082, 17, 0.122, 18, 0.148],
-        ['interpolate', ['linear'], ['zoom'], 15.5, 0.106, 17, 0.156, 18, 0.188],
+        ['interpolate', ['linear'], ['zoom'], 14.75, 0.12, 16, 0.15, 18, 0.18],
+        ['interpolate', ['linear'], ['zoom'], 14.75, 0.15, 16, 0.19, 18, 0.23],
       ],
       'icon-rotate': ['get', 'spriteBearing'],
       'icon-rotation-alignment': 'map',
       'icon-allow-overlap': true,
       'icon-ignore-placement': true,
     },
-    paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 15.5, 0.42, 16.2, 0.98] },
+    paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 14.75, 0.72, 15.4, 1] },
   });
 
   map.addLayer({
     id: 'vehicle-selected-sprites',
     type: 'symbol',
     source: 'vehicles',
-    minzoom: 14.8,
+    minzoom: 14.2,
     maxzoom: spriteZoomThreshold,
     filter: ['==', ['get', 'selected'], true],
     layout: {
@@ -392,8 +392,8 @@ function installTransitLayers(map: maplibregl.Map) {
       'icon-size': [
         'case',
         ['get', 'isArticulated'],
-        ['interpolate', ['linear'], ['zoom'], 14.8, 0.078, 16, 0.11, 18, 0.148],
-        ['interpolate', ['linear'], ['zoom'], 14.8, 0.102, 16, 0.142, 18, 0.188],
+        ['interpolate', ['linear'], ['zoom'], 14.2, 0.11, 16, 0.15, 18, 0.18],
+        ['interpolate', ['linear'], ['zoom'], 14.2, 0.14, 16, 0.19, 18, 0.23],
       ],
       'icon-rotate': ['get', 'spriteBearing'],
       'icon-rotation-alignment': 'map',

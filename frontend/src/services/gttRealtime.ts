@@ -1,6 +1,6 @@
 import type { Vehicle } from '../types';
 import { getGtfsLine, getGtfsRoutesForLine, getGtfsRoutesForRouteId } from '../data/gtfsNetwork';
-import { distanceMeters, routeProgressAtPoint } from '../utils/geo';
+import { bearingDegrees, distanceMeters, routeProgressAtPoint } from '../utils/geo';
 
 type GttVehiclePosition = {
   entityId?: string | null;
@@ -401,17 +401,21 @@ function timestampMs(timestamp: string | null) {
 }
 
 function observedSpeed(vehicleId: string, vehicle: GttVehiclePosition) {
-  if (typeof vehicle.lat !== 'number' || typeof vehicle.lon !== 'number') return { speed: 0, source: 'unavailable' as const };
+  if (typeof vehicle.lat !== 'number' || typeof vehicle.lon !== 'number') return { speed: 0, source: 'unavailable' as const, bearing: undefined };
 
   const feedSpeed = speedKmh(vehicle.speed);
   const sampleTime = timestampMs(vehicle.timestamp);
   const previous = previousSamples.get(vehicleId);
   let speed = feedSpeed;
   let source: Vehicle['speedSource'] = feedSpeed > 0 ? 'feed' : 'unavailable';
+  let observedBearing: number | undefined;
 
-  if ((!speed || speed < 1) && previous) {
+  if (previous) {
     const elapsedSeconds = Math.max(0, (sampleTime - previous.timestampMs) / 1000);
     const meters = distanceMeters({ lat: previous.lat, lon: previous.lon }, { lat: vehicle.lat, lon: vehicle.lon });
+    if (meters >= 8 && elapsedSeconds >= 5 && elapsedSeconds <= 180) {
+      observedBearing = bearingDegrees({ lat: previous.lat, lon: previous.lon }, { lat: vehicle.lat, lon: vehicle.lon });
+    }
     if (elapsedSeconds >= 5 && elapsedSeconds <= 180 && meters < 5000) {
       const calculated = Math.round((meters / elapsedSeconds) * 3.6);
       if (calculated > 0 && calculated < 90) {
@@ -428,7 +432,7 @@ function observedSpeed(vehicleId: string, vehicle: GttVehiclePosition) {
     speed,
   });
 
-  return { speed, source };
+  return { speed, source, bearing: observedBearing };
 }
 
 function terminalEstimate(routeId: string, line: string, point: { lat: number; lon: number }, speed: number) {
@@ -484,7 +488,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const fleetKey = vehicleFleetKey(vehicle.vehicleId, vehicleType);
   const vehicleId = normalizeVehicleId(vehicle.vehicleId) || normalizeVehicleId(vehicle.vehicleLabel ?? null);
   const vehicleIdSource: Vehicle['vehicleIdSource'] = normalizeVehicleId(vehicle.vehicleId) ? 'vehicle.id' : 'vehicle.label';
-  const { speed, source: speedSource } = observedSpeed(vehicleId || String(index), vehicle);
+  const { speed, source: speedSource, bearing: observedBearing } = observedSpeed(vehicleId || String(index), vehicle);
   const rawPoint = { lat: vehicle.lat ?? 0, lon: vehicle.lon ?? 0 };
   const estimate = terminalEstimate(routeId, line, rawPoint, speed);
   const snapLimitMeters = vehicleLivery === 'interurban-blue' ? 45 : 24;
@@ -515,7 +519,9 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     offRouteMeters: estimate.offRouteMeters,
     lat: displayPoint.lat,
     lon: displayPoint.lon,
-    bearing: isSnappedToRoute ? estimate.bearing ?? 0 : vehicle.bearing && vehicle.bearing > 0 ? vehicle.bearing : estimate.bearing ?? 0,
+    bearing: isSnappedToRoute
+      ? estimate.bearing ?? 0
+      : observedBearing ?? (vehicle.bearing && vehicle.bearing > 0 ? vehicle.bearing : estimate.bearing ?? 0),
     speed,
     speedSource,
     updatedAt: formatTimestamp(vehicle.timestamp),
