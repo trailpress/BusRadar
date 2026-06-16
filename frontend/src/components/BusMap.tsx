@@ -301,13 +301,17 @@ function installTransitLayers(map: maplibregl.Map) {
     id: 'vehicle-badges',
     type: 'circle',
     source: 'vehicles',
-    maxzoom: spriteZoomThreshold,
     paint: {
-      'circle-radius': ['case', ['get', 'selected'], 20, 16],
+      'circle-radius': [
+        'case',
+        ['get', 'selected'],
+        ['interpolate', ['linear'], ['zoom'], 12, 18, 16, 16, 19, 13],
+        ['interpolate', ['linear'], ['zoom'], 12, 14, 16, 12, 19, 10],
+      ],
       'circle-color': ['get', 'color'],
       'circle-stroke-color': '#ffffff',
       'circle-stroke-width': 2,
-      'circle-opacity': 0.96,
+      'circle-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0.96, 15, 0.9, 17, 0.72, 19, 0.58],
     },
   });
 
@@ -315,15 +319,17 @@ function installTransitLayers(map: maplibregl.Map) {
     id: 'vehicle-badge-labels',
     type: 'symbol',
     source: 'vehicles',
-    maxzoom: spriteZoomThreshold,
     layout: {
       'text-field': ['get', 'line'],
-      'text-size': 13,
+      'text-size': ['interpolate', ['linear'], ['zoom'], 12, 13, 16, 12, 19, 10],
       'text-allow-overlap': true,
       'text-ignore-placement': true,
       'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
     },
-    paint: { 'text-color': '#ffffff' },
+    paint: {
+      'text-color': '#ffffff',
+      'text-opacity': ['interpolate', ['linear'], ['zoom'], 12, 1, 17, 0.92, 19, 0.78],
+    },
   });
 
   map.addLayer({
@@ -631,6 +637,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     const vehicleLayers = ['vehicle-selected-sprites', 'vehicle-sprites', 'vehicle-vector-fallback', 'vehicle-hit-area', 'vehicle-badges', 'vehicle-badge-labels', 'vehicle-heading', 'vehicle-sprite-labels'];
     const stopLayers = ['stops-hit-area', 'stops-circle'];
     const hoverPopup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: '260px', offset: 18 });
+    const clickPopup = new maplibregl.Popup({ closeButton: true, closeOnClick: true, maxWidth: '280px', offset: 20 });
 
     const vehicleAtPoint = (event: MapMouseEvent) => {
       const feature = queryFeaturesNearPoint(map, event.point, vehicleLayers, 22)[0];
@@ -652,7 +659,14 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
 
     const handleVehicleClick = (event: MapMouseEvent) => {
       const vehicle = vehicleAtPoint(event);
-      if (vehicle) onSelectVehicle(vehicle);
+      if (!vehicle) return;
+      const position = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
+      hoverPopup.remove();
+      clickPopup
+        .setLngLat([position.lon, position.lat])
+        .setHTML(`<div class="vehicle-tooltip vehicle-tooltip-click"><strong>Vettura ${escapeHtml(vehicle.vehicleId)}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small></div>`)
+        .addTo(map);
+      onSelectVehicle(vehicle);
     };
     const handleStopClick = (event: MapMouseEvent) => {
       if (vehicleAtPoint(event)) return;
@@ -706,6 +720,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       map.off('click', handleStopClick);
       map.off('mousemove', handleMove);
       hoverPopup.remove();
+      clickPopup.remove();
     };
   }, [mapReady, onSelectVehicle, selectedLine]);
 

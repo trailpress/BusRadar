@@ -137,7 +137,6 @@ function App() {
       const snapshot = await fetchGttRealtimeVehicles();
       if (cancelled) return;
       if (!snapshot) {
-        setVehicles([]);
         return;
       }
       setVehicles(snapshot.vehicles);

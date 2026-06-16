@@ -48,7 +48,7 @@ export function MapScreen({
       <BusMap
         vehicles={vehicles}
         selectedLine={selectedLine}
-        selectedVehicleId={selectedVehicle?.vehicleId}
+        selectedVehicleId={(selectedVehicle ?? selectedVehicleFallback)?.vehicleId}
         followedVehicleId={followedVehicleId}
         focusPoint={focusPoint}
         userLocation={userLocation}
