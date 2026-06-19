@@ -412,6 +412,7 @@ function installTransitLayers(map: maplibregl.Map) {
         ['case', ['get', 'isArticulated'], 0.052, 0.07],
       ],
       'icon-rotate': ['get', 'spriteBearing'],
+      'icon-offset': [0, 4],
       'icon-rotation-alignment': 'map',
       'icon-allow-overlap': true,
       'icon-ignore-placement': true,
@@ -471,6 +472,7 @@ function installTransitLayers(map: maplibregl.Map) {
         ['case', ['get', 'isArticulated'], 0.056, 0.075],
       ],
       'icon-rotate': ['get', 'spriteBearing'],
+      'icon-offset': [0, 4],
       'icon-rotation-alignment': 'map',
       'icon-allow-overlap': true,
       'icon-ignore-placement': true,
@@ -520,6 +522,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const selectedVehicleIdRef = useRef<string | undefined>(selectedVehicleId);
   const followedVehicleIdRef = useRef<string | undefined>(followedVehicleId);
   const lastFollowCameraAtRef = useRef(0);
+  const hadFocusedViewRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [zoom, setZoom] = useState(13);
 
@@ -687,6 +690,19 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       duration: 500,
     });
   }, [followedVehicleId, mapReady, vehicles]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const hasFocusedView = Boolean(selectedLine || showRouteForLine || followedVehicleId);
+    if (hadFocusedViewRef.current && !hasFocusedView) {
+      mapRef.current.easeTo({
+        center: [7.6867, 45.0706],
+        zoom: 13,
+        duration: 650,
+      });
+    }
+    hadFocusedViewRef.current = hasFocusedView;
+  }, [followedVehicleId, mapReady, selectedLine, showRouteForLine]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;

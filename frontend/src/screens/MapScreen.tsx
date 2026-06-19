@@ -1,3 +1,4 @@
+import { Layers3 } from 'lucide-react';
 import type { LatLng, Vehicle } from '../types';
 import { AppHeader } from '../components/AppHeader';
 import { BusMap } from '../components/BusMap';
@@ -22,6 +23,7 @@ type Props = {
   onClearVehicle: () => void;
   onFollowVehicle: (vehicle: Vehicle) => void;
   onShowRoute: (line: string) => void;
+  onResetMap: () => void;
 };
 
 export function MapScreen({
@@ -42,6 +44,7 @@ export function MapScreen({
   onClearVehicle,
   onFollowVehicle,
   onShowRoute,
+  onResetMap,
 }: Props) {
   return (
     <main className="screen map-screen">
@@ -59,6 +62,12 @@ export function MapScreen({
       />
       <AppHeader search={search} onSearch={onSearch} onRadar={onRadar} />
       <ServiceCard vehicles={vehicles} selectedLine={selectedLine} />
+      {(selectedLine || showRouteForLine || followedVehicleId) && (
+        <button type="button" className={`map-reset-button${followedVehicleId ? ' with-follow' : ''}`} onClick={onResetMap}>
+          <Layers3 size={16} />
+          Tutte le linee
+        </button>
+      )}
       {followedVehicleId && (
         <div className="follow-banner">
           <strong>Seguendo vettura {followedVehicleId}</strong>

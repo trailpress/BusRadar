@@ -376,6 +376,31 @@ button {
   font-size: 11px;
 }
 
+.map-reset-button {
+  position: absolute;
+  z-index: 625;
+  left: 14px;
+  bottom: 174px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid rgba(47, 125, 255, 0.32);
+  border-radius: 12px;
+  background: rgba(8, 12, 18, 0.9);
+  color: #ffffff;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+  backdrop-filter: blur(18px);
+}
+
+.map-reset-button.with-follow {
+  bottom: 246px;
+}
+
 .service-card {
   position: absolute;
   z-index: 550;

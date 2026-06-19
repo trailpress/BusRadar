@@ -273,6 +273,17 @@ function App() {
             setFollowedVehicleId(undefined);
             notify(`Percorso linea ${line} mostrato`);
           }}
+          onResetMap={() => {
+            setSelectedVehicleId(undefined);
+            setSelectedVehicleFallback(undefined);
+            setFollowedVehicleId(undefined);
+            setLineFilter(undefined);
+            setShowRouteForLine(undefined);
+            setSelectedLine(undefined);
+            setMapFocus(undefined);
+            setSearch('');
+            notify('Vista generale: tutte le linee');
+          }}
         />
       )}
       {activeTab === 'lines' && <LinesScreen vehicles={vehicles} onSelectLine={openLine} />}
