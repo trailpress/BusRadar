@@ -69,7 +69,10 @@ export function MapScreen({
         <VehicleSheet
           vehicle={(selectedVehicle ?? selectedVehicleFallback)!}
           onClose={onClearVehicle}
-          onFollow={() => onFollowVehicle((selectedVehicle ?? selectedVehicleFallback)!)}
+          onFollow={() => {
+            onFollowVehicle((selectedVehicle ?? selectedVehicleFallback)!);
+            onClearVehicle();
+          }}
           onRoute={() => onShowRoute((selectedVehicle ?? selectedVehicleFallback)!.line)}
         />
       )}

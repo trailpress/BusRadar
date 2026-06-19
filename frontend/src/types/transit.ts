@@ -34,6 +34,8 @@ export type TransitVehicle = {
   vehicleFleetLabel?: string;
   vehicleFleetKey?: VehicleFleetKey;
   routeMatchStatus?: 'on-route' | 'gps-only' | 'unmatched';
+  routeVariantId?: string;
+  shapeId?: string;
   offRouteMeters?: number;
   lat: number;
   lon: number;

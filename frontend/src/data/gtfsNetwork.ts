@@ -39,10 +39,12 @@ export const gtfsNetwork = generatedNetwork as unknown as GtfsNetwork;
 
 const routesByRouteId = new Map<string, GtfsRouteVariant[]>();
 const routesByLine = new Map<string, GtfsRouteVariant[]>();
+const routeByVariantId = new Map<string, GtfsRouteVariant>();
 const lineById = new Map<string, GtfsLine>();
 const stopById = new Map<string, GtfsStop>();
 
 gtfsNetwork.routes.forEach((route) => {
+  routeByVariantId.set(route.id, route);
   routesByRouteId.set(route.routeId, [...(routesByRouteId.get(route.routeId) ?? []), route]);
   routesByLine.set(route.line, [...(routesByLine.get(route.line) ?? []), route]);
 });
@@ -62,6 +64,10 @@ export function getGtfsRoutesForLine(lineId?: string) {
 export function getGtfsRoutesForRouteId(routeId?: string) {
   if (!routeId) return [];
   return routesByRouteId.get(routeId) ?? routesByRouteId.get(`${routeId}U`) ?? routesByLine.get(routeId.replace(/U$/, '')) ?? [];
+}
+
+export function getGtfsRouteVariant(routeVariantId?: string) {
+  return routeVariantId ? routeByVariantId.get(routeVariantId) : undefined;
 }
 
 export function getGtfsStopsForRoute(route: GtfsRouteVariant) {

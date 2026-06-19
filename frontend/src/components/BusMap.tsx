@@ -1,9 +1,10 @@
 import maplibregl, { type GeoJSONSource, type LngLatBoundsLike, type MapMouseEvent } from 'maplibre-gl';
 import { LocateFixed } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
+import { getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
 import { fetchGttStopArrivalsInfo, type GttStopArrival, type GttStopArrivalsResult } from '../services/gttRealtime';
 import type { LatLng, Vehicle } from '../types';
+import { interpolatePathState, routeProgressAtPoint } from '../utils/geo';
 import { getLineColor } from '../utils/lineColors';
 import { IconButton } from './IconButton';
 
@@ -25,6 +26,9 @@ type VehicleFrame = {
   to: LatLng;
   startedAt: number;
   vehicle: Vehicle;
+  routePath?: LatLng[];
+  fromRouteProgress?: number;
+  toRouteProgress?: number;
 };
 
 type StopFeatureProperties = {
@@ -36,7 +40,7 @@ type StopFeatureProperties = {
   stopSequencesByRoute: string;
 };
 
-const spriteZoomThreshold = 14.75;
+const spriteZoomThreshold = 13.8;
 const vehicleAssetBase = import.meta.env.BASE_URL;
 
 function createMapStyle(): maplibregl.StyleSpecification {
@@ -141,6 +145,22 @@ function trackingLabel(vehicle: Vehicle) {
   if (vehicle.routeMatchStatus === 'on-route') return 'su percorso GTFS';
   if (vehicle.routeMatchStatus === 'gps-only') return 'GPS reale, fuori shape';
   return 'GPS reale';
+}
+
+function routeMotion(vehicle: Vehicle, from: LatLng, to: LatLng) {
+  const route = getGtfsRouteVariant(vehicle.routeVariantId);
+  if (!route || route.path.length < 2) return undefined;
+  const fromState = routeProgressAtPoint(route.path, from);
+  const toState = routeProgressAtPoint(route.path, to);
+  if (!fromState || !toState) return undefined;
+  const totalMeters = toState.traveledMeters + toState.remainingMeters;
+  const traveledDelta = toState.traveledMeters - fromState.traveledMeters;
+  if (totalMeters <= 0 || traveledDelta < -12 || traveledDelta > 1200) return undefined;
+  return {
+    routePath: route.path,
+    fromRouteProgress: fromState.traveledMeters / totalMeters,
+    toRouteProgress: toState.traveledMeters / totalMeters,
+  };
 }
 
 function vehiclesToGeoJson(vehicles: Vehicle[], positions: Map<string, LatLng>, selectedVehicleId?: string, followedVehicleId?: string): GeoJSON.FeatureCollection<GeoJSON.Point> {
@@ -303,15 +323,20 @@ function installTransitLayers(map: maplibregl.Map) {
     source: 'vehicles',
     paint: {
       'circle-radius': [
-        'case',
-        ['get', 'selected'],
-        ['interpolate', ['linear'], ['zoom'], 12, 18, 16, 16, 19, 13],
-        ['interpolate', ['linear'], ['zoom'], 12, 14, 16, 12, 19, 10],
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        12,
+        ['case', ['get', 'selected'], 20, 17],
+        16,
+        ['case', ['get', 'selected'], 19, 16],
+        20,
+        ['case', ['get', 'selected'], 17, 15],
       ],
       'circle-color': ['get', 'color'],
       'circle-stroke-color': '#ffffff',
       'circle-stroke-width': 2,
-      'circle-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0.96, 15, 0.9, 17, 0.72, 19, 0.58],
+      'circle-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0.98, 14, 0.94, 16, 0.58, 20, 0.42],
     },
   });
 
@@ -321,14 +346,14 @@ function installTransitLayers(map: maplibregl.Map) {
     source: 'vehicles',
     layout: {
       'text-field': ['get', 'line'],
-      'text-size': ['interpolate', ['linear'], ['zoom'], 12, 13, 16, 12, 19, 10],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 12, 14, 16, 13, 20, 12],
       'text-allow-overlap': true,
       'text-ignore-placement': true,
       'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
     },
     paint: {
       'text-color': '#ffffff',
-      'text-opacity': ['interpolate', ['linear'], ['zoom'], 12, 1, 17, 0.92, 19, 0.78],
+      'text-opacity': ['interpolate', ['linear'], ['zoom'], 12, 1, 17, 0.96, 20, 0.86],
     },
   });
 
@@ -347,10 +372,10 @@ function installTransitLayers(map: maplibregl.Map) {
     id: 'vehicle-heading',
     type: 'symbol',
     source: 'vehicles',
-    maxzoom: spriteZoomThreshold,
+    maxzoom: 15.2,
     layout: {
       'text-field': '▲',
-      'text-size': 11,
+      'text-size': 13,
       'text-rotate': ['get', 'bearing'],
       'text-offset': [0, -1.55],
       'text-allow-overlap': true,
@@ -367,31 +392,41 @@ function installTransitLayers(map: maplibregl.Map) {
     layout: {
       'icon-image': ['get', 'icon'],
       'icon-size': [
-        'case',
-        ['get', 'isArticulated'],
-        ['interpolate', ['linear'], ['zoom'], 14.75, 0.12, 16, 0.15, 18, 0.18],
-        ['interpolate', ['linear'], ['zoom'], 14.75, 0.15, 16, 0.19, 18, 0.23],
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        13.8,
+        ['case', ['get', 'isArticulated'], 0.1, 0.13],
+        16,
+        ['case', ['get', 'isArticulated'], 0.14, 0.18],
+        18,
+        ['case', ['get', 'isArticulated'], 0.17, 0.22],
+        20,
+        ['case', ['get', 'isArticulated'], 0.2, 0.26],
       ],
       'icon-rotate': ['get', 'spriteBearing'],
       'icon-rotation-alignment': 'map',
       'icon-allow-overlap': true,
       'icon-ignore-placement': true,
     },
-    paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 14.75, 0.72, 15.4, 1] },
+    paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 13.8, 0.76, 14.6, 1] },
   });
 
   map.addLayer({
     id: 'vehicle-vector-fallback',
     type: 'symbol',
     source: 'vehicles',
-    minzoom: 14.4,
+    minzoom: 13.6,
     layout: {
       'text-field': '▬',
       'text-size': [
-        'case',
-        ['get', 'isArticulated'],
-        ['interpolate', ['linear'], ['zoom'], 14.4, 30, 18, 44],
-        ['interpolate', ['linear'], ['zoom'], 14.4, 23, 18, 34],
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        13.6,
+        ['case', ['get', 'isArticulated'], 30, 24],
+        18,
+        ['case', ['get', 'isArticulated'], 44, 36],
       ],
       'text-rotate': ['get', 'spriteBearing'],
       'text-rotation-alignment': 'map',
@@ -410,16 +445,22 @@ function installTransitLayers(map: maplibregl.Map) {
     id: 'vehicle-selected-sprites',
     type: 'symbol',
     source: 'vehicles',
-    minzoom: 14.2,
-    maxzoom: spriteZoomThreshold,
+    minzoom: 13.5,
     filter: ['==', ['get', 'selected'], true],
     layout: {
       'icon-image': ['get', 'icon'],
       'icon-size': [
-        'case',
-        ['get', 'isArticulated'],
-        ['interpolate', ['linear'], ['zoom'], 14.2, 0.11, 16, 0.15, 18, 0.18],
-        ['interpolate', ['linear'], ['zoom'], 14.2, 0.14, 16, 0.19, 18, 0.23],
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        13.5,
+        ['case', ['get', 'isArticulated'], 0.11, 0.14],
+        16,
+        ['case', ['get', 'isArticulated'], 0.15, 0.19],
+        18,
+        ['case', ['get', 'isArticulated'], 0.18, 0.23],
+        20,
+        ['case', ['get', 'isArticulated'], 0.21, 0.27],
       ],
       'icon-rotate': ['get', 'spriteBearing'],
       'icon-rotation-alignment': 'map',
@@ -566,11 +607,13 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       const previous = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
       const next = { lat: vehicle.lat, lon: vehicle.lon };
       const meters = new maplibregl.LngLat(previous.lon, previous.lat).distanceTo(new maplibregl.LngLat(next.lon, next.lat));
+      const motion = meters <= 1200 ? routeMotion(vehicle, previous, next) : undefined;
       vehicleFramesRef.current.set(vehicle.vehicleId, {
         from: meters > 180 ? next : previous,
         to: next,
         startedAt: meters > 180 ? now - 18000 : now,
         vehicle,
+        ...motion,
       });
     });
   }, [visibleVehicles, mapReady]);
@@ -584,21 +627,26 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       vehicleFramesRef.current.forEach((frame, id) => {
         const elapsed = Math.min(1, Math.max(0, (time - frame.startedAt) / duration));
         const eased = elapsed * elapsed * (3 - 2 * elapsed);
-        const position = {
+        const routeState = frame.routePath && frame.fromRouteProgress != null && frame.toRouteProgress != null
+          ? interpolatePathState(
+            frame.routePath,
+            frame.fromRouteProgress + (frame.toRouteProgress - frame.fromRouteProgress) * eased,
+          )
+          : undefined;
+        const position = routeState?.point ?? {
           lat: frame.from.lat + (frame.to.lat - frame.from.lat) * eased,
           lon: frame.from.lon + (frame.to.lon - frame.from.lon) * eased,
         };
         currentPositionsRef.current.set(id, position);
-        animatedVehicles.push(frame.vehicle);
+        animatedVehicles.push(routeState ? { ...frame.vehicle, bearing: routeState.bearing } : frame.vehicle);
       });
       const map = mapRef.current!;
       setSourceData(map, 'vehicles', vehiclesToGeoJson(animatedVehicles, currentPositionsRef.current, selectedVehicleIdRef.current, followedVehicleIdRef.current));
       const followedId = followedVehicleIdRef.current;
       const followedPosition = followedId ? currentPositionsRef.current.get(followedId) : undefined;
-      if (followedPosition && time - lastFollowCameraAtRef.current > 180) {
+      if (followedPosition && time - lastFollowCameraAtRef.current > 100) {
         const target = new maplibregl.LngLat(followedPosition.lon, followedPosition.lat);
-        const zoom = Math.max(map.getZoom(), 16.2);
-        map.jumpTo({ center: target, zoom });
+        map.jumpTo({ center: target });
         lastFollowCameraAtRef.current = time;
       }
       frameId = requestAnimationFrame(tick);
@@ -625,9 +673,10 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     const position = currentPositionsRef.current.get(followedVehicleId) ?? vehicle;
     if (!position) return;
     lastFollowCameraAtRef.current = 0;
-    mapRef.current.jumpTo({
+    mapRef.current.easeTo({
       center: [position.lon, position.lat],
       zoom: Math.max(mapRef.current.getZoom(), 16.2),
+      duration: 500,
     });
   }, [followedVehicleId, mapReady, vehicles]);
 
