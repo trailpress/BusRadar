@@ -41,7 +41,7 @@ type StopFeatureProperties = {
   stopSequencesByRoute: string;
 };
 
-const spriteZoomThreshold = 13.8;
+const spriteZoomThreshold = 14.25;
 const vehicleAssetBase = import.meta.env.BASE_URL;
 
 function createMapStyle(): maplibregl.StyleSpecification {
@@ -325,7 +325,7 @@ function installTransitLayers(map: maplibregl.Map) {
     id: 'vehicle-badges',
     type: 'circle',
     source: 'vehicles',
-    maxzoom: 14.8,
+    maxzoom: spriteZoomThreshold,
     paint: {
       'circle-radius': [
         'interpolate',
@@ -349,7 +349,7 @@ function installTransitLayers(map: maplibregl.Map) {
     id: 'vehicle-badge-labels',
     type: 'symbol',
     source: 'vehicles',
-    maxzoom: 14.8,
+    maxzoom: spriteZoomThreshold,
     layout: {
       'text-field': ['get', 'line'],
       'text-size': ['interpolate', ['linear'], ['zoom'], 12, 14, 16, 13, 20, 12],
@@ -378,7 +378,7 @@ function installTransitLayers(map: maplibregl.Map) {
     id: 'vehicle-heading',
     type: 'symbol',
     source: 'vehicles',
-    maxzoom: 14.2,
+    maxzoom: spriteZoomThreshold,
     layout: {
       'text-field': '▲',
       'text-size': 13,
@@ -395,27 +395,28 @@ function installTransitLayers(map: maplibregl.Map) {
     type: 'symbol',
     source: 'vehicles',
     minzoom: spriteZoomThreshold,
+    filter: ['==', ['get', 'selected'], false],
     layout: {
       'icon-image': ['get', 'icon'],
       'icon-size': [
         'interpolate',
         ['linear'],
         ['zoom'],
-        13.8,
-        ['case', ['get', 'isArticulated'], 0.035, 0.045],
+        14.25,
+        ['case', ['get', 'isArticulated'], 0.025, 0.034],
         16,
-        ['case', ['get', 'isArticulated'], 0.045, 0.06],
+        ['case', ['get', 'isArticulated'], 0.034, 0.045],
         18,
-        ['case', ['get', 'isArticulated'], 0.055, 0.075],
+        ['case', ['get', 'isArticulated'], 0.044, 0.058],
         20,
-        ['case', ['get', 'isArticulated'], 0.065, 0.09],
+        ['case', ['get', 'isArticulated'], 0.052, 0.07],
       ],
       'icon-rotate': ['get', 'spriteBearing'],
       'icon-rotation-alignment': 'map',
       'icon-allow-overlap': true,
       'icon-ignore-placement': true,
     },
-    paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 13.8, 0.76, 14.6, 1] },
+    paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 14.25, 0.82, 14.8, 1] },
   });
 
   map.addLayer({
@@ -452,7 +453,7 @@ function installTransitLayers(map: maplibregl.Map) {
     id: 'vehicle-selected-sprites',
     type: 'symbol',
     source: 'vehicles',
-    minzoom: 13.5,
+    minzoom: spriteZoomThreshold,
     filter: ['==', ['get', 'selected'], true],
     layout: {
       'icon-image': ['get', 'icon'],
@@ -460,14 +461,14 @@ function installTransitLayers(map: maplibregl.Map) {
         'interpolate',
         ['linear'],
         ['zoom'],
-        13.5,
-        ['case', ['get', 'isArticulated'], 0.04, 0.05],
+        14.25,
+        ['case', ['get', 'isArticulated'], 0.028, 0.037],
         16,
-        ['case', ['get', 'isArticulated'], 0.05, 0.065],
+        ['case', ['get', 'isArticulated'], 0.037, 0.049],
         18,
-        ['case', ['get', 'isArticulated'], 0.06, 0.08],
+        ['case', ['get', 'isArticulated'], 0.047, 0.062],
         20,
-        ['case', ['get', 'isArticulated'], 0.07, 0.095],
+        ['case', ['get', 'isArticulated'], 0.056, 0.075],
       ],
       'icon-rotate': ['get', 'spriteBearing'],
       'icon-rotation-alignment': 'map',
