@@ -9,3 +9,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <App />
   </React.StrictMode>,
 );
+
+requestAnimationFrame(() => {
+  document.getElementById('boot-status')?.remove();
+});

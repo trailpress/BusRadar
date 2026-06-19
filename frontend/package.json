@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "realtime:spike": "node scripts/realtime-spike.mjs",
     "gtfs:generate": "node scripts/generate-gtfs-network.mjs",
-    "deploy": "npm run build && gh-pages -d dist --dotfiles"
+    "deploy": "npm run build && gh-pages -d dist --dotfiles --add"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
