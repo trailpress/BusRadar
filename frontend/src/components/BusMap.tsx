@@ -29,6 +29,7 @@ type VehicleFrame = {
   routePath?: LatLng[];
   fromRouteProgress?: number;
   toRouteProgress?: number;
+  durationMs: number;
 };
 
 type StopFeatureProperties = {
@@ -155,11 +156,14 @@ function routeMotion(vehicle: Vehicle, from: LatLng, to: LatLng) {
   if (!fromState || !toState) return undefined;
   const totalMeters = toState.traveledMeters + toState.remainingMeters;
   const traveledDelta = toState.traveledMeters - fromState.traveledMeters;
-  if (totalMeters <= 0 || traveledDelta < -12 || traveledDelta > 1200) return undefined;
+  if (totalMeters <= 0 || traveledDelta > 1500) return undefined;
+  const stableToProgress = traveledDelta < 0
+    ? fromState.traveledMeters / totalMeters
+    : toState.traveledMeters / totalMeters;
   return {
     routePath: route.path,
     fromRouteProgress: fromState.traveledMeters / totalMeters,
-    toRouteProgress: toState.traveledMeters / totalMeters,
+    toRouteProgress: stableToProgress,
   };
 }
 
@@ -321,6 +325,7 @@ function installTransitLayers(map: maplibregl.Map) {
     id: 'vehicle-badges',
     type: 'circle',
     source: 'vehicles',
+    maxzoom: 14.8,
     paint: {
       'circle-radius': [
         'interpolate',
@@ -344,6 +349,7 @@ function installTransitLayers(map: maplibregl.Map) {
     id: 'vehicle-badge-labels',
     type: 'symbol',
     source: 'vehicles',
+    maxzoom: 14.8,
     layout: {
       'text-field': ['get', 'line'],
       'text-size': ['interpolate', ['linear'], ['zoom'], 12, 14, 16, 13, 20, 12],
@@ -372,7 +378,7 @@ function installTransitLayers(map: maplibregl.Map) {
     id: 'vehicle-heading',
     type: 'symbol',
     source: 'vehicles',
-    maxzoom: 15.2,
+    maxzoom: 14.2,
     layout: {
       'text-field': '▲',
       'text-size': 13,
@@ -396,13 +402,13 @@ function installTransitLayers(map: maplibregl.Map) {
         ['linear'],
         ['zoom'],
         13.8,
-        ['case', ['get', 'isArticulated'], 0.1, 0.13],
+        ['case', ['get', 'isArticulated'], 0.035, 0.045],
         16,
-        ['case', ['get', 'isArticulated'], 0.14, 0.18],
+        ['case', ['get', 'isArticulated'], 0.045, 0.06],
         18,
-        ['case', ['get', 'isArticulated'], 0.17, 0.22],
+        ['case', ['get', 'isArticulated'], 0.055, 0.075],
         20,
-        ['case', ['get', 'isArticulated'], 0.2, 0.26],
+        ['case', ['get', 'isArticulated'], 0.065, 0.09],
       ],
       'icon-rotate': ['get', 'spriteBearing'],
       'icon-rotation-alignment': 'map',
@@ -417,6 +423,7 @@ function installTransitLayers(map: maplibregl.Map) {
     type: 'symbol',
     source: 'vehicles',
     minzoom: 13.6,
+    maxzoom: 14,
     layout: {
       'text-field': '▬',
       'text-size': [
@@ -454,13 +461,13 @@ function installTransitLayers(map: maplibregl.Map) {
         ['linear'],
         ['zoom'],
         13.5,
-        ['case', ['get', 'isArticulated'], 0.11, 0.14],
+        ['case', ['get', 'isArticulated'], 0.04, 0.05],
         16,
-        ['case', ['get', 'isArticulated'], 0.15, 0.19],
+        ['case', ['get', 'isArticulated'], 0.05, 0.065],
         18,
-        ['case', ['get', 'isArticulated'], 0.18, 0.23],
+        ['case', ['get', 'isArticulated'], 0.06, 0.08],
         20,
-        ['case', ['get', 'isArticulated'], 0.21, 0.27],
+        ['case', ['get', 'isArticulated'], 0.07, 0.095],
       ],
       'icon-rotate': ['get', 'spriteBearing'],
       'icon-rotation-alignment': 'map',
@@ -607,12 +614,14 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       const previous = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
       const next = { lat: vehicle.lat, lon: vehicle.lon };
       const meters = new maplibregl.LngLat(previous.lon, previous.lat).distanceTo(new maplibregl.LngLat(next.lon, next.lat));
-      const motion = meters <= 1200 ? routeMotion(vehicle, previous, next) : undefined;
+      const isPlausibleUpdate = meters <= 600;
+      const motion = isPlausibleUpdate ? routeMotion(vehicle, previous, next) : undefined;
       vehicleFramesRef.current.set(vehicle.vehicleId, {
-        from: meters > 180 ? next : previous,
+        from: isPlausibleUpdate ? previous : next,
         to: next,
-        startedAt: meters > 180 ? now - 18000 : now,
+        startedAt: isPlausibleUpdate ? now : now - 14500,
         vehicle,
+        durationMs: 14500,
         ...motion,
       });
     });
@@ -621,21 +630,19 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     let frameId = 0;
-    const duration = 18000;
     const tick = (time: number) => {
       const animatedVehicles: Vehicle[] = [];
       vehicleFramesRef.current.forEach((frame, id) => {
-        const elapsed = Math.min(1, Math.max(0, (time - frame.startedAt) / duration));
-        const eased = elapsed * elapsed * (3 - 2 * elapsed);
+        const elapsed = Math.min(1, Math.max(0, (time - frame.startedAt) / frame.durationMs));
         const routeState = frame.routePath && frame.fromRouteProgress != null && frame.toRouteProgress != null
           ? interpolatePathState(
             frame.routePath,
-            frame.fromRouteProgress + (frame.toRouteProgress - frame.fromRouteProgress) * eased,
+            frame.fromRouteProgress + (frame.toRouteProgress - frame.fromRouteProgress) * elapsed,
           )
           : undefined;
         const position = routeState?.point ?? {
-          lat: frame.from.lat + (frame.to.lat - frame.from.lat) * eased,
-          lon: frame.from.lon + (frame.to.lon - frame.from.lon) * eased,
+          lat: frame.from.lat + (frame.to.lat - frame.from.lat) * elapsed,
+          lon: frame.from.lon + (frame.to.lon - frame.from.lon) * elapsed,
         };
         currentPositionsRef.current.set(id, position);
         animatedVehicles.push(routeState ? { ...frame.vehicle, bearing: routeState.bearing } : frame.vehicle);

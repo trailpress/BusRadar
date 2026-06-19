@@ -205,6 +205,7 @@ let tripUpdatesCache: { at: number; updates: GttTripUpdate[] } | undefined;
 let rawVehiclesCache: { at: number; vehicles: GttVehiclePosition[] } | undefined;
 let stopTimeIndexCache: Promise<StopTimeIndex | undefined> | undefined;
 const previousSamples = new Map<string, { lat: number; lon: number; timestampMs: number; speed: number }>();
+const previousRouteVariants = new Map<string, string>();
 
 async function fetchRawVehicles() {
   if (rawVehiclesCache && Date.now() - rawVehiclesCache.at < 15000) return rawVehiclesCache.vehicles;
@@ -441,7 +442,14 @@ function bearingDelta(a?: number, b?: number) {
   return Math.min(difference, 360 - difference);
 }
 
-function terminalEstimate(routeId: string, line: string, point: { lat: number; lon: number }, speed: number, preferredBearing?: number) {
+function terminalEstimate(
+  routeId: string,
+  line: string,
+  point: { lat: number; lon: number },
+  speed: number,
+  preferredBearing?: number,
+  previousRouteVariantId?: string,
+) {
   const routes = getGtfsRoutesForRouteId(routeId).length > 0 ? getGtfsRoutesForRouteId(routeId) : getGtfsRoutesForLine(line);
   const candidates = routes
     .map((route) => {
@@ -450,7 +458,10 @@ function terminalEstimate(routeId: string, line: string, point: { lat: number; l
       return {
         route,
         progress,
-        score: progress.distanceMeters + bearingDelta(preferredBearing, progress.bearing) * 0.75,
+        score:
+          progress.distanceMeters +
+          bearingDelta(preferredBearing, progress.bearing) * 0.9 -
+          (route.id === previousRouteVariantId && progress.distanceMeters < 90 ? 35 : 0),
       };
     })
     .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate))
@@ -501,7 +512,14 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const rawPoint = { lat: vehicle.lat ?? 0, lon: vehicle.lon ?? 0 };
   const feedBearing = vehicle.bearing != null && vehicle.bearing >= 0 ? vehicle.bearing : undefined;
   const preferredBearing = observedBearing ?? feedBearing;
-  const estimate = terminalEstimate(routeId, line, rawPoint, speed, preferredBearing);
+  const estimate = terminalEstimate(
+    routeId,
+    line,
+    rawPoint,
+    speed,
+    preferredBearing,
+    previousRouteVariants.get(vehicleId),
+  );
   const snapLimitMeters = vehicleLivery === 'interurban-blue' ? 70 : 55;
   const isSnappedToRoute = Boolean(estimate.snappedPoint && estimate.offRouteMeters != null && estimate.offRouteMeters <= snapLimitMeters);
   const displayPoint = isSnappedToRoute ? estimate.snappedPoint! : rawPoint;
@@ -510,6 +528,9 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     : isSnappedToRoute
       ? 'on-route'
       : 'gps-only';
+  if (estimate.routeVariantId && isSnappedToRoute) {
+    previousRouteVariants.set(vehicleId, estimate.routeVariantId);
+  }
 
   return {
     vehicleId,
