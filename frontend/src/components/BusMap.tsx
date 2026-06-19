@@ -19,6 +19,7 @@ type Props = {
   onLocateUser?: () => Promise<LatLng | undefined>;
   showRouteForLine?: string;
   onSelectVehicle: (vehicle: Vehicle) => void;
+  onResetMap?: () => void;
 };
 
 type VehicleFrame = {
@@ -513,7 +514,7 @@ function installTransitLayers(map: maplibregl.Map) {
   });
 }
 
-export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, hasUserLocation, onLocateUser, showRouteForLine, onSelectVehicle }: Props) {
+export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, hasUserLocation, onLocateUser, showRouteForLine, onSelectVehicle, onResetMap }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | undefined>(undefined);
   const vehicleFramesRef = useRef<Map<string, VehicleFrame>>(new Map());
@@ -803,9 +804,20 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     mapRef.current?.flyTo({ center: [target.lon, target.lat], zoom: 15, duration: 450 });
   };
 
+  const resetToOverview = () => {
+    onResetMap?.();
+    mapRef.current?.easeTo({
+      center: [7.6867, 45.0706],
+      zoom: 13,
+      duration: 650,
+    });
+  };
+
   return (
     <div className="map-shell map-shell--standard">
-      <div className="map-mode-label">Live transit map</div>
+      <button type="button" className="map-mode-label" onClick={resetToOverview}>
+        Live transit map
+      </button>
       <div ref={containerRef} className="bus-map" />
       <div className="map-floating-controls">
         <IconButton label="Centra posizione" onClick={() => void centerOnUser()}>

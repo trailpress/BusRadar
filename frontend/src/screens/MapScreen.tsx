@@ -59,6 +59,7 @@ export function MapScreen({
         onLocateUser={onLocateUser}
         showRouteForLine={showRouteForLine}
         onSelectVehicle={onSelectVehicle}
+        onResetMap={onResetMap}
       />
       <AppHeader search={search} onSearch={onSearch} onRadar={onRadar} />
       <ServiceCard vehicles={vehicles} selectedLine={selectedLine} />
