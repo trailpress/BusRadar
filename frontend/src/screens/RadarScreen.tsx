@@ -57,7 +57,7 @@ export function RadarScreen({ vehicles, userLocation, onSelectVehicle, onBack }:
           <div className="radar-center">
             <Crosshair size={18} />
           </div>
-          {matches.slice(0, 10).map(({ vehicle, distance }) => {
+          {matches.slice(0, 10).map(({ vehicle, distance }, index) => {
             const angle = bearingDegrees(userLocation, vehicle);
             const normalized = Math.min(distance / radius, 1);
             const distancePx = 26 + normalized * 104;
@@ -65,7 +65,11 @@ export function RadarScreen({ vehicles, userLocation, onSelectVehicle, onBack }:
               <button
                 key={vehicle.vehicleId}
                 className="radar-dot"
-                style={{ '--angle': `${angle}deg`, '--distance': `${distancePx}px` } as CSSProperties}
+                style={{
+                  '--angle': `${angle}deg`,
+                  '--distance': `${distancePx}px`,
+                  zIndex: 20 - index,
+                } as CSSProperties}
                 type="button"
                 onClick={() => onSelectVehicle(vehicle)}
                 aria-label={`Apri vettura ${vehicle.vehicleId}`}

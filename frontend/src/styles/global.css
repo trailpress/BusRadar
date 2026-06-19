@@ -351,6 +351,26 @@ button {
   color: #d9e2ef;
 }
 
+.list-result-count {
+  padding: 2px 2px 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.load-more-button {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 8px;
+  border: 1px solid rgba(47, 125, 255, 0.28);
+  border-radius: 12px;
+  background: rgba(47, 125, 255, 0.1);
+  color: #dce9ff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 850;
+}
+
 .follow-banner {
   position: absolute;
   z-index: 620;
@@ -988,6 +1008,7 @@ button {
 .radar-ring {
   position: absolute;
   inset: 16%;
+  pointer-events: none;
   border: 1px solid rgba(47, 125, 255, 0.14);
   border-radius: 50%;
 }
@@ -1003,6 +1024,7 @@ button {
 .radar-sweep {
   position: absolute;
   inset: 0;
+  pointer-events: none;
   background: conic-gradient(from 30deg, rgba(47, 125, 255, 0.22), transparent 82deg);
   animation: sweep 4s linear infinite;
 }
@@ -1018,6 +1040,7 @@ button {
 .radar-center {
   display: grid;
   place-items: center;
+  pointer-events: none;
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -1025,6 +1048,8 @@ button {
 }
 
 .radar-dot {
+  pointer-events: auto;
+  touch-action: manipulation;
   transform: translate(-50%, -50%) rotate(var(--angle)) translateY(calc(var(--distance) * -1)) rotate(calc(var(--angle) * -1));
   width: 31px;
   height: 31px;

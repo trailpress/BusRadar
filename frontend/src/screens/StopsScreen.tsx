@@ -11,6 +11,7 @@ type Props = {
 
 export function StopsScreen({ onSelectStop }: Props) {
   const [query, setQuery] = useState('');
+  const [visibleCount, setVisibleCount] = useState(120);
   const normalized = query.trim().toLowerCase();
   const stops = useMemo(
     () =>
@@ -18,6 +19,7 @@ export function StopsScreen({ onSelectStop }: Props) {
         .filter((stop) => !normalized || stop.name.toLowerCase().includes(normalized) || stop.code.includes(normalized)),
     [normalized],
   );
+  const visibleStops = stops.slice(0, visibleCount);
 
   return (
     <main className="screen panel-screen">
@@ -27,9 +29,19 @@ export function StopsScreen({ onSelectStop }: Props) {
           <h1>Fermate</h1>
         </div>
       </section>
-      <SearchBox value={query} placeholder="Cerca fermata o palina" onChange={setQuery} />
+      <SearchBox
+        value={query}
+        placeholder="Cerca fermata o palina"
+        onChange={(value) => {
+          setQuery(value);
+          setVisibleCount(120);
+        }}
+      />
       <section className="list-section">
-        {stops.map((stop) => (
+        <div className="list-result-count">
+          {stops.length} fermate trovate · mostrate {visibleStops.length}
+        </div>
+        {visibleStops.map((stop) => (
           <button className="stop-row" key={stop.id} type="button" onClick={() => onSelectStop(stop)}>
             <MapPinned size={17} />
             <div>
@@ -41,6 +53,15 @@ export function StopsScreen({ onSelectStop }: Props) {
             </div>
           </button>
         ))}
+        {visibleStops.length < stops.length && (
+          <button
+            className="load-more-button"
+            type="button"
+            onClick={() => setVisibleCount((count) => Math.min(count + 120, stops.length))}
+          >
+            Mostra altre fermate
+          </button>
+        )}
       </section>
     </main>
   );
