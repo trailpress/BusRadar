@@ -1,7 +1,7 @@
 import maplibregl, { type GeoJSONSource, type LngLatBoundsLike, type MapMouseEvent } from 'maplibre-gl';
 import { LocateFixed } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
+import { getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, gtfsNetwork, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
 import { fetchGttStopArrivalsInfo, type GttStopArrival, type GttStopArrivalsResult } from '../services/gttRealtime';
 import type { LatLng, Vehicle } from '../types';
 import { distanceMeters, interpolatePathState, offsetPointMeters, routeProgressAtPoint } from '../utils/geo';
@@ -130,6 +130,30 @@ function stopsToGeoJson(stops: ReturnType<typeof stopsForRoutes>): GeoJSON.Featu
       },
     })),
   };
+}
+
+let overviewStopsGeoJsonCache: GeoJSON.FeatureCollection<GeoJSON.Point, StopFeatureProperties> | undefined;
+
+function overviewStopsToGeoJson() {
+  if (overviewStopsGeoJsonCache) return overviewStopsGeoJsonCache;
+
+  overviewStopsGeoJsonCache = {
+    type: 'FeatureCollection',
+    features: gtfsNetwork.stops.map((stop) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [stop.lon, stop.lat] },
+      properties: {
+        id: stop.id,
+        name: stop.name,
+        code: stop.code,
+        lines: stop.lines.slice(0, 8).join(', '),
+        routeIds: JSON.stringify(stop.lines),
+        stopSequencesByRoute: '{}',
+      },
+    })),
+  };
+
+  return overviewStopsGeoJsonCache;
 }
 
 function vehicleIconName(vehicle: Vehicle) {
@@ -655,9 +679,10 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   );
 
   const routeStops = useMemo(() => {
-    if (!showRouteForLine && !selectedLine && zoom < 15) return [];
-    return stopsForRoutes(highlightedRoutes).slice(0, showRouteForLine || selectedLine ? undefined : 220);
-  }, [highlightedRoutes, selectedLine, showRouteForLine, zoom]);
+    if (!showRouteForLine && !selectedLine) return [];
+    return stopsForRoutes(highlightedRoutes);
+  }, [highlightedRoutes, selectedLine, showRouteForLine]);
+  const showOverviewStops = !showRouteForLine && !selectedLine && zoom >= 16;
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
@@ -666,8 +691,13 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
-    setSourceData(mapRef.current, 'stops', stopsToGeoJson(routeStops));
-  }, [routeStops, mapReady]);
+    const stopsData = showRouteForLine || selectedLine
+      ? stopsToGeoJson(routeStops)
+      : showOverviewStops
+        ? overviewStopsToGeoJson()
+        : emptyPointCollection();
+    setSourceData(mapRef.current, 'stops', stopsData);
+  }, [mapReady, routeStops, selectedLine, showOverviewStops, showRouteForLine]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
