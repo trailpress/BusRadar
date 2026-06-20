@@ -1,4 +1,5 @@
-import { Clock3, Gauge, LocateFixed, Route as RouteIcon, ShieldCheck, Star, X } from 'lucide-react';
+import { Clock3, Gauge, LocateFixed, Route as RouteIcon, Star, X } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import type { Vehicle } from '../types';
 import { notify } from '../utils/notify';
 import { vehicleIdentifierKind, vehicleIdentifierLabel } from '../utils/vehicleIdentity';
@@ -101,10 +102,18 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
           <strong>{vehicle.updatedAt}</strong>
           <span>Ultimo update</span>
         </div>
-        <div>
-          <ShieldCheck size={16} />
+        <div className="heading-metric">
+          <span
+            className="heading-compass"
+            style={{ '--vehicle-bearing': `${vehicle.bearing}deg` } as CSSProperties}
+            role="img"
+            aria-label={`Prua ${Math.round(vehicle.bearing)} gradi`}
+          >
+            <img src={`${import.meta.env.BASE_URL}assets/ui/compass-dial.png`} alt="" />
+            <i aria-hidden="true" />
+          </span>
           <strong>{Math.round(vehicle.bearing)}°</strong>
-          <span>Direzione marcia</span>
+          <span>Prua di navigazione</span>
         </div>
       </div>
       <div className="next-stops">
