@@ -186,6 +186,18 @@ button {
   transition: width 180ms ease;
 }
 
+.map-search button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
 .map-search input {
   width: 0;
   min-width: 0;
@@ -198,7 +210,7 @@ button {
 }
 
 .map-search:focus-within {
-  width: min(190px, 48vw);
+  width: min(246px, 62vw);
   justify-content: flex-start;
   gap: 8px;
 }
@@ -206,6 +218,69 @@ button {
 .map-search:focus-within input {
   width: 100%;
   opacity: 1;
+}
+
+.is-spinning {
+  animation: control-spin 850ms linear infinite;
+}
+
+.search-area-summary {
+  position: absolute;
+  z-index: 680;
+  top: max(88px, calc(env(safe-area-inset-top) + 76px));
+  left: 12px;
+  right: 12px;
+  display: grid;
+  gap: 5px;
+  padding: 11px 38px 10px 12px;
+  border: 1px solid rgba(47, 125, 255, 0.24);
+  border-radius: 14px;
+  background: rgba(8, 12, 18, 0.92);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(20px);
+}
+
+.search-area-summary > button {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 22px;
+}
+
+.search-area-summary > strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-area-summary > span,
+.search-area-summary > small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.search-area-summary > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.search-area-summary i,
+.search-area-summary em {
+  padding: 3px 6px;
+  border-radius: 7px;
+  background: rgba(47, 125, 255, 0.18);
+  color: #dce9ff;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 850;
 }
 
 .search-box {
@@ -1455,6 +1530,12 @@ button {
 }
 
 @keyframes sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes control-spin {
   to {
     transform: rotate(360deg);
   }

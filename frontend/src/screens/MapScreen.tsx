@@ -1,4 +1,5 @@
 import { Layers3 } from 'lucide-react';
+import type { GeocodingResult } from '../services/geocoding';
 import type { LatLng, Vehicle } from '../types';
 import { AppHeader } from '../components/AppHeader';
 import { BusMap } from '../components/BusMap';
@@ -18,6 +19,13 @@ type Props = {
   showRouteForLine?: string;
   search: string;
   onSearch: (value: string) => void;
+  onSearchSubmit: () => void;
+  searchLoading: boolean;
+  searchedArea?: GeocodingResult;
+  nearbyStopCount: number;
+  nearbyLines: string[];
+  nearbyVehicleCount: number;
+  onClearSearchedArea: () => void;
   onRadar: () => void;
   onSelectVehicle: (vehicle: Vehicle) => void;
   onClearVehicle: () => void;
@@ -39,6 +47,13 @@ export function MapScreen({
   showRouteForLine,
   search,
   onSearch,
+  onSearchSubmit,
+  searchLoading,
+  searchedArea,
+  nearbyStopCount,
+  nearbyLines,
+  nearbyVehicleCount,
+  onClearSearchedArea,
   onRadar,
   onSelectVehicle,
   onClearVehicle,
@@ -58,10 +73,23 @@ export function MapScreen({
         hasUserLocation={hasUserLocation}
         onLocateUser={onLocateUser}
         showRouteForLine={showRouteForLine}
+        searchedArea={searchedArea}
         onSelectVehicle={onSelectVehicle}
         onResetMap={onResetMap}
       />
-      <AppHeader search={search} onSearch={onSearch} onRadar={onRadar} />
+      <AppHeader search={search} onSearch={onSearch} onSearchSubmit={onSearchSubmit} searchLoading={searchLoading} onRadar={onRadar} />
+      {searchedArea && (
+        <aside className="search-area-summary">
+          <button type="button" aria-label="Chiudi area cercata" onClick={onClearSearchedArea}>×</button>
+          <strong>{searchedArea.label}</strong>
+          <span>{nearbyVehicleCount} mezzi realtime · {nearbyStopCount} fermate entro 1,2 km</span>
+          <div>
+            {nearbyLines.slice(0, 9).map((line) => <i key={line}>{line}</i>)}
+            {nearbyLines.length > 9 && <em>+{nearbyLines.length - 9}</em>}
+          </div>
+          <small>Ricerca e dati cartografici © OpenStreetMap</small>
+        </aside>
+      )}
       <ServiceCard vehicles={vehicles} selectedLine={selectedLine} />
       {(selectedLine || showRouteForLine || followedVehicleId) && (
         <button type="button" className={`map-reset-button${followedVehicleId ? ' with-follow' : ''}`} onClick={onResetMap}>

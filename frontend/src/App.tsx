@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import { gtfsNetwork } from './data/gtfsNetwork';
+import { geocodeTransitArea, type GeocodingResult } from './services/geocoding';
 import { fetchGttRealtimeVehicles } from './services/gttRealtime';
 import { LineDetailScreen } from './screens/LineDetailScreen';
 import { LinesScreen } from './screens/LinesScreen';
@@ -10,6 +11,7 @@ import { RadarScreen } from './screens/RadarScreen';
 import { StopsScreen } from './screens/StopsScreen';
 import { VehiclesScreen } from './screens/VehiclesScreen';
 import type { LatLng, Stop, TabKey, TransitLine, Vehicle } from './types';
+import { distanceMeters } from './utils/geo';
 import { notify } from './utils/notify';
 
 function isIosLikeDevice() {
@@ -21,6 +23,9 @@ function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('map');
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [search, setSearch] = useState('');
+  const [searchMode, setSearchMode] = useState<'filter' | 'place'>('filter');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchedArea, setSearchedArea] = useState<GeocodingResult>();
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>();
   const [selectedVehicleFallback, setSelectedVehicleFallback] = useState<Vehicle>();
   const [selectedLine, setSelectedLine] = useState<TransitLine>();
@@ -166,6 +171,7 @@ function App() {
   );
 
   const searchedVehicles = useMemo(() => {
+    if (searchMode === 'place') return vehicles;
     const normalized = search.trim().toLowerCase();
     if (!normalized) return vehicles;
     return vehicles.filter(
@@ -174,7 +180,69 @@ function App() {
         vehicle.line.includes(normalized) ||
         vehicle.direction.toLowerCase().includes(normalized),
     );
-  }, [vehicles, search]);
+  }, [vehicles, search, searchMode]);
+  const nearbyAreaStops = useMemo(
+    () => searchedArea
+      ? gtfsNetwork.stops.filter((stop) => distanceMeters(searchedArea, stop) <= 1200)
+      : [],
+    [searchedArea],
+  );
+  const nearbyAreaVehicles = useMemo(
+    () => searchedArea
+      ? vehicles.filter((vehicle) => distanceMeters(searchedArea, vehicle) <= 1200)
+      : [],
+    [searchedArea, vehicles],
+  );
+  const nearbyAreaLines = useMemo(
+    () => [...new Set([
+      ...nearbyAreaStops.flatMap((stop) => stop.lines),
+      ...nearbyAreaVehicles.map((vehicle) => vehicle.line),
+    ])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+    [nearbyAreaStops, nearbyAreaVehicles],
+  );
+
+  async function submitMapSearch() {
+    const query = search.trim();
+    if (!query) return;
+
+    const exactVehicle = vehicles.find((vehicle) => vehicle.vehicleId === query || vehicle.fleetNumber === query);
+    if (exactVehicle) {
+      setSearchMode('filter');
+      setSearchedArea(undefined);
+      openVehicle(exactVehicle);
+      return;
+    }
+    const exactLine = gtfsNetwork.lines.find((line) => line.id.toLowerCase() === query.toLowerCase());
+    if (exactLine) {
+      setSearchMode('filter');
+      setSearchedArea(undefined);
+      openLine(exactLine);
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      const result = await geocodeTransitArea(query);
+      if (!result) {
+        notify('Luogo non trovato nell’area di Torino e cintura');
+        return;
+      }
+      setSearchMode('place');
+      setSearchedArea(result);
+      setMapFocus({ lat: result.lat, lon: result.lon });
+      setSelectedVehicleId(undefined);
+      setSelectedVehicleFallback(undefined);
+      setFollowedVehicleId(undefined);
+      setLineFilter(undefined);
+      setShowRouteForLine(undefined);
+      setActiveTab('map');
+      notify(`Area trovata: ${result.label}`);
+    } catch {
+      notify('Ricerca luogo temporaneamente non disponibile');
+    } finally {
+      setSearchLoading(false);
+    }
+  }
 
   function openVehicle(vehicle: Vehicle) {
     setSelectedVehicleId(vehicle.vehicleId);
@@ -249,7 +317,22 @@ function App() {
           onLocateUser={requestUserLocation}
           showRouteForLine={showRouteForLine}
           search={search}
-          onSearch={setSearch}
+          onSearch={(value) => {
+            setSearch(value);
+            setSearchMode('filter');
+            setSearchedArea(undefined);
+          }}
+          onSearchSubmit={() => void submitMapSearch()}
+          searchLoading={searchLoading}
+          searchedArea={searchedArea}
+          nearbyStopCount={nearbyAreaStops.length}
+          nearbyLines={nearbyAreaLines}
+          nearbyVehicleCount={nearbyAreaVehicles.length}
+          onClearSearchedArea={() => {
+            setSearchedArea(undefined);
+            setSearchMode('filter');
+            setSearch('');
+          }}
           onRadar={() => setActiveTab('more')}
           onSelectVehicle={openVehicle}
           onClearVehicle={() => {
@@ -282,6 +365,8 @@ function App() {
             setSelectedLine(undefined);
             setMapFocus(undefined);
             setSearch('');
+            setSearchMode('filter');
+            setSearchedArea(undefined);
             notify('Vista generale: tutte le linee');
           }}
         />

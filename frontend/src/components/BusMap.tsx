@@ -3,6 +3,7 @@ import { LocateFixed } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, gtfsNetwork, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
 import { fetchGttStopArrivalsInfo, type GttStopArrival, type GttStopArrivalsResult } from '../services/gttRealtime';
+import type { GeocodingResult } from '../services/geocoding';
 import type { LatLng, Vehicle } from '../types';
 import { distanceMeters, interpolatePathState, offsetPointMeters, routeProgressAtPoint } from '../utils/geo';
 import { getLineColor } from '../utils/lineColors';
@@ -19,6 +20,7 @@ type Props = {
   hasUserLocation?: boolean;
   onLocateUser?: () => Promise<LatLng | undefined>;
   showRouteForLine?: string;
+  searchedArea?: GeocodingResult;
   onSelectVehicle: (vehicle: Vehicle) => void;
   onResetMap?: () => void;
 };
@@ -383,6 +385,7 @@ function installTransitLayers(map: maplibregl.Map) {
   map.addSource('stops', { type: 'geojson', data: emptyPointCollection() });
   map.addSource('vehicles', { type: 'geojson', data: emptyPointCollection() });
   map.addSource('user', { type: 'geojson', data: emptyPointCollection() });
+  map.addSource('search-area', { type: 'geojson', data: emptyPointCollection() });
 
   map.addLayer({
     id: 'routes-line',
@@ -612,9 +615,21 @@ function installTransitLayers(map: maplibregl.Map) {
       'circle-opacity': 0.95,
     },
   });
+
+  map.addLayer({
+    id: 'search-area-marker',
+    type: 'circle',
+    source: 'search-area',
+    paint: {
+      'circle-radius': 10,
+      'circle-color': '#2f7dff',
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 3,
+    },
+  });
 }
 
-export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, hasUserLocation, onLocateUser, showRouteForLine, onSelectVehicle, onResetMap }: Props) {
+export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, hasUserLocation, onLocateUser, showRouteForLine, searchedArea, onSelectVehicle, onResetMap }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | undefined>(undefined);
   const vehicleFramesRef = useRef<Map<string, VehicleFrame>>(new Map());
@@ -710,6 +725,17 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         : emptyPointCollection(),
     );
   }, [hasUserLocation, mapReady, userLocation.lat, userLocation.lon]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    setSourceData(
+      mapRef.current,
+      'search-area',
+      searchedArea
+        ? { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [searchedArea.lon, searchedArea.lat] }, properties: {} }] }
+        : emptyPointCollection(),
+    );
+  }, [mapReady, searchedArea]);
 
   useEffect(() => {
     if (!mapReady) return;
