@@ -21,6 +21,8 @@ type Props = {
   onLocateUser?: () => Promise<LatLng | undefined>;
   showRouteForLine?: string;
   searchedArea?: GeocodingResult;
+  selectedStop?: GtfsStop;
+  selectedStopRequest?: number;
   onSelectVehicle: (vehicle: Vehicle) => void;
   onResetMap?: () => void;
 };
@@ -348,6 +350,45 @@ function renderStopArrivals(result: GttStopArrivalsResult) {
   return '<div class="stop-popup-source">Dati disponibili: fermata e linee</div><div class="arrival-list"><small>Nessun passaggio pubblicato nei prossimi minuti o nelle prossime ore del calendario caricato.</small></div>';
 }
 
+function showStopPopup(
+  map: maplibregl.Map,
+  properties: StopFeatureProperties,
+  coordinates: [number, number],
+) {
+  const popup = new maplibregl.Popup({
+    className: 'stop-map-popup',
+    closeButton: true,
+    closeOnClick: false,
+    closeOnMove: false,
+    focusAfterOpen: false,
+    maxWidth: '360px',
+  })
+    .setLngLat(coordinates)
+    .setHTML(renderStopPopup(properties.name, properties.code, properties.lines, '<div class="arrival-list"><small>Carico passaggi...</small></div>'))
+    .addTo(map);
+  let routeIds: string[] = [];
+  let stopSequencesByRoute: Record<string, number[]> = {};
+  try {
+    routeIds = JSON.parse(properties.routeIds);
+    stopSequencesByRoute = JSON.parse(properties.stopSequencesByRoute);
+  } catch {
+    routeIds = [];
+  }
+  void fetchGttStopArrivalsInfo(properties.id, routeIds, stopSequencesByRoute)
+    .then((result) => {
+      popup.setHTML(renderStopPopup(properties.name, properties.code, properties.lines, renderStopArrivals(result), result.checkedAt));
+    })
+    .catch(() => {
+      popup.setHTML(renderStopPopup(
+        properties.name,
+        properties.code,
+        properties.lines,
+        '<div class="stop-popup-source">Dati disponibili: fermata e linee</div><div class="arrival-list"><small>Passaggi non caricabili ora. Riprova tra qualche secondo.</small></div>',
+      ));
+    });
+  return popup;
+}
+
 function boundsFromRoutes(routes: GtfsRouteVariant[]): LngLatBoundsLike | undefined {
   const points = routes.flatMap((route) => route.path);
   if (points.length === 0) return undefined;
@@ -629,7 +670,7 @@ function installTransitLayers(map: maplibregl.Map) {
   });
 }
 
-export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, hasUserLocation, onLocateUser, showRouteForLine, searchedArea, onSelectVehicle, onResetMap }: Props) {
+export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, hasUserLocation, onLocateUser, showRouteForLine, searchedArea, selectedStop, selectedStopRequest, onSelectVehicle, onResetMap }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | undefined>(undefined);
   const vehicleFramesRef = useRef<Map<string, VehicleFrame>>(new Map());
@@ -822,6 +863,27 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   }, [focusPoint, mapReady]);
 
   useEffect(() => {
+    if (!mapReady || !mapRef.current || !selectedStop) return;
+    const map = mapRef.current;
+    map.flyTo({ center: [selectedStop.lon, selectedStop.lat], zoom: 17, duration: 450 });
+    const popup = showStopPopup(
+      map,
+      {
+        id: selectedStop.id,
+        name: selectedStop.name,
+        code: selectedStop.code,
+        lines: selectedStop.lines.slice(0, 8).join(', '),
+        routeIds: JSON.stringify(selectedStop.lines),
+        stopSequencesByRoute: '{}',
+      },
+      [selectedStop.lon, selectedStop.lat],
+    );
+    return () => {
+      popup.remove();
+    };
+  }, [mapReady, selectedStop, selectedStopRequest]);
+
+  useEffect(() => {
     if (!mapReady || !mapRef.current || !followedVehicleId) return;
     const vehicle = vehicles.find((item) => item.vehicleId === followedVehicleId);
     const position = currentPositionsRef.current.get(followedVehicleId) ?? vehicle;
@@ -890,37 +952,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       if (!feature) return;
       const properties = feature.properties as StopFeatureProperties;
       const coordinates = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
-      const popup = new maplibregl.Popup({
-        className: 'stop-map-popup',
-        closeButton: true,
-        closeOnClick: false,
-        closeOnMove: false,
-        focusAfterOpen: false,
-        maxWidth: '360px',
-      })
-        .setLngLat(coordinates)
-        .setHTML(renderStopPopup(properties.name, properties.code, properties.lines, '<div class="arrival-list"><small>Carico passaggi...</small></div>'))
-        .addTo(map);
-      let routeIds: string[] = [];
-      let stopSequencesByRoute: Record<string, number[]> = {};
-      try {
-        routeIds = JSON.parse(properties.routeIds);
-        stopSequencesByRoute = JSON.parse(properties.stopSequencesByRoute);
-      } catch {
-        routeIds = [];
-      }
-      void fetchGttStopArrivalsInfo(properties.id, routeIds, stopSequencesByRoute)
-        .then((result) => {
-          popup.setHTML(renderStopPopup(properties.name, properties.code, properties.lines, renderStopArrivals(result), result.checkedAt));
-        })
-        .catch(() => {
-          popup.setHTML(renderStopPopup(
-            properties.name,
-            properties.code,
-            properties.lines,
-            '<div class="stop-popup-source">Dati disponibili: fermata e linee</div><div class="arrival-list"><small>Passaggi non caricabili ora. Riprova tra qualche secondo.</small></div>',
-          ));
-        });
+      showStopPopup(map, properties, coordinates);
     };
     const handleMove = (event: MapMouseEvent) => {
       const vehicle = vehicleAtPoint(event);

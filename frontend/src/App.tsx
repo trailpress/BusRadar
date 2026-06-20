@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
-import { gtfsNetwork } from './data/gtfsNetwork';
+import { gtfsNetwork, type GtfsStop } from './data/gtfsNetwork';
 import { geocodeTransitArea, type GeocodingResult } from './services/geocoding';
 import { fetchGttRealtimeVehicles } from './services/gttRealtime';
 import { LineDetailScreen } from './screens/LineDetailScreen';
@@ -26,6 +26,8 @@ function App() {
   const [searchMode, setSearchMode] = useState<'filter' | 'place'>('filter');
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchedArea, setSearchedArea] = useState<GeocodingResult>();
+  const [selectedStop, setSelectedStop] = useState<GtfsStop>();
+  const [selectedStopRequest, setSelectedStopRequest] = useState(0);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>();
   const [selectedVehicleFallback, setSelectedVehicleFallback] = useState<Vehicle>();
   const [selectedLine, setSelectedLine] = useState<TransitLine>();
@@ -183,7 +185,10 @@ function App() {
   }, [vehicles, search, searchMode]);
   const nearbyAreaStops = useMemo(
     () => searchedArea
-      ? gtfsNetwork.stops.filter((stop) => distanceMeters(searchedArea, stop) <= 1200)
+      ? gtfsNetwork.stops
+        .map((stop) => ({ stop, distance: distanceMeters(searchedArea, stop) }))
+        .filter((item) => item.distance <= 1200)
+        .sort((a, b) => a.distance - b.distance)
       : [],
     [searchedArea],
   );
@@ -195,7 +200,7 @@ function App() {
   );
   const nearbyAreaLines = useMemo(
     () => [...new Set([
-      ...nearbyAreaStops.flatMap((stop) => stop.lines),
+      ...nearbyAreaStops.flatMap(({ stop }) => stop.lines),
       ...nearbyAreaVehicles.map((vehicle) => vehicle.line),
     ])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
     [nearbyAreaStops, nearbyAreaVehicles],
@@ -209,6 +214,7 @@ function App() {
     if (exactVehicle) {
       setSearchMode('filter');
       setSearchedArea(undefined);
+      setSelectedStop(undefined);
       openVehicle(exactVehicle);
       return;
     }
@@ -216,6 +222,7 @@ function App() {
     if (exactLine) {
       setSearchMode('filter');
       setSearchedArea(undefined);
+      setSelectedStop(undefined);
       openLine(exactLine);
       return;
     }
@@ -229,6 +236,7 @@ function App() {
       }
       setSearchMode('place');
       setSearchedArea(result);
+      setSelectedStop(undefined);
       setMapFocus({ lat: result.lat, lon: result.lon });
       setSelectedVehicleId(undefined);
       setSelectedVehicleFallback(undefined);
@@ -245,6 +253,7 @@ function App() {
   }
 
   function openVehicle(vehicle: Vehicle) {
+    setSelectedStop(undefined);
     setSelectedVehicleId(vehicle.vehicleId);
     setSelectedVehicleFallback(vehicle);
     setLineFilter(vehicle.line);
@@ -264,6 +273,7 @@ function App() {
   }
 
   function openLine(line: TransitLine) {
+    setSelectedStop(undefined);
     setSelectedLine(line);
     setSelectedVehicleFallback(undefined);
     setLineFilter(line.id);
@@ -282,6 +292,7 @@ function App() {
   }
 
   function openStop(stop: Stop) {
+    setSelectedStop(gtfsNetwork.stops.find((item) => item.id === stop.id));
     setMapFocus({ lat: stop.lat, lon: stop.lon });
     setSelectedVehicleId(undefined);
     setSelectedVehicleFallback(undefined);
@@ -321,17 +332,28 @@ function App() {
             setSearch(value);
             setSearchMode('filter');
             setSearchedArea(undefined);
+            setSelectedStop(undefined);
           }}
           onSearchSubmit={() => void submitMapSearch()}
           searchLoading={searchLoading}
           searchedArea={searchedArea}
           nearbyStopCount={nearbyAreaStops.length}
+          nearbyStops={nearbyAreaStops}
           nearbyLines={nearbyAreaLines}
           nearbyVehicleCount={nearbyAreaVehicles.length}
           onClearSearchedArea={() => {
             setSearchedArea(undefined);
+            setSelectedStop(undefined);
             setSearchMode('filter');
             setSearch('');
+          }}
+          selectedStop={selectedStop}
+          selectedStopRequest={selectedStopRequest}
+          onSelectAreaStop={(stop) => {
+            setSelectedStop(stop);
+            setSelectedStopRequest((request) => request + 1);
+            setMapFocus({ lat: stop.lat, lon: stop.lon });
+            notify(`Palina ${stop.code}: carico i passaggi`);
           }}
           onRadar={() => setActiveTab('more')}
           onSelectVehicle={openVehicle}
@@ -367,6 +389,7 @@ function App() {
             setSearch('');
             setSearchMode('filter');
             setSearchedArea(undefined);
+            setSelectedStop(undefined);
             notify('Vista generale: tutte le linee');
           }}
         />

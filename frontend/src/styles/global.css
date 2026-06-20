@@ -266,14 +266,14 @@ button {
   font-size: 10px;
 }
 
-.search-area-summary > div {
+.search-area-lines {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
 
-.search-area-summary i,
-.search-area-summary em {
+.search-area-lines i,
+.search-area-lines em {
   padding: 3px 6px;
   border-radius: 7px;
   background: rgba(47, 125, 255, 0.18);
@@ -281,6 +281,56 @@ button {
   font-size: 10px;
   font-style: normal;
   font-weight: 850;
+}
+
+.search-area-stops {
+  display: grid;
+  gap: 5px;
+  max-height: 190px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 2px 2px 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.search-area-stops > button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  padding: 7px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.045);
+  text-align: left;
+}
+
+.search-area-stops > button > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.search-area-stops strong {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-area-stops small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.search-area-stops em {
+  color: #86afff;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 850;
+  text-align: right;
 }
 
 .search-box {

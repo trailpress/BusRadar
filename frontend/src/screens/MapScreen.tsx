@@ -1,4 +1,5 @@
 import { Layers3 } from 'lucide-react';
+import type { GtfsStop } from '../data/gtfsNetwork';
 import type { GeocodingResult } from '../services/geocoding';
 import type { LatLng, Vehicle } from '../types';
 import { AppHeader } from '../components/AppHeader';
@@ -23,9 +24,13 @@ type Props = {
   searchLoading: boolean;
   searchedArea?: GeocodingResult;
   nearbyStopCount: number;
+  nearbyStops: Array<{ stop: GtfsStop; distance: number }>;
   nearbyLines: string[];
   nearbyVehicleCount: number;
   onClearSearchedArea: () => void;
+  onSelectAreaStop: (stop: GtfsStop) => void;
+  selectedStop?: GtfsStop;
+  selectedStopRequest: number;
   onRadar: () => void;
   onSelectVehicle: (vehicle: Vehicle) => void;
   onClearVehicle: () => void;
@@ -51,9 +56,13 @@ export function MapScreen({
   searchLoading,
   searchedArea,
   nearbyStopCount,
+  nearbyStops,
   nearbyLines,
   nearbyVehicleCount,
   onClearSearchedArea,
+  onSelectAreaStop,
+  selectedStop,
+  selectedStopRequest,
   onRadar,
   onSelectVehicle,
   onClearVehicle,
@@ -74,6 +83,8 @@ export function MapScreen({
         onLocateUser={onLocateUser}
         showRouteForLine={showRouteForLine}
         searchedArea={searchedArea}
+        selectedStop={selectedStop}
+        selectedStopRequest={selectedStopRequest}
         onSelectVehicle={onSelectVehicle}
         onResetMap={onResetMap}
       />
@@ -83,9 +94,17 @@ export function MapScreen({
           <button type="button" aria-label="Chiudi area cercata" onClick={onClearSearchedArea}>×</button>
           <strong>{searchedArea.label}</strong>
           <span>{nearbyVehicleCount} mezzi realtime · {nearbyStopCount} fermate entro 1,2 km</span>
-          <div>
+          <div className="search-area-lines">
             {nearbyLines.slice(0, 9).map((line) => <i key={line}>{line}</i>)}
             {nearbyLines.length > 9 && <em>+{nearbyLines.length - 9}</em>}
+          </div>
+          <div className="search-area-stops">
+            {nearbyStops.slice(0, 8).map(({ stop, distance }) => (
+              <button type="button" key={stop.id} onClick={() => onSelectAreaStop(stop)}>
+                <span><strong>{stop.name}</strong><small>Palina {stop.code} · {Math.round(distance)} m</small></span>
+                <em>{stop.lines.slice(0, 3).join(' · ') || 'Info'}</em>
+              </button>
+            ))}
           </div>
           <small>Ricerca e dati cartografici © OpenStreetMap</small>
         </aside>
