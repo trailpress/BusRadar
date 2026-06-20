@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
 import { fetchGttStopArrivalsInfo, type GttStopArrival, type GttStopArrivalsResult } from '../services/gttRealtime';
 import type { LatLng, Vehicle } from '../types';
-import { interpolatePathState, routeProgressAtPoint } from '../utils/geo';
+import { interpolatePathState, offsetPointMeters, routeProgressAtPoint } from '../utils/geo';
 import { getLineColor } from '../utils/lineColors';
 import { IconButton } from './IconButton';
 
@@ -168,15 +168,30 @@ function routeMotion(vehicle: Vehicle, from: LatLng, to: LatLng) {
   };
 }
 
-function vehiclesToGeoJson(vehicles: Vehicle[], positions: Map<string, LatLng>, selectedVehicleId?: string, followedVehicleId?: string): GeoJSON.FeatureCollection<GeoJSON.Point> {
+function laneOffsetMetersForZoom(zoom: number) {
+  if (zoom < 14.5) return 0;
+  if (zoom < 16) return 0.8 + ((zoom - 14.5) / 1.5) * 0.8;
+  if (zoom < 18) return 1.6 + ((zoom - 16) / 2) * 0.35;
+  return 1.95;
+}
+
+function vehiclesToGeoJson(
+  vehicles: Vehicle[],
+  positions: Map<string, LatLng>,
+  zoom: number,
+  selectedVehicleId?: string,
+  followedVehicleId?: string,
+): GeoJSON.FeatureCollection<GeoJSON.Point> {
+  const laneOffsetMeters = laneOffsetMetersForZoom(zoom);
   return {
     type: 'FeatureCollection',
     features: vehicles.map((vehicle) => {
       const position = positions.get(vehicle.vehicleId) ?? vehicle;
+      const displayPosition = offsetPointMeters(position, vehicle.bearing + 90, laneOffsetMeters);
       const selected = vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId;
       return {
         type: 'Feature',
-        geometry: { type: 'Point', coordinates: [position.lon, position.lat] },
+        geometry: { type: 'Point', coordinates: [displayPosition.lon, displayPosition.lat] },
         properties: {
           id: vehicle.vehicleId,
           line: vehicle.line,
@@ -653,7 +668,17 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         animatedVehicles.push(routeState ? { ...frame.vehicle, bearing: routeState.bearing } : frame.vehicle);
       });
       const map = mapRef.current!;
-      setSourceData(map, 'vehicles', vehiclesToGeoJson(animatedVehicles, currentPositionsRef.current, selectedVehicleIdRef.current, followedVehicleIdRef.current));
+      setSourceData(
+        map,
+        'vehicles',
+        vehiclesToGeoJson(
+          animatedVehicles,
+          currentPositionsRef.current,
+          map.getZoom(),
+          selectedVehicleIdRef.current,
+          followedVehicleIdRef.current,
+        ),
+      );
       const followedId = followedVehicleIdRef.current;
       const followedPosition = followedId ? currentPositionsRef.current.get(followedId) : undefined;
       if (followedPosition && time - lastFollowCameraAtRef.current > 100) {

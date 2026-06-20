@@ -23,6 +23,30 @@ export function bearingDegrees(a: LatLng, b: LatLng) {
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
+export function offsetPointMeters(point: LatLng, bearing: number, distance: number): LatLng {
+  if (!Number.isFinite(bearing) || !Number.isFinite(distance) || distance === 0) return point;
+
+  const angularDistance = distance / earthRadiusMeters;
+  const bearingRad = (bearing * Math.PI) / 180;
+  const latRad = (point.lat * Math.PI) / 180;
+  const lonRad = (point.lon * Math.PI) / 180;
+  const targetLat = Math.asin(
+    Math.sin(latRad) * Math.cos(angularDistance) +
+      Math.cos(latRad) * Math.sin(angularDistance) * Math.cos(bearingRad),
+  );
+  const targetLon =
+    lonRad +
+    Math.atan2(
+      Math.sin(bearingRad) * Math.sin(angularDistance) * Math.cos(latRad),
+      Math.cos(angularDistance) - Math.sin(latRad) * Math.sin(targetLat),
+    );
+
+  return {
+    lat: (targetLat * 180) / Math.PI,
+    lon: (targetLon * 180) / Math.PI,
+  };
+}
+
 export function interpolatePosition(a: LatLng, b: LatLng, progress: number): LatLng {
   const clamped = Math.min(1, Math.max(0, progress));
   return {
