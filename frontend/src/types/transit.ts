@@ -20,12 +20,13 @@ export type VehicleFleetKey =
 
 export type TransitVehicle = {
   vehicleId: string;
+  fleetNumber?: string;
   realtimeEntityId?: string;
   realtimeVehicleId?: string;
   realtimeVehicleLabel?: string;
   licensePlate?: string;
   tripId?: string;
-  vehicleIdSource?: 'vehicle.id' | 'vehicle.label';
+  vehicleIdSource?: 'vehicle.id' | 'vehicle.label' | 'feed-internal';
   routeId: string;
   routeShortName: string;
   vehicleType: VehicleType;

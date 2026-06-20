@@ -7,6 +7,7 @@ import { bearingDegrees, distanceMeters } from '../utils/geo';
 import { formatDistance } from '../utils/format';
 import { LineBadge } from '../components/LineBadge';
 import { notify } from '../utils/notify';
+import { vehicleIdentifierLabel } from '../utils/vehicleIdentity';
 
 const radiusOptions = [
   { label: '500 m', value: 500 },
@@ -99,7 +100,7 @@ export function RadarScreen({ vehicles, userLocation, onSelectVehicle, onBack }:
               {vehicle.vehicleType === 'tram' ? <TrainFront size={18} /> : <BusFront size={18} />}
             </div>
             <div>
-              <strong>Vettura {vehicle.vehicleId}</strong>
+              <strong>{vehicleIdentifierLabel(vehicle)}</strong>
               <span>{formatDistance(distance)} · {vehicle.direction}</span>
             </div>
             <LineBadge line={vehicle.line} />

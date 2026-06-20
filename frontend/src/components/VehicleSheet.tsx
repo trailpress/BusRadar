@@ -1,6 +1,7 @@
 import { Clock3, Gauge, LocateFixed, Route as RouteIcon, ShieldCheck, Star, X } from 'lucide-react';
 import type { Vehicle } from '../types';
 import { notify } from '../utils/notify';
+import { vehicleIdentifierKind, vehicleIdentifierLabel } from '../utils/vehicleIdentity';
 import { LineBadge } from './LineBadge';
 
 type Props = {
@@ -36,6 +37,7 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
   const vehicleKind = vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus');
   const speedSource = vehicle.speedSource === 'feed' ? 'Feed realtime' : vehicle.speedSource === 'observed' ? 'Calcolata da GPS' : 'Non disponibile';
   const rawVehicleLabel = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? vehicle.realtimeVehicleLabel : undefined;
+  const identifierLabel = vehicleIdentifierLabel(vehicle);
   const detailImage = vehicleDetailImage(vehicle);
   const isInterurbanBlue = vehicle.vehicleLivery === 'interurban-blue';
   const isElectricCompact = vehicle.vehicleLivery === 'electric-compact';
@@ -50,12 +52,12 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
   ].filter(Boolean).join(' ');
 
   return (
-    <section className="vehicle-sheet" aria-label={`Dettaglio vettura ${vehicle.vehicleId}`}>
+    <section className="vehicle-sheet" aria-label={`Dettaglio mezzo ${vehicle.vehicleId}`}>
       <div className="detail-nav">
-        <button type="button" aria-label="Aggiungi ai preferiti" onClick={() => notify(`Vettura ${vehicle.vehicleId} aggiunta ai preferiti`)}>
+        <button type="button" aria-label="Aggiungi ai preferiti" onClick={() => notify(`${identifierLabel} aggiunto ai preferiti`)}>
           <Star size={18} className={vehicle.favorite ? 'star-on' : ''} />
         </button>
-        <strong>Dettagli vettura</strong>
+        <strong>Dettagli mezzo</strong>
         <button type="button" onClick={onClose} aria-label="Chiudi dettaglio">
           <X size={19} />
         </button>
@@ -63,7 +65,7 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
       <div className="sheet-title">
         <LineBadge line={vehicle.line} size="lg" />
         <div>
-          <strong>Vettura {vehicle.vehicleId || '-'}</strong>
+          <strong>{identifierLabel}</strong>
           <span>Linea {vehicle.routeShortName || vehicle.line} · {vehicleKind}</span>
         </div>
       </div>
@@ -71,7 +73,7 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         <strong>Linea {vehicle.routeShortName || vehicle.line}</strong>
         <span>Direzione: {vehicle.terminalName ?? vehicle.direction}</span>
         <span>
-          Vettura: {vehicle.vehicleId || '-'} · Route GTFS: {vehicle.routeId.replace(/^gtt-/, '')}
+          {vehicleIdentifierKind(vehicle)}: {vehicle.fleetNumber ?? vehicle.vehicleId} · Route GTFS: {vehicle.routeId.replace(/^gtt-/, '')}
           {rawVehicleLabel ? ` · label GTFS-RT: ${rawVehicleLabel}` : ''}
           {vehicle.realtimeEntityId && vehicle.realtimeEntityId !== vehicle.vehicleId ? ` · entity: ${vehicle.realtimeEntityId}` : ''}
           {vehicle.tripId ? ` · trip: ${vehicle.tripId}` : ''}

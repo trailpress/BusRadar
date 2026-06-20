@@ -5,6 +5,7 @@ import { LineBadge } from '../components/LineBadge';
 import { getGtfsRoutesForLine, getGtfsStopsForRoute, gtfsNetwork } from '../data/gtfsNetwork';
 import type { LatLng, TransitLine, Vehicle } from '../types';
 import { notify } from '../utils/notify';
+import { vehicleIdentifierLabel } from '../utils/vehicleIdentity';
 
 type Props = {
   line: TransitLine;
@@ -64,7 +65,7 @@ export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelec
             <button className="line-live-vehicle" key={vehicle.vehicleId} type="button" onClick={() => onSelectVehicle(vehicle)}>
               <LineBadge line={vehicle.line} />
               <div>
-                <strong>Vettura {vehicle.vehicleId}</strong>
+                <strong>{vehicleIdentifierLabel(vehicle)}</strong>
                 <span>{vehicle.terminalName ?? vehicle.direction}</span>
               </div>
               <em>{vehicle.speed} km/h</em>

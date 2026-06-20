@@ -109,6 +109,10 @@ function normalizeOptionalVehicleId(vehicleId?: string | null) {
   return normalized || undefined;
 }
 
+function publicFleetNumber(vehicleId: string) {
+  return /^\d{1,4}$/.test(vehicleId) ? vehicleId : undefined;
+}
+
 function vehicleTypeForRoute(routeId: string): Vehicle['vehicleType'] {
   const routeName = normalizeRouteName(routeId).replace(/\D/g, '');
   return getGtfsLine(normalizeRouteName(routeId))?.vehicleType ?? (tramRoutes.has(routeName) ? 'tram' : 'bus');
@@ -503,11 +507,17 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const line = normalizeRouteName(routeId);
   const gtfsLine = getGtfsLine(line);
   const vehicleType = vehicleTypeForRoute(routeId);
-  const vehicleLivery = vehicleLiveryForVehicle(routeId, line, vehicle.vehicleId);
-  const lengthClass = vehicleLengthClass(vehicle.vehicleId, vehicleType);
-  const fleetKey = vehicleFleetKey(vehicle.vehicleId, vehicleType);
   const vehicleId = normalizeVehicleId(vehicle.vehicleId) || normalizeVehicleId(vehicle.vehicleLabel ?? null);
-  const vehicleIdSource: Vehicle['vehicleIdSource'] = normalizeVehicleId(vehicle.vehicleId) ? 'vehicle.id' : 'vehicle.label';
+  const fleetNumber = publicFleetNumber(vehicleId);
+  const fleetIdentifier = fleetNumber ?? null;
+  const vehicleLivery = vehicleLiveryForVehicle(routeId, line, fleetIdentifier);
+  const lengthClass = vehicleLengthClass(fleetIdentifier, vehicleType);
+  const fleetKey = vehicleFleetKey(fleetIdentifier, vehicleType);
+  const vehicleIdSource: Vehicle['vehicleIdSource'] = fleetNumber
+    ? normalizeVehicleId(vehicle.vehicleId)
+      ? 'vehicle.id'
+      : 'vehicle.label'
+    : 'feed-internal';
   const { speed, source: speedSource, bearing: observedBearing } = observedSpeed(vehicleId || String(index), vehicle);
   const rawPoint = { lat: vehicle.lat ?? 0, lon: vehicle.lon ?? 0 };
   const feedBearing = vehicle.bearing != null && vehicle.bearing >= 0 ? vehicle.bearing : undefined;
@@ -534,6 +544,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
 
   return {
     vehicleId,
+    fleetNumber,
     realtimeEntityId: normalizeOptionalVehicleId(vehicle.entityId),
     realtimeVehicleId: normalizeOptionalVehicleId(vehicle.vehicleId),
     realtimeVehicleLabel: normalizeOptionalVehicleId(vehicle.vehicleLabel),
@@ -545,7 +556,11 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     vehicleType,
     vehicleLivery,
     vehicleLengthClass: lengthClass,
-    vehicleFleetLabel: vehicleFleetLabel(vehicle.vehicleId, vehicleType, vehicleLivery, lengthClass),
+    vehicleFleetLabel: fleetNumber
+      ? vehicleFleetLabel(fleetIdentifier, vehicleType, vehicleLivery, lengthClass)
+      : vehicleType === 'tram'
+        ? 'Tram · modello non identificato'
+        : 'Bus · modello non identificato',
     vehicleFleetKey: fleetKey,
     routeMatchStatus,
     routeVariantId: estimate.routeVariantId,

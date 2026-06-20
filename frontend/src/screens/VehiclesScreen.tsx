@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import type { Vehicle } from '../types';
 import { LineBadge } from '../components/LineBadge';
 import { SearchBox } from '../components/SearchBox';
+import { vehicleIdentifierShort } from '../utils/vehicleIdentity';
 
 type Props = {
   vehicles: Vehicle[];
@@ -52,7 +53,7 @@ export function VehiclesScreen({ vehicles, onSelectVehicle }: Props) {
               {vehicle.vehicleType === 'tram' ? <TrainFront size={18} /> : <BusFront size={18} />}
             </div>
             <div>
-              <strong>{vehicle.vehicleId}</strong>
+              <strong>{vehicleIdentifierShort(vehicle)}</strong>
               <span>{vehicleKind(vehicle)} · {vehicle.nextStop ?? vehicle.direction}</span>
             </div>
             <LineBadge line={vehicle.line} />

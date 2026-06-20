@@ -6,6 +6,7 @@ import { fetchGttStopArrivalsInfo, type GttStopArrival, type GttStopArrivalsResu
 import type { LatLng, Vehicle } from '../types';
 import { distanceMeters, interpolatePathState, offsetPointMeters, routeProgressAtPoint } from '../utils/geo';
 import { getLineColor } from '../utils/lineColors';
+import { vehicleIdentifierLabel } from '../utils/vehicleIdentity';
 import { IconButton } from './IconButton';
 
 type Props = {
@@ -853,7 +854,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       hoverPopup.remove();
       clickPopup
         .setLngLat([position.lon, position.lat])
-        .setHTML(`<div class="vehicle-tooltip vehicle-tooltip-click"><strong>Vettura ${escapeHtml(vehicle.vehicleId)}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small></div>`)
+        .setHTML(`<div class="vehicle-tooltip vehicle-tooltip-click"><strong>${escapeHtml(vehicleIdentifierLabel(vehicle))}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small></div>`)
         .addTo(map);
       onSelectVehicle(vehicle);
     };
@@ -900,7 +901,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       if (vehicle) {
         hoverPopup
           .setLngLat(event.lngLat)
-          .setHTML(`<div class="vehicle-tooltip"><strong>Vettura ${escapeHtml(vehicle.vehicleId)}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small></div>`)
+          .setHTML(`<div class="vehicle-tooltip"><strong>${escapeHtml(vehicleIdentifierLabel(vehicle))}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small></div>`)
           .addTo(map);
       } else {
         hoverPopup.remove();
