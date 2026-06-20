@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
 import { fetchGttStopArrivalsInfo, type GttStopArrival, type GttStopArrivalsResult } from '../services/gttRealtime';
 import type { LatLng, Vehicle } from '../types';
-import { interpolatePathState, offsetPointMeters, routeProgressAtPoint } from '../utils/geo';
+import { distanceMeters, interpolatePathState, offsetPointMeters, routeProgressAtPoint } from '../utils/geo';
 import { getLineColor } from '../utils/lineColors';
 import { IconButton } from './IconButton';
 
@@ -175,6 +175,14 @@ function laneOffsetMetersForZoom(zoom: number) {
   return 1.95;
 }
 
+function vehicleSeparationMeters(vehicle: Vehicle, zoom: number) {
+  const baseLength = vehicle.vehicleLengthClass === 'articulated-18m' ? 15 : vehicle.vehicleType === 'tram' ? 13 : 10;
+  if (zoom < 14.5) return 0;
+  if (zoom < 16) return baseLength * 0.55;
+  if (zoom < 18) return baseLength * 0.75;
+  return baseLength;
+}
+
 function vehiclesToGeoJson(
   vehicles: Vehicle[],
   positions: Map<string, LatLng>,
@@ -183,11 +191,63 @@ function vehiclesToGeoJson(
   followedVehicleId?: string,
 ): GeoJSON.FeatureCollection<GeoJSON.Point> {
   const laneOffsetMeters = laneOffsetMetersForZoom(zoom);
+  const collisionCellMeters = 24;
+  const placedVehicles = new Map<string, Array<{ position: LatLng; separation: number }>>();
+  const displayPositions = new Map<string, LatLng>();
+  const collisionCell = (point: LatLng) => {
+    const metersPerDegreeLon = 111320 * Math.cos((point.lat * Math.PI) / 180);
+    return {
+      x: Math.floor((point.lon * metersPerDegreeLon) / collisionCellMeters),
+      y: Math.floor((point.lat * 111320) / collisionCellMeters),
+    };
+  };
+  const nearbyPlacedVehicles = (point: LatLng) => {
+    const cell = collisionCell(point);
+    const nearby: Array<{ position: LatLng; separation: number }> = [];
+    for (let xOffset = -1; xOffset <= 1; xOffset += 1) {
+      for (let yOffset = -1; yOffset <= 1; yOffset += 1) {
+        nearby.push(...(placedVehicles.get(`${cell.x + xOffset}:${cell.y + yOffset}`) ?? []));
+      }
+    }
+    return nearby;
+  };
+
+  [...vehicles]
+    .sort((a, b) => a.vehicleId.localeCompare(b.vehicleId, undefined, { numeric: true }))
+    .forEach((vehicle) => {
+      const position = positions.get(vehicle.vehicleId) ?? vehicle;
+      const lanePosition = offsetPointMeters(position, vehicle.bearing + 90, laneOffsetMeters);
+      const separation = vehicleSeparationMeters(vehicle, zoom);
+      let displayPosition = lanePosition;
+
+      if (separation > 0) {
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+          const overlaps = nearbyPlacedVehicles(displayPosition).some(
+            (placed) => distanceMeters(displayPosition, placed.position) < Math.max(separation, placed.separation),
+          );
+          if (!overlaps) break;
+
+          const slot = Math.floor(attempt / 2) + 1;
+          const direction = attempt % 2 === 0 ? 1 : -1;
+          displayPosition = offsetPointMeters(
+            lanePosition,
+            vehicle.bearing + (direction > 0 ? 0 : 180),
+            slot * separation,
+          );
+        }
+      }
+
+      displayPositions.set(vehicle.vehicleId, displayPosition);
+      const cell = collisionCell(displayPosition);
+      const cellKey = `${cell.x}:${cell.y}`;
+      placedVehicles.set(cellKey, [...(placedVehicles.get(cellKey) ?? []), { position: displayPosition, separation }]);
+    });
+
   return {
     type: 'FeatureCollection',
     features: vehicles.map((vehicle) => {
       const position = positions.get(vehicle.vehicleId) ?? vehicle;
-      const displayPosition = offsetPointMeters(position, vehicle.bearing + 90, laneOffsetMeters);
+      const displayPosition = displayPositions.get(vehicle.vehicleId) ?? position;
       const selected = vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId;
       return {
         type: 'Feature',
@@ -773,7 +833,14 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       if (!feature) return;
       const properties = feature.properties as StopFeatureProperties;
       const coordinates = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
-      const popup = new maplibregl.Popup({ closeButton: true, maxWidth: '260px' })
+      const popup = new maplibregl.Popup({
+        className: 'stop-map-popup',
+        closeButton: true,
+        closeOnClick: false,
+        closeOnMove: false,
+        focusAfterOpen: false,
+        maxWidth: '360px',
+      })
         .setLngLat(coordinates)
         .setHTML(renderStopPopup(properties.name, properties.code, properties.lines, '<div class="arrival-list"><small>Carico passaggi...</small></div>'))
         .addTo(map);
