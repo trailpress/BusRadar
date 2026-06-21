@@ -47,24 +47,52 @@ function App() {
   const locationPermissionRef = useRef<PermissionStatus | undefined>(undefined);
   const latestLocationRef = useRef<{ point: LatLng; timestamp: number; accuracy: number } | undefined>(undefined);
   const pendingLocationRequestRef = useRef<Promise<LatLng | undefined> | undefined>(undefined);
+  const locationSamplesRef = useRef<Array<{ point: LatLng; timestamp: number; accuracy: number }>>([]);
 
   const applyUserPosition = useCallback((position: GeolocationPosition) => {
-    const point = { lat: position.coords.latitude, lon: position.coords.longitude };
-    const previous = latestLocationRef.current;
     const timestamp = position.timestamp || Date.now();
     const accuracy = position.coords.accuracy;
-    const previousIsFresh = previous && timestamp - previous.timestamp < 15_000;
-    if (previousIsFresh && previous.accuracy < 80 && accuracy > previous.accuracy * 1.8) {
-      return previous.point;
-    }
-    latestLocationRef.current = {
-      point,
+    if (!Number.isFinite(accuracy) || accuracy > 80) return undefined;
+
+    const sample = {
+      point: { lat: position.coords.latitude, lon: position.coords.longitude },
       timestamp,
       accuracy,
     };
+    const recentSamples = [...locationSamplesRef.current, sample]
+      .filter((item) => timestamp - item.timestamp <= 12_000)
+      .sort((a, b) => a.accuracy - b.accuracy)
+      .slice(0, 6);
+    locationSamplesRef.current = recentSamples;
+
+    const best = recentSamples[0];
+    const compatibleSamples = recentSamples.filter(
+      (item) => distanceMeters(best.point, item.point) <= Math.max(25, best.accuracy + item.accuracy),
+    );
+    const weighted = compatibleSamples.reduce(
+      (total, item) => {
+        const weight = 1 / Math.max(25, item.accuracy * item.accuracy);
+        return {
+          lat: total.lat + item.point.lat * weight,
+          lon: total.lon + item.point.lon * weight,
+          weight: total.weight + weight,
+        };
+      },
+      { lat: 0, lon: 0, weight: 0 },
+    );
+    const point = weighted.weight > 0
+      ? { lat: weighted.lat / weighted.weight, lon: weighted.lon / weighted.weight }
+      : best.point;
+    const previous = latestLocationRef.current;
+    const previousIsFresh = previous && timestamp - previous.timestamp < 15_000;
+    if (previousIsFresh && previous.accuracy <= best.accuracy && distanceMeters(previous.point, point) < previous.accuracy) {
+      return previous.point;
+    }
+
+    latestLocationRef.current = { point, timestamp, accuracy: best.accuracy };
     setHasUserLocation(true);
     setUserLocation(point);
-    setUserLocationAccuracy(accuracy);
+    setUserLocationAccuracy(best.accuracy);
     return point;
   }, []);
 
@@ -120,7 +148,7 @@ function App() {
     }
 
     const cached = latestLocationRef.current;
-    const cachedIsUsable = cached && Date.now() - cached.timestamp < 45_000 && cached.accuracy <= 100;
+    const cachedIsUsable = cached && Date.now() - cached.timestamp < 30_000 && cached.accuracy <= 50;
     if (cachedIsUsable) {
       startLocationWatch();
       navigator.geolocation.getCurrentPosition(
@@ -147,11 +175,18 @@ function App() {
         window.clearTimeout(deadline);
         navigator.geolocation.clearWatch(watchId);
         if (!position) {
-          notify('GPS non sufficientemente preciso: riprova all’aperto');
+          setShowLocationHelp(true);
+          notify('Chrome sta fornendo una posizione approssimativa');
           resolve(undefined);
           return;
         }
         const nextLocation = applyUserPosition(position);
+        if (!nextLocation) {
+          setShowLocationHelp(true);
+          notify(`Posizione troppo imprecisa · errore ${Math.round(position.coords.accuracy)} m`);
+          resolve(undefined);
+          return;
+        }
         setShowLocationHelp(false);
         startLocationWatch();
         notify(`Posizione trovata · precisione ${Math.round(position.coords.accuracy)} m`);
@@ -169,15 +204,15 @@ function App() {
       watchId = navigator.geolocation.watchPosition(
         (position) => {
           if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) bestPosition = position;
-          if (position.coords.accuracy <= 35) finish(position);
+          if (position.coords.accuracy <= 25) finish(position);
         },
         (error) => {
           if (error.code !== error.PERMISSION_DENIED) return;
           failPermission();
         },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 12_000 },
       );
-      deadline = window.setTimeout(() => finish(bestPosition), 6500);
+      deadline = window.setTimeout(() => finish(bestPosition && bestPosition.coords.accuracy <= 80 ? bestPosition : undefined), 10_000);
     }).finally(() => {
       pendingLocationRequestRef.current = undefined;
     });

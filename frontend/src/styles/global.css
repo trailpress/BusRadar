@@ -175,8 +175,9 @@ button {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 38px;
+  justify-content: flex-start;
+  gap: 7px;
+  width: min(132px, 34vw);
   height: 38px;
   margin-left: auto;
   padding: 0 10px;
@@ -200,25 +201,24 @@ button {
 }
 
 .map-search input {
-  width: 0;
+  width: 100%;
   min-width: 0;
   border: 0;
   outline: 0;
   background: transparent;
   color: #fff;
-  opacity: 0;
+  opacity: 1;
   transition: width 180ms ease, opacity 180ms ease;
 }
 
 .map-search:focus-within {
-  width: min(246px, 62vw);
+  width: min(280px, 70vw);
   justify-content: flex-start;
   gap: 8px;
 }
 
-.map-search:focus-within input {
-  width: 100%;
-  opacity: 1;
+.map-search input::placeholder {
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .map-search-suggestions {

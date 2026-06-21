@@ -49,7 +49,7 @@ export function AppHeader({ search, onSearch, onSearchSubmit, searchLoading, sug
       <form
         className="map-search"
         role="search"
-        aria-label="Cerca via, luogo, linea o vettura"
+        aria-label="Cerca luogo o fermata"
         onSubmit={(event) => {
           event.preventDefault();
           onSearchSubmit();
@@ -61,7 +61,7 @@ export function AppHeader({ search, onSearch, onSearchSubmit, searchLoading, sug
         <input
           value={search}
           enterKeyHint="search"
-          placeholder="Via, luogo, linea o vettura"
+          placeholder="Cerca luogo"
           onChange={(event) => onSearch(event.target.value)}
           autoComplete="off"
           aria-autocomplete="list"
