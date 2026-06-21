@@ -23,6 +23,7 @@ type NominatimResult = {
 
 const geocoderUrl = import.meta.env.VITE_GEOCODER_URL ?? 'https://nominatim.openstreetmap.org/search';
 const cacheKey = 'busradar-geocoding-v2';
+const suggestionsCacheKey = 'busradar-geocoding-suggestions-v1';
 const torinoCenter = { lat: 45.0706, lon: 7.6867 };
 let lastRequestAt = 0;
 
@@ -39,6 +40,22 @@ function writeCache(cache: Record<string, GeocodingResult>) {
     localStorage.setItem(cacheKey, JSON.stringify(cache));
   } catch {
     // Search remains functional when storage is unavailable.
+  }
+}
+
+function readSuggestionsCache() {
+  try {
+    return JSON.parse(localStorage.getItem(suggestionsCacheKey) ?? '{}') as Record<string, GeocodingResult[]>;
+  } catch {
+    return {};
+  }
+}
+
+function writeSuggestionsCache(cache: Record<string, GeocodingResult[]>) {
+  try {
+    localStorage.setItem(suggestionsCacheKey, JSON.stringify(cache));
+  } catch {
+    // Suggestions still work without persistent cache.
   }
 }
 
@@ -66,15 +83,14 @@ function resultScore(result: NominatimResult, query: string, bias?: LatLng) {
   return exactLead + tokenMatches + torinoArea + usefulType + Number(result.importance ?? 0) * 2 - distanceScore(result, bias) * 0.035;
 }
 
-export async function geocodeTransitArea(query: string, bias?: LatLng): Promise<GeocodingResult | undefined> {
+export async function geocodeTransitSuggestions(query: string, bias?: LatLng): Promise<GeocodingResult[]> {
   const normalized = query.trim().toLowerCase();
-  if (normalized.length < 3) return undefined;
+  if (normalized.length < 3) return [];
 
-  const cache = readCache();
-  const cacheEntry = cache[normalized];
-  if (cacheEntry) return cacheEntry;
+  const suggestionsCache = readSuggestionsCache();
+  if (suggestionsCache[normalized]) return suggestionsCache[normalized];
 
-  const waitMs = Math.max(0, 1000 - (Date.now() - lastRequestAt));
+  const waitMs = Math.max(0, 850 - (Date.now() - lastRequestAt));
   if (waitMs > 0) await new Promise((resolve) => window.setTimeout(resolve, waitMs));
   lastRequestAt = Date.now();
 
@@ -88,7 +104,7 @@ export async function geocodeTransitArea(query: string, bias?: LatLng): Promise<
     bounded: '1',
   });
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 6500);
+  const timeout = window.setTimeout(() => controller.abort(), 5000);
   let response: Response;
   try {
     response = await fetch(`${geocoderUrl}?${params.toString()}`, {
@@ -101,16 +117,30 @@ export async function geocodeTransitArea(query: string, bias?: LatLng): Promise<
   if (!response.ok) throw new Error(`Geocoding HTTP ${response.status}`);
 
   const results = (await response.json()) as NominatimResult[];
-  const [result] = [...results].sort((a, b) => resultScore(b, query, bias) - resultScore(a, query, bias));
-  const lat = Number(result?.lat);
-  const lon = Number(result?.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return undefined;
+  const resolved = [...results]
+    .sort((a, b) => resultScore(b, query, bias) - resultScore(a, query, bias))
+    .map((result) => ({
+      lat: Number(result.lat),
+      lon: Number(result.lon),
+      label: result.display_name?.split(',').slice(0, 4).join(',') ?? query.trim(),
+    }))
+    .filter((result) => Number.isFinite(result.lat) && Number.isFinite(result.lon))
+    .slice(0, 5);
+  suggestionsCache[normalized] = resolved;
+  writeSuggestionsCache(suggestionsCache);
+  return resolved;
+}
 
-  const resolved = {
-    lat,
-    lon,
-    label: result.display_name?.split(',').slice(0, 3).join(',') ?? query.trim(),
-  };
+export async function geocodeTransitArea(query: string, bias?: LatLng): Promise<GeocodingResult | undefined> {
+  const normalized = query.trim().toLowerCase();
+  if (normalized.length < 3) return undefined;
+
+  const cache = readCache();
+  const cacheEntry = cache[normalized];
+  if (cacheEntry) return cacheEntry;
+
+  const [resolved] = await geocodeTransitSuggestions(query, bias);
+  if (!resolved) return undefined;
   cache[normalized] = resolved;
   writeCache(cache);
   return resolved;

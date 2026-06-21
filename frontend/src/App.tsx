@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
+import type { MapSearchSuggestion } from './components/AppHeader';
 import { gtfsNetwork, type GtfsStop } from './data/gtfsNetwork';
-import { geocodeTransitArea, type GeocodingResult } from './services/geocoding';
+import { geocodeTransitArea, geocodeTransitSuggestions, type GeocodingResult } from './services/geocoding';
 import { fetchGttRealtimeVehicles } from './services/gttRealtime';
 import { LineDetailScreen } from './screens/LineDetailScreen';
 import { LinesScreen } from './screens/LinesScreen';
@@ -25,6 +26,8 @@ function App() {
   const [search, setSearch] = useState('');
   const [searchMode, setSearchMode] = useState<'filter' | 'place'>('filter');
   const [searchLoading, setSearchLoading] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<GeocodingResult[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [searchedArea, setSearchedArea] = useState<GeocodingResult>();
   const [selectedStop, setSelectedStop] = useState<GtfsStop>();
   const [selectedStopRequest, setSelectedStopRequest] = useState(0);
@@ -279,6 +282,124 @@ function App() {
     ])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
     [nearbyAreaStops, nearbyAreaVehicles],
   );
+  const searchSuggestions = useMemo<MapSearchSuggestion[]>(() => {
+    const normalized = search.trim().toLowerCase();
+    if (normalized.length < 2) return [];
+    const bias = hasUserLocation ? userLocation : { lat: 45.0706, lon: 7.6867 };
+    const suggestions: MapSearchSuggestion[] = [];
+
+    gtfsNetwork.lines
+      .filter((line) => line.id.toLowerCase().startsWith(normalized) || line.name.toLowerCase().includes(normalized))
+      .slice(0, 3)
+      .forEach((line) => suggestions.push({
+        id: `line-${line.id}`,
+        kind: 'line',
+        label: `Linea ${line.id}`,
+        detail: `${line.direction} ↔ ${line.alternateDirection}`,
+        value: line.id,
+        targetId: line.id,
+      }));
+
+    gtfsNetwork.stops
+      .filter((stop) => stop.code.startsWith(normalized) || stop.name.toLowerCase().includes(normalized))
+      .sort((a, b) => distanceMeters(bias, a) - distanceMeters(bias, b))
+      .slice(0, 4)
+      .forEach((stop) => suggestions.push({
+        id: `stop-${stop.id}`,
+        kind: 'stop',
+        label: stop.name,
+        detail: `Palina ${stop.code} · ${stop.lines.slice(0, 3).join(', ')}`,
+        value: stop.name,
+        targetId: stop.id,
+      }));
+
+    vehicles
+      .filter((vehicle) => vehicle.vehicleId.includes(normalized) || vehicle.fleetNumber?.includes(normalized) || vehicle.direction.toLowerCase().includes(normalized))
+      .slice(0, 3)
+      .forEach((vehicle) => suggestions.push({
+        id: `vehicle-${vehicle.vehicleId}`,
+        kind: 'vehicle',
+        label: `Vettura ${vehicle.fleetNumber ?? vehicle.vehicleId}`,
+        detail: `Linea ${vehicle.line} · ${vehicle.direction}`,
+        value: vehicle.fleetNumber ?? vehicle.vehicleId,
+        targetId: vehicle.vehicleId,
+      }));
+
+    addressSuggestions.forEach((result, index) => suggestions.push({
+      id: `place-${result.lat}-${result.lon}-${index}`,
+      kind: 'place',
+      label: result.label.split(',')[0],
+      detail: result.label.split(',').slice(1).join(',').trim() || 'Area di Torino',
+      value: result.label,
+      lat: result.lat,
+      lon: result.lon,
+    }));
+    return suggestions.slice(0, 9);
+  }, [addressSuggestions, hasUserLocation, search, userLocation, vehicles]);
+
+  useEffect(() => {
+    const query = search.trim();
+    if (query.length < 3 || searchMode === 'place') {
+      setAddressSuggestions([]);
+      setSuggestionsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setSuggestionsLoading(true);
+      void geocodeTransitSuggestions(query, hasUserLocation ? userLocation : undefined)
+        .then((results) => {
+          if (!cancelled) setAddressSuggestions(results);
+        })
+        .catch(() => {
+          if (!cancelled) setAddressSuggestions([]);
+        })
+        .finally(() => {
+          if (!cancelled) setSuggestionsLoading(false);
+        });
+    }, 550);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [hasUserLocation, search, searchMode, userLocation]);
+
+  function openSearchedArea(result: GeocodingResult) {
+    setSearchMode('place');
+    setSearch(result.label);
+    setAddressSuggestions([]);
+    setSearchedArea(result);
+    setSelectedStop(undefined);
+    setMapFocus({ lat: result.lat, lon: result.lon });
+    setSelectedVehicleId(undefined);
+    setSelectedVehicleFallback(undefined);
+    setFollowedVehicleId(undefined);
+    setLineFilter(undefined);
+    setShowRouteForLine(undefined);
+    setActiveTab('map');
+    notify(`Area trovata: ${result.label}`);
+  }
+
+  function selectSearchSuggestion(suggestion: MapSearchSuggestion) {
+    if (suggestion.kind === 'line') {
+      const line = gtfsNetwork.lines.find((item) => item.id === suggestion.targetId);
+      if (line) openLine(line);
+      return;
+    }
+    if (suggestion.kind === 'stop') {
+      const stop = gtfsNetwork.stops.find((item) => item.id === suggestion.targetId);
+      if (stop) openStop(stop);
+      return;
+    }
+    if (suggestion.kind === 'vehicle') {
+      const vehicle = vehicles.find((item) => item.vehicleId === suggestion.targetId);
+      if (vehicle) openVehicle(vehicle);
+      return;
+    }
+    if (suggestion.lat != null && suggestion.lon != null) {
+      openSearchedArea({ lat: suggestion.lat, lon: suggestion.lon, label: suggestion.value });
+    }
+  }
 
   async function submitMapSearch() {
     const query = search.trim();
@@ -317,17 +438,7 @@ function App() {
         notify('Luogo non trovato nell’area di Torino e cintura');
         return;
       }
-      setSearchMode('place');
-      setSearchedArea(result);
-      setSelectedStop(undefined);
-      setMapFocus({ lat: result.lat, lon: result.lon });
-      setSelectedVehicleId(undefined);
-      setSelectedVehicleFallback(undefined);
-      setFollowedVehicleId(undefined);
-      setLineFilter(undefined);
-      setShowRouteForLine(undefined);
-      setActiveTab('map');
-      notify(`Area trovata: ${result.label}`);
+      openSearchedArea(result);
     } catch {
       notify('Ricerca luogo temporaneamente non disponibile');
     } finally {
@@ -416,11 +527,15 @@ function App() {
           onSearch={(value) => {
             setSearch(value);
             setSearchMode('filter');
+            setAddressSuggestions([]);
             setSearchedArea(undefined);
             setSelectedStop(undefined);
           }}
           onSearchSubmit={() => void submitMapSearch()}
           searchLoading={searchLoading}
+          searchSuggestions={searchSuggestions}
+          suggestionsLoading={suggestionsLoading}
+          onSelectSearchSuggestion={selectSearchSuggestion}
           searchedArea={searchedArea}
           nearbyStopCount={nearbyAreaStops.length}
           nearbyStops={nearbyAreaStops}

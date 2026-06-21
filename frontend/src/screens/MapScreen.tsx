@@ -3,6 +3,7 @@ import type { GtfsStop } from '../data/gtfsNetwork';
 import type { GeocodingResult } from '../services/geocoding';
 import type { LatLng, Vehicle } from '../types';
 import { AppHeader } from '../components/AppHeader';
+import type { MapSearchSuggestion } from '../components/AppHeader';
 import { BusMap } from '../components/BusMap';
 import { ServiceCard } from '../components/ServiceCard';
 import { VehicleSheet } from '../components/VehicleSheet';
@@ -23,6 +24,9 @@ type Props = {
   onSearch: (value: string) => void;
   onSearchSubmit: () => void;
   searchLoading: boolean;
+  searchSuggestions: MapSearchSuggestion[];
+  suggestionsLoading: boolean;
+  onSelectSearchSuggestion: (suggestion: MapSearchSuggestion) => void;
   searchedArea?: GeocodingResult;
   nearbyStopCount: number;
   nearbyStops: Array<{ stop: GtfsStop; distance: number }>;
@@ -57,6 +61,9 @@ export function MapScreen({
   onSearch,
   onSearchSubmit,
   searchLoading,
+  searchSuggestions,
+  suggestionsLoading,
+  onSelectSearchSuggestion,
   searchedArea,
   nearbyStopCount,
   nearbyStops,
@@ -93,7 +100,16 @@ export function MapScreen({
         onSelectVehicle={onSelectVehicle}
         onResetMap={onResetMap}
       />
-      <AppHeader search={search} onSearch={onSearch} onSearchSubmit={onSearchSubmit} searchLoading={searchLoading} onRadar={onRadar} />
+      <AppHeader
+        search={search}
+        onSearch={onSearch}
+        onSearchSubmit={onSearchSubmit}
+        searchLoading={searchLoading}
+        suggestions={searchSuggestions}
+        suggestionsLoading={suggestionsLoading}
+        onSelectSuggestion={onSelectSearchSuggestion}
+        onRadar={onRadar}
+      />
       {searchedArea && (
         <aside className="search-area-summary">
           <button type="button" aria-label="Chiudi area cercata" onClick={onClearSearchedArea}>×</button>

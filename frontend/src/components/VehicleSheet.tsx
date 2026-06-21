@@ -1,5 +1,5 @@
 import { Clock3, Gauge, LocateFixed, Route as RouteIcon, Star, X } from 'lucide-react';
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Vehicle } from '../types';
 import { notify } from '../utils/notify';
 import { vehicleIdentifierKind, vehicleIdentifierLabel } from '../utils/vehicleIdentity';
@@ -34,7 +34,20 @@ function routeTrackingText(vehicle: Vehicle) {
   return 'Tracciamento GTT: GPS reale, percorso non associato';
 }
 
+function cardinalDirection(bearing: number) {
+  const directions = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+  return directions[Math.round(((bearing % 360) + 360) % 360 / 45) % directions.length];
+}
+
 export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
+  const previousBearingRef = useRef(vehicle.bearing);
+  const [displayBearing, setDisplayBearing] = useState(vehicle.bearing);
+  useEffect(() => {
+    const previous = previousBearingRef.current;
+    const delta = ((vehicle.bearing - previous + 540) % 360) - 180;
+    previousBearingRef.current = vehicle.bearing;
+    setDisplayBearing((current) => current + delta);
+  }, [vehicle.bearing]);
   const vehicleKind = vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus');
   const speedSource = vehicle.speedSource === 'feed' ? 'Feed realtime' : vehicle.speedSource === 'observed' ? 'Calcolata da GPS' : 'Non disponibile';
   const rawVehicleLabel = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? vehicle.realtimeVehicleLabel : undefined;
@@ -105,15 +118,15 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         <div className="heading-metric">
           <span
             className="heading-compass"
-            style={{ '--vehicle-bearing': `${vehicle.bearing}deg` } as CSSProperties}
+            style={{ '--vehicle-bearing': `${displayBearing}deg` } as CSSProperties}
             role="img"
-            aria-label={`Prua ${Math.round(vehicle.bearing)} gradi`}
+            aria-label={`Direzione ${Math.round(vehicle.bearing)} gradi`}
           >
             <img src={`${import.meta.env.BASE_URL}assets/ui/compass-dial.png`} alt="" />
             <i aria-hidden="true" />
           </span>
           <strong>{Math.round(vehicle.bearing)}°</strong>
-          <span>Prua di navigazione</span>
+          <span>Direzione {cardinalDirection(vehicle.bearing)}</span>
         </div>
       </div>
       <div className="next-stops">

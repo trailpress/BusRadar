@@ -1,14 +1,36 @@
-import { Activity, LoaderCircle, Radar, Search } from 'lucide-react';
+import { Activity, BusFront, LoaderCircle, MapPin, Radar, Route, Search, Signpost } from 'lucide-react';
+
+export type MapSearchSuggestion = {
+  id: string;
+  kind: 'place' | 'stop' | 'line' | 'vehicle';
+  label: string;
+  detail: string;
+  value: string;
+  targetId?: string;
+  lat?: number;
+  lon?: number;
+};
 
 type Props = {
   search: string;
   onSearch: (value: string) => void;
   onSearchSubmit: () => void;
   searchLoading?: boolean;
+  suggestions: MapSearchSuggestion[];
+  suggestionsLoading?: boolean;
+  onSelectSuggestion: (suggestion: MapSearchSuggestion) => void;
   onRadar: () => void;
 };
 
-export function AppHeader({ search, onSearch, onSearchSubmit, searchLoading, onRadar }: Props) {
+const suggestionIcon = {
+  place: MapPin,
+  stop: Signpost,
+  line: Route,
+  vehicle: BusFront,
+};
+
+export function AppHeader({ search, onSearch, onSearchSubmit, searchLoading, suggestions, suggestionsLoading, onSelectSuggestion, onRadar }: Props) {
+  const showSuggestions = search.trim().length >= 2 && (suggestions.length > 0 || suggestionsLoading);
   return (
     <header className="app-header">
       <div className="brand-row">
@@ -41,7 +63,35 @@ export function AppHeader({ search, onSearch, onSearchSubmit, searchLoading, onR
           enterKeyHint="search"
           placeholder="Via, luogo, linea o vettura"
           onChange={(event) => onSearch(event.target.value)}
+          autoComplete="off"
+          aria-autocomplete="list"
+          aria-controls="map-search-suggestions"
         />
+        {showSuggestions && (
+          <div className="map-search-suggestions" id="map-search-suggestions" role="listbox">
+            {suggestions.map((suggestion) => {
+              const SuggestionIcon = suggestionIcon[suggestion.kind];
+              return (
+                <button
+                  type="button"
+                  role="option"
+                  key={suggestion.id}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => onSelectSuggestion(suggestion)}
+                >
+                  <SuggestionIcon size={16} />
+                  <span><strong>{suggestion.label}</strong><small>{suggestion.detail}</small></span>
+                </button>
+              );
+            })}
+            {suggestionsLoading && (
+              <div className="map-search-suggestion-loading">
+                <LoaderCircle className="is-spinning" size={15} />
+                Cerco indirizzi nell’area GTT…
+              </div>
+            )}
+          </div>
+        )}
       </form>
     </header>
   );
