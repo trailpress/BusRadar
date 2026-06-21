@@ -48,13 +48,14 @@
 }
 
 .maplibregl-popup.stop-map-popup {
-  z-index: 920;
+  z-index: 760;
   width: min(360px, calc(100vw - 24px));
 }
 
 .maplibregl-popup.stop-map-popup .maplibregl-popup-content {
   width: 100%;
-  max-height: min(68vh, 580px);
+  max-height: min(56vh, 520px);
+  max-height: min(56dvh, 520px);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 16px 14px;

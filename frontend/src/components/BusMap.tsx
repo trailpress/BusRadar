@@ -25,6 +25,7 @@ type Props = {
   selectedStop?: GtfsStop;
   selectedStopRequest?: number;
   onSelectVehicle: (vehicle: Vehicle) => void;
+  onStopPopupOpenChange?: (open: boolean) => void;
   onResetMap?: () => void;
 };
 
@@ -382,6 +383,7 @@ function showStopPopup(
   map: maplibregl.Map,
   properties: StopFeatureProperties,
   coordinates: [number, number],
+  onOpenChange?: (open: boolean) => void,
 ) {
   const popup = new maplibregl.Popup({
     className: 'stop-map-popup',
@@ -394,6 +396,8 @@ function showStopPopup(
     .setLngLat(coordinates)
     .setHTML(renderStopPopup(properties.name, properties.code, properties.lines, '<div class="arrival-list"><small>Carico passaggi...</small></div>'))
     .addTo(map);
+  onOpenChange?.(true);
+  popup.on('close', () => onOpenChange?.(false));
   let routeIds: string[] = [];
   let stopSequencesByRoute: Record<string, number[]> = {};
   try {
@@ -698,12 +702,13 @@ function installTransitLayers(map: maplibregl.Map) {
   });
 }
 
-export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, userLocationAccuracy, hasUserLocation, onLocateUser, showRouteForLine, searchedArea, selectedStop, selectedStopRequest, onSelectVehicle, onResetMap }: Props) {
+export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, userLocationAccuracy, hasUserLocation, onLocateUser, showRouteForLine, searchedArea, selectedStop, selectedStopRequest, onSelectVehicle, onStopPopupOpenChange, onResetMap }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | undefined>(undefined);
   const vehicleFramesRef = useRef<Map<string, VehicleFrame>>(new Map());
   const currentPositionsRef = useRef<Map<string, LatLng>>(new Map());
   const latestVehiclesRef = useRef<Vehicle[]>(vehicles);
+  const stopPopupRef = useRef<maplibregl.Popup | undefined>(undefined);
   const selectedVehicleIdRef = useRef<string | undefined>(selectedVehicleId);
   const followedVehicleIdRef = useRef<string | undefined>(followedVehicleId);
   const lastFollowCameraAtRef = useRef(0);
@@ -895,6 +900,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     if (!mapReady || !mapRef.current || !selectedStop) return;
     const map = mapRef.current;
     map.flyTo({ center: [selectedStop.lon, selectedStop.lat], zoom: 17, duration: 450 });
+    stopPopupRef.current?.remove();
     const popup = showStopPopup(
       map,
       {
@@ -906,11 +912,16 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         stopSequencesByRoute: '{}',
       },
       [selectedStop.lon, selectedStop.lat],
+      onStopPopupOpenChange,
     );
+    stopPopupRef.current = popup;
     return () => {
-      popup.remove();
+      if (stopPopupRef.current === popup) {
+        popup.remove();
+        stopPopupRef.current = undefined;
+      }
     };
-  }, [mapReady, selectedStop, selectedStopRequest]);
+  }, [mapReady, onStopPopupOpenChange, selectedStop, selectedStopRequest]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current || !followedVehicleId) return;
@@ -967,6 +978,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     const handleVehicleClick = (event: MapMouseEvent) => {
       const vehicle = vehicleAtPoint(event);
       if (!vehicle) return;
+      stopPopupRef.current?.remove();
+      stopPopupRef.current = undefined;
       const position = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
       hoverPopup.remove();
       clickPopup
@@ -981,7 +994,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       if (!feature) return;
       const properties = feature.properties as StopFeatureProperties;
       const coordinates = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
-      showStopPopup(map, properties, coordinates);
+      stopPopupRef.current?.remove();
+      stopPopupRef.current = showStopPopup(map, properties, coordinates, onStopPopupOpenChange);
     };
     const handleMove = (event: MapMouseEvent) => {
       const vehicle = vehicleAtPoint(event);
@@ -1005,8 +1019,10 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       map.off('mousemove', handleMove);
       hoverPopup.remove();
       clickPopup.remove();
+      stopPopupRef.current?.remove();
+      stopPopupRef.current = undefined;
     };
-  }, [mapReady, onSelectVehicle, selectedLine]);
+  }, [mapReady, onSelectVehicle, onStopPopupOpenChange, selectedLine]);
 
   const centerOnUser = async () => {
     if (hasUserLocation) {

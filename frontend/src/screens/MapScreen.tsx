@@ -1,4 +1,5 @@
 import { Layers3 } from 'lucide-react';
+import { useState } from 'react';
 import type { GtfsStop } from '../data/gtfsNetwork';
 import type { GeocodingResult } from '../services/geocoding';
 import type { LatLng, Vehicle } from '../types';
@@ -81,6 +82,7 @@ export function MapScreen({
   onShowRoute,
   onResetMap,
 }: Props) {
+  const [stopPopupOpen, setStopPopupOpen] = useState(false);
   return (
     <main className="screen map-screen">
       <BusMap
@@ -98,6 +100,7 @@ export function MapScreen({
         selectedStop={selectedStop}
         selectedStopRequest={selectedStopRequest}
         onSelectVehicle={onSelectVehicle}
+        onStopPopupOpenChange={setStopPopupOpen}
         onResetMap={onResetMap}
       />
       <AppHeader
@@ -110,7 +113,7 @@ export function MapScreen({
         onSelectSuggestion={onSelectSearchSuggestion}
         onRadar={onRadar}
       />
-      {searchedArea && (
+      {searchedArea && !stopPopupOpen && (
         <aside className="search-area-summary">
           <button type="button" aria-label="Chiudi area cercata" onClick={onClearSearchedArea}>×</button>
           <strong>{searchedArea.label}</strong>
@@ -140,7 +143,7 @@ export function MapScreen({
           <small>Ricerca e dati cartografici © OpenStreetMap</small>
         </aside>
       )}
-      <ServiceCard vehicles={vehicles} selectedLine={selectedLine} />
+      {!stopPopupOpen && <ServiceCard vehicles={vehicles} selectedLine={selectedLine} />}
       {(selectedLine || showRouteForLine || followedVehicleId) && (
         <button type="button" className={`map-reset-button${followedVehicleId ? ' with-follow' : ''}`} onClick={onResetMap}>
           <Layers3 size={16} />
