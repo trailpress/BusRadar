@@ -367,11 +367,15 @@ function renderArrivalItems(arrivals: GttStopArrival[]) {
 
 function renderStopArrivals(result: GttStopArrivalsResult) {
   if (result.arrivals.length > 0) {
-    const label = result.source === 'realtime' ? 'Previsioni realtime GTFS-RT' : 'Orari programmati GTFS statico';
+    const label = result.source === 'realtime'
+      ? 'Previsioni realtime GTFS-RT'
+      : result.source === 'mixed'
+        ? 'Realtime dove disponibile · programmato sulle altre linee'
+        : 'Orari programmati GTFS statico';
     return `<div class="stop-popup-source">${label}</div><div class="arrival-list">${renderArrivalItems(result.arrivals)}</div>`;
   }
 
-  return '<div class="stop-popup-source">Dati disponibili: fermata e linee</div><div class="arrival-list"><small>Nessun passaggio pubblicato nei prossimi minuti o nelle prossime ore del calendario caricato.</small></div>';
+  return '<div class="stop-popup-source">Orario GTFS statico consultato</div><div class="arrival-list"><small>Nessuna corsa programmata nelle prossime 30 ore per questa palina e per il calendario di servizio attivo.</small></div>';
 }
 
 function showStopPopup(

@@ -68,7 +68,7 @@ export type GttStopArrival = {
 
 export type GttStopArrivalsResult = {
   arrivals: GttStopArrival[];
-  source: 'realtime' | 'scheduled' | 'unavailable';
+  source: 'realtime' | 'scheduled' | 'mixed' | 'unavailable';
   checkedAt: string;
   realtimeCount: number;
   scheduledCount: number;
@@ -273,12 +273,16 @@ function scheduledStopArrivals(
   const now = new Date();
   const secondsNow = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
   const allowed = new Set(allowedRouteIds.flatMap((routeId) => [routeId, normalizeRouteName(routeId)]));
-  const maxHorizonSeconds = secondsNow + 4 * 3600;
+  const maxHorizonSeconds = secondsNow + 30 * 3600;
+  const serviceDays = [-1, 0, 1, 2].map((dayOffset) => {
+    const date = new Date(now);
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + dayOffset);
+    return { date, dayOffset };
+  });
 
-  return Object.entries(stopTimeIndex.trips)
+  const candidates = Object.entries(stopTimeIndex.trips)
     .flatMap(([tripId, trip]) => {
-      if (!serviceRunsToday(trip.serviceId, stopTimeIndex, now)) return [];
-
       const normalizedRouteId = normalizeRouteName(trip.line || trip.routeId);
       if (allowed.size > 0 && !allowed.has(trip.routeId) && !allowed.has(normalizedRouteId)) return [];
 
@@ -289,31 +293,53 @@ function scheduledStopArrivals(
       ]);
       const stopEntries = trip.stops.filter(([sequence, staticStopId]) => staticStopId === stopId || sequenceSet.has(sequence));
 
-      return stopEntries
-        .map(([sequence, , departureSeconds = -1, arrivalSeconds = -1]) => {
-          const seconds = departureSeconds >= 0 ? departureSeconds : arrivalSeconds;
-          if (seconds < secondsNow || seconds > maxHorizonSeconds) return undefined;
-          const minutes = Math.max(0, Math.round((seconds - secondsNow) / 60));
-          const displaySeconds = seconds % 86400;
-          const time = new Date(now);
-          time.setHours(Math.floor(displaySeconds / 3600), Math.floor((displaySeconds % 3600) / 60), 0, 0);
+      return serviceDays.flatMap(({ date, dayOffset }) => {
+        if (!serviceRunsToday(trip.serviceId, stopTimeIndex, date)) return [];
 
-          return {
-            routeId: trip.routeId,
-            line: normalizedRouteId,
-            tripId,
-            timeLabel: time.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
-            minutes,
-            source: 'scheduled' as const,
-            delaySeconds: undefined,
-            vehicleId: undefined,
-            sequence,
-          };
-        })
-        .filter((arrival): arrival is NonNullable<typeof arrival> => Boolean(arrival));
+        return stopEntries
+          .map(([sequence, , departureSeconds = -1, arrivalSeconds = -1]) => {
+            const tripSeconds = departureSeconds >= 0 ? departureSeconds : arrivalSeconds;
+            if (tripSeconds < 0) return undefined;
+            const absoluteSeconds = dayOffset * 86400 + tripSeconds;
+            if (absoluteSeconds < secondsNow || absoluteSeconds > maxHorizonSeconds) return undefined;
+
+            const minutes = Math.max(0, Math.round((absoluteSeconds - secondsNow) / 60));
+            const time = new Date(now);
+            time.setHours(0, 0, 0, 0);
+            time.setSeconds(absoluteSeconds);
+
+            return {
+              routeId: trip.routeId,
+              line: normalizedRouteId,
+              tripId,
+              timeLabel: time.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
+              minutes,
+              source: 'scheduled' as const,
+              delaySeconds: undefined,
+              vehicleId: undefined,
+              sequence,
+            };
+          })
+          .filter((arrival): arrival is NonNullable<typeof arrival> => Boolean(arrival));
+      });
     })
-    .sort((a, b) => a.minutes - b.minutes)
-    .slice(0, 8);
+    .sort((a, b) => a.minutes - b.minutes);
+
+  const earliestByLine = new Map<string, GttStopArrival>();
+  candidates.forEach((arrival) => {
+    if (!earliestByLine.has(arrival.line)) earliestByLine.set(arrival.line, arrival);
+  });
+  const selected = [...earliestByLine.values()];
+  const selectedTrips = new Set(selected.map((arrival) => `${arrival.tripId}:${arrival.timeLabel}`));
+  candidates.forEach((arrival) => {
+    if (selected.length >= 16) return;
+    const key = `${arrival.tripId}:${arrival.timeLabel}`;
+    if (!selectedTrips.has(key)) {
+      selected.push(arrival);
+      selectedTrips.add(key);
+    }
+  });
+  return selected.sort((a, b) => a.minutes - b.minutes).slice(0, 16);
 }
 
 export async function fetchGttStopArrivals(
@@ -378,11 +404,18 @@ export async function fetchGttStopArrivalsInfo(
     .slice(0, 8);
 
   const scheduledArrivals = scheduledStopArrivals(stopId, allowedRouteIds, stopSequencesByRoute, stopTimeIndex);
-  const arrivals = realtimeArrivals.length > 0 ? realtimeArrivals : scheduledArrivals;
+  const realtimeLines = new Set(realtimeArrivals.map((arrival) => arrival.line));
+  const scheduledFallbacks = scheduledArrivals.filter((arrival) => !realtimeLines.has(arrival.line));
+  const arrivals = [...realtimeArrivals, ...scheduledFallbacks]
+    .sort((a, b) => a.minutes - b.minutes)
+    .slice(0, 16);
+  const source = realtimeArrivals.length > 0
+    ? scheduledFallbacks.length > 0 ? 'mixed' : 'realtime'
+    : scheduledArrivals.length > 0 ? 'scheduled' : 'unavailable';
 
   return {
     arrivals,
-    source: realtimeArrivals.length > 0 ? 'realtime' : scheduledArrivals.length > 0 ? 'scheduled' : 'unavailable',
+    source,
     checkedAt: new Date(now).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
     realtimeCount: realtimeArrivals.length,
     scheduledCount: scheduledArrivals.length,
