@@ -1389,17 +1389,14 @@ button {
 
 .stats-grid {
   grid-template-columns: repeat(2, 1fr);
-  margin: 0 12px 12px;
+  margin: 12px;
 }
 
 .route-endpoint {
-  position: absolute;
-  right: 18px;
-  bottom: 184px;
-  z-index: 620;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  align-self: flex-start;
   padding: 8px 10px;
   border-radius: 12px;
   background: rgba(8, 12, 18, 0.86);
@@ -1408,6 +1405,73 @@ button {
 
 .live-line-section {
   gap: 10px;
+}
+
+.line-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin: 16px 12px 0;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.line-summary > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.line-summary strong {
+  font-size: 18px;
+}
+
+.line-summary span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.line-detail-facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.line-detail-facts > div {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 16px 6px;
+  text-align: center;
+}
+
+.line-detail-facts strong {
+  font-size: 18px;
+}
+
+.line-detail-facts span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.line-stops-section {
+  max-height: calc(100vh - 230px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.line-stops-section .stop-row {
+  width: 100%;
+  text-align: left;
+}
+
+.line-stops-section .stop-row > small {
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .line-live-vehicle {

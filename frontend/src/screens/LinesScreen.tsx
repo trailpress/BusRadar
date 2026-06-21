@@ -4,6 +4,7 @@ import { gtfsNetwork, type GtfsLine } from '../data/gtfsNetwork';
 import type { Vehicle } from '../types';
 import { LineBadge } from '../components/LineBadge';
 import { SearchBox } from '../components/SearchBox';
+import { isLineFavorite } from '../utils/lineFavorites';
 import { notify } from '../utils/notify';
 
 type Props = {
@@ -18,8 +19,8 @@ export function LinesScreen({ vehicles, onSelectLine }: Props) {
     () => gtfsNetwork.lines.filter((line) => line.id.toLowerCase().includes(normalized) || line.name.toLowerCase().includes(normalized) || line.direction.toLowerCase().includes(normalized)),
     [normalized],
   );
-  const favorites = filtered.filter((line) => line.favorite);
-  const others = filtered.filter((line) => !line.favorite);
+  const favorites = filtered.filter((line) => isLineFavorite(line.id, Boolean(line.favorite)));
+  const others = filtered.filter((line) => !isLineFavorite(line.id, Boolean(line.favorite)));
 
   const renderLine = (line: GtfsLine) => (
     <button key={line.id} className="line-row" type="button" onClick={() => onSelectLine(line)}>
@@ -29,7 +30,7 @@ export function LinesScreen({ vehicles, onSelectLine }: Props) {
         <span>{vehicles.filter((vehicle) => vehicle.line === line.id).length} mezzi realtime · {line.vehicleType === 'tram' ? 'tram' : 'bus'}</span>
       </div>
       <div className="row-meta">
-        {line.favorite ? <Star size={17} className="star-on" /> : <ChevronRight size={18} />}
+        {isLineFavorite(line.id, Boolean(line.favorite)) ? <Star size={17} className="star-on" /> : <ChevronRight size={18} />}
       </div>
     </button>
   );

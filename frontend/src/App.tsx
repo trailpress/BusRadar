@@ -293,6 +293,7 @@ function App() {
 
   function openStop(stop: Stop) {
     setSelectedStop(gtfsNetwork.stops.find((item) => item.id === stop.id));
+    setSelectedLine(undefined);
     setMapFocus({ lat: stop.lat, lon: stop.lon });
     setSelectedVehicleId(undefined);
     setSelectedVehicleFallback(undefined);
@@ -306,7 +307,7 @@ function App() {
   if (selectedLine) {
     return (
       <div className="app-shell">
-        <LineDetailScreen line={selectedLine} vehicles={vehicles} userLocation={userLocation} onBack={() => setSelectedLine(undefined)} onSelectVehicle={openVehicle} />
+        <LineDetailScreen line={selectedLine} vehicles={vehicles} userLocation={userLocation} onBack={() => setSelectedLine(undefined)} onSelectVehicle={openVehicle} onSelectStop={openStop} />
         {toast && <div className="toast">{toast}</div>}
         <BottomNav active="lines" onChange={handleTabChange} />
       </div>
