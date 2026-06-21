@@ -50,6 +50,8 @@
 .maplibregl-popup.stop-map-popup {
   z-index: 760;
   width: min(360px, calc(100vw - 24px));
+  pointer-events: auto;
+  touch-action: pan-y;
 }
 
 .maplibregl-popup.stop-map-popup .maplibregl-popup-content {
@@ -59,6 +61,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 16px 14px;
+  touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
 }

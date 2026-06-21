@@ -396,6 +396,10 @@ function showStopPopup(
     .setLngLat(coordinates)
     .setHTML(renderStopPopup(properties.name, properties.code, properties.lines, '<div class="arrival-list"><small>Carico passaggi...</small></div>'))
     .addTo(map);
+  const popupElement = popup.getElement();
+  const containPopupInteraction = (event: Event) => event.stopPropagation();
+  ['pointerdown', 'pointerup', 'pointermove', 'touchstart', 'touchmove', 'touchend', 'click', 'dblclick', 'wheel']
+    .forEach((eventName) => popupElement.addEventListener(eventName, containPopupInteraction, { passive: true }));
   onOpenChange?.(true);
   popup.on('close', () => onOpenChange?.(false));
   let routeIds: string[] = [];
