@@ -322,6 +322,23 @@
   gap: 5px;
 }
 
+.stop-line-button {
+  min-width: 0;
+  border: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.stop-line-button:active {
+  filter: brightness(1.18);
+  transform: scale(0.96);
+}
+
+.stop-line-button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
 .stop-popup-lines em,
 .stop-popup-source,
 .stop-popup-meta {

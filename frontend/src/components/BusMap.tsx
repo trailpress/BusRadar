@@ -25,6 +25,7 @@ type Props = {
   selectedStop?: GtfsStop;
   selectedStopRequest?: number;
   onSelectVehicle: (vehicle: Vehicle) => void;
+  onSelectLine?: (line: string) => void;
   onStopPopupOpenChange?: (open: boolean) => void;
   onResetMap?: () => void;
 };
@@ -354,7 +355,7 @@ function formatStopLines(lines: string) {
 
 function renderStopPopup(name: string, code: string, lines: string, content: string, checkedAt?: string) {
   const lineBadges = formatStopLines(lines)
-    .map((line) => `<span class="line-badge" style="--line-color:${getLineColor(line)}">${escapeHtml(line)}</span>`)
+    .map((line) => `<button type="button" class="line-badge stop-line-button" data-stop-line="${escapeHtml(line)}" style="--line-color:${getLineColor(line)}" aria-label="Mostra linea ${escapeHtml(line)}">${escapeHtml(line)}</button>`)
     .join('');
   const meta = checkedAt ? `<small class="stop-popup-meta">Aggiornato ${escapeHtml(checkedAt)}</small>` : '';
   return `<div class="stop-popup"><strong>${escapeHtml(name)}</strong><span>Palina ${escapeHtml(code)}</span><div class="stop-popup-lines">${lineBadges || '<em>Linee non disponibili</em>'}</div>${content}${meta}</div>`;
@@ -362,7 +363,7 @@ function renderStopPopup(name: string, code: string, lines: string, content: str
 
 function renderArrivalItems(arrivals: GttStopArrival[]) {
   return arrivals
-    .map((arrival) => `<div><span class="line-badge" style="--line-color:${getLineColor(arrival.line)}">${escapeHtml(arrival.line)}</span><span>${escapeHtml(arrival.timeLabel)}</span><em>${arrival.source === 'scheduled' ? 'prog.' : arrival.minutes === 0 ? 'ora' : `${arrival.minutes} min`}</em></div>`)
+    .map((arrival) => `<div><button type="button" class="line-badge stop-line-button" data-stop-line="${escapeHtml(arrival.line)}" style="--line-color:${getLineColor(arrival.line)}" aria-label="Mostra linea ${escapeHtml(arrival.line)}">${escapeHtml(arrival.line)}</button><span>${escapeHtml(arrival.timeLabel)}</span><em>${arrival.source === 'scheduled' ? 'prog.' : arrival.minutes === 0 ? 'ora' : `${arrival.minutes} min`}</em></div>`)
     .join('');
 }
 
@@ -384,6 +385,7 @@ function showStopPopup(
   properties: StopFeatureProperties,
   coordinates: [number, number],
   onOpenChange?: (open: boolean) => void,
+  onSelectLine?: (line: string) => void,
 ) {
   const popup = new maplibregl.Popup({
     className: 'stop-map-popup',
@@ -400,6 +402,14 @@ function showStopPopup(
   const containPopupInteraction = (event: Event) => event.stopPropagation();
   ['pointerdown', 'pointerup', 'pointermove', 'touchstart', 'touchmove', 'touchend', 'click', 'dblclick', 'wheel']
     .forEach((eventName) => popupElement.addEventListener(eventName, containPopupInteraction, { passive: true }));
+  popupElement.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement | null;
+    const lineButton = target?.closest<HTMLButtonElement>('[data-stop-line]');
+    const line = lineButton?.dataset.stopLine;
+    if (!line) return;
+    popup.remove();
+    onSelectLine?.(line);
+  });
   onOpenChange?.(true);
   popup.on('close', () => onOpenChange?.(false));
   let routeIds: string[] = [];
@@ -706,12 +716,13 @@ function installTransitLayers(map: maplibregl.Map) {
   });
 }
 
-export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, userLocationAccuracy, hasUserLocation, onLocateUser, showRouteForLine, searchedArea, selectedStop, selectedStopRequest, onSelectVehicle, onStopPopupOpenChange, onResetMap }: Props) {
+export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, userLocationAccuracy, hasUserLocation, onLocateUser, showRouteForLine, searchedArea, selectedStop, selectedStopRequest, onSelectVehicle, onSelectLine, onStopPopupOpenChange, onResetMap }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | undefined>(undefined);
   const vehicleFramesRef = useRef<Map<string, VehicleFrame>>(new Map());
   const currentPositionsRef = useRef<Map<string, LatLng>>(new Map());
   const latestVehiclesRef = useRef<Vehicle[]>(vehicles);
+  const onSelectLineRef = useRef(onSelectLine);
   const stopPopupRef = useRef<maplibregl.Popup | undefined>(undefined);
   const selectedVehicleIdRef = useRef<string | undefined>(selectedVehicleId);
   const followedVehicleIdRef = useRef<string | undefined>(followedVehicleId);
@@ -722,6 +733,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const [locatingUser, setLocatingUser] = useState(false);
 
   latestVehiclesRef.current = vehicles;
+  onSelectLineRef.current = onSelectLine;
   selectedVehicleIdRef.current = selectedVehicleId;
   followedVehicleIdRef.current = followedVehicleId;
 
@@ -917,6 +929,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       },
       [selectedStop.lon, selectedStop.lat],
       onStopPopupOpenChange,
+      (line) => onSelectLineRef.current?.(line),
     );
     stopPopupRef.current = popup;
     return () => {
@@ -999,7 +1012,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       const properties = feature.properties as StopFeatureProperties;
       const coordinates = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
       stopPopupRef.current?.remove();
-      stopPopupRef.current = showStopPopup(map, properties, coordinates, onStopPopupOpenChange);
+      stopPopupRef.current = showStopPopup(map, properties, coordinates, onStopPopupOpenChange, (line) => onSelectLineRef.current?.(line));
     };
     const handleMove = (event: MapMouseEvent) => {
       const vehicle = vehicleAtPoint(event);

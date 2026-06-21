@@ -100,6 +100,7 @@ export function MapScreen({
         selectedStop={selectedStop}
         selectedStopRequest={selectedStopRequest}
         onSelectVehicle={onSelectVehicle}
+        onSelectLine={onSelectAreaLine}
         onStopPopupOpenChange={setStopPopupOpen}
         onResetMap={onResetMap}
       />
