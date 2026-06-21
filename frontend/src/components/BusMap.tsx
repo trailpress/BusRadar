@@ -740,7 +740,10 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const stopPopupRef = useRef<maplibregl.Popup | undefined>(undefined);
   const selectedVehicleIdRef = useRef<string | undefined>(selectedVehicleId);
   const followedVehicleIdRef = useRef<string | undefined>(followedVehicleId);
+  const followedVehicleStartedRef = useRef<string | undefined>(undefined);
+  const vehicleLastSeenAtRef = useRef<Map<string, number>>(new Map());
   const lastFollowCameraAtRef = useRef(0);
+  const lastVehicleRenderAtRef = useRef(0);
   const userCenterRefinementUntilRef = useRef(0);
   const hadFocusedViewRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
@@ -872,10 +875,15 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     if (!mapReady) return;
     const now = performance.now();
     const active = new Set(visibleVehicles.map((vehicle) => vehicle.vehicleId));
+    visibleVehicles.forEach((vehicle) => vehicleLastSeenAtRef.current.set(vehicle.vehicleId, now));
     vehicleFramesRef.current.forEach((_, id) => {
-      if (!active.has(id)) {
+      const isFollowed = id === followedVehicleIdRef.current;
+      const lastSeenAt = vehicleLastSeenAtRef.current.get(id) ?? 0;
+      const keepDuringFeedGap = isFollowed && now - lastSeenAt <= 45_000;
+      if (!active.has(id) && !keepDuringFeedGap) {
         vehicleFramesRef.current.delete(id);
         currentPositionsRef.current.delete(id);
+        vehicleLastSeenAtRef.current.delete(id);
       }
     });
     visibleVehicles.forEach((vehicle) => {
@@ -899,14 +907,32 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     if (!mapReady || !mapRef.current) return;
     let frameId = 0;
     const tick = (time: number) => {
+      if (time - lastVehicleRenderAtRef.current < 50) {
+        frameId = requestAnimationFrame(tick);
+        return;
+      }
+      lastVehicleRenderAtRef.current = time;
       const animatedVehicles: Vehicle[] = [];
       vehicleFramesRef.current.forEach((frame, id) => {
-        const elapsed = Math.min(1, Math.max(0, (time - frame.startedAt) / frame.durationMs));
-        const routeState = frame.routePath && frame.fromRouteProgress != null && frame.toRouteProgress != null
-          ? interpolatePathState(
-            frame.routePath,
-            frame.fromRouteProgress + (frame.toRouteProgress - frame.fromRouteProgress) * elapsed,
+        const rawElapsed = Math.max(0, (time - frame.startedAt) / frame.durationMs);
+        const canExtrapolateFollowedRoute = (
+          id === followedVehicleIdRef.current
+          && frame.routePath
+          && frame.fromRouteProgress != null
+          && frame.toRouteProgress != null
+        );
+        const elapsed = Math.min(canExtrapolateFollowedRoute ? 2 : 1, rawElapsed);
+        const routeProgress = frame.fromRouteProgress != null && frame.toRouteProgress != null
+          ? Math.min(
+            0.999999,
+            Math.max(
+              0,
+              frame.fromRouteProgress + (frame.toRouteProgress - frame.fromRouteProgress) * elapsed,
+            ),
           )
+          : undefined;
+        const routeState = frame.routePath && routeProgress != null
+          ? interpolatePathState(frame.routePath, routeProgress)
           : undefined;
         const position = routeState?.point ?? {
           lat: frame.from.lat + (frame.to.lat - frame.from.lat) * elapsed,
@@ -929,7 +955,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       );
       const followedId = followedVehicleIdRef.current;
       const followedPosition = followedId ? currentPositionsRef.current.get(followedId) : undefined;
-      if (followedPosition && time - lastFollowCameraAtRef.current > 100) {
+      if (followedPosition && time - lastFollowCameraAtRef.current > 250) {
         const target = new maplibregl.LngLat(followedPosition.lon, followedPosition.lat);
         map.jumpTo({ center: target });
         lastFollowCameraAtRef.current = time;
@@ -982,16 +1008,22 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
 
   useEffect(() => {
     if (!mapReady || !mapRef.current || !followedVehicleId) return;
+    if (followedVehicleStartedRef.current === followedVehicleId) return;
     const vehicle = vehicles.find((item) => item.vehicleId === followedVehicleId);
     const position = currentPositionsRef.current.get(followedVehicleId) ?? vehicle;
     if (!position) return;
+    followedVehicleStartedRef.current = followedVehicleId;
     lastFollowCameraAtRef.current = 0;
-    mapRef.current.easeTo({
+    mapRef.current.jumpTo({
       center: [position.lon, position.lat],
       zoom: Math.max(mapRef.current.getZoom(), 16.2),
-      duration: 500,
     });
   }, [followedVehicleId, mapReady, vehicles]);
+
+  useEffect(() => {
+    if (followedVehicleId) return;
+    followedVehicleStartedRef.current = undefined;
+  }, [followedVehicleId]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
