@@ -1374,6 +1374,15 @@ button {
   color: #fff;
 }
 
+.icon-button .is-locating {
+  animation: location-pulse 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes location-pulse {
+  from { opacity: 0.45; transform: scale(0.88); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 .line-map-panel {
   height: min(560px, calc(100vh - 260px));
   margin: 12px 0 0;

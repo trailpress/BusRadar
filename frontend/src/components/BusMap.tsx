@@ -705,6 +705,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const hadFocusedViewRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [zoom, setZoom] = useState(13);
+  const [locatingUser, setLocatingUser] = useState(false);
 
   latestVehiclesRef.current = vehicles;
   selectedVehicleIdRef.current = selectedVehicleId;
@@ -1003,9 +1004,17 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   }, [mapReady, onSelectVehicle, selectedLine]);
 
   const centerOnUser = async () => {
-    const located = await onLocateUser?.();
-    const target = located ?? userLocation;
-    mapRef.current?.flyTo({ center: [target.lon, target.lat], zoom: 15, duration: 450 });
+    if (hasUserLocation) {
+      mapRef.current?.easeTo({ center: [userLocation.lon, userLocation.lat], zoom: Math.max(mapRef.current.getZoom(), 15), duration: 280 });
+    }
+    setLocatingUser(true);
+    try {
+      const located = await onLocateUser?.();
+      if (!located) return;
+      mapRef.current?.easeTo({ center: [located.lon, located.lat], zoom: Math.max(mapRef.current.getZoom(), 15), duration: hasUserLocation ? 220 : 380 });
+    } finally {
+      setLocatingUser(false);
+    }
   };
 
   const resetToOverview = () => {
@@ -1024,8 +1033,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       </button>
       <div ref={containerRef} className="bus-map" />
       <div className="map-floating-controls">
-        <IconButton label="Centra posizione" onClick={() => void centerOnUser()}>
-          <LocateFixed size={20} />
+        <IconButton label={locatingUser ? 'Ricerca posizione in corso' : 'Centra posizione'} active={hasUserLocation || locatingUser} onClick={() => void centerOnUser()}>
+          <LocateFixed size={20} className={locatingUser ? 'is-locating' : undefined} />
         </IconButton>
       </div>
     </div>

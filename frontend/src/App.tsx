@@ -41,19 +41,42 @@ function App() {
   const [toast, setToast] = useState<string>();
   const locationWatchRef = useRef<number | undefined>(undefined);
   const locationPermissionRef = useRef<PermissionStatus | undefined>(undefined);
+  const latestLocationRef = useRef<{ point: LatLng; timestamp: number; accuracy: number } | undefined>(undefined);
+  const pendingLocationRequestRef = useRef<Promise<LatLng | undefined> | undefined>(undefined);
+
+  const applyUserPosition = useCallback((position: GeolocationPosition) => {
+    const point = { lat: position.coords.latitude, lon: position.coords.longitude };
+    latestLocationRef.current = {
+      point,
+      timestamp: position.timestamp || Date.now(),
+      accuracy: position.coords.accuracy,
+    };
+    setHasUserLocation(true);
+    setUserLocation(point);
+    return point;
+  }, []);
 
   const startLocationWatch = useCallback(() => {
     if (!navigator.geolocation) return;
-    if (locationWatchRef.current != null) navigator.geolocation.clearWatch(locationWatchRef.current);
+    if (locationWatchRef.current != null) return;
     locationWatchRef.current = navigator.geolocation.watchPosition(
-      (position) => {
-        setHasUserLocation(true);
-        setUserLocation({ lat: position.coords.latitude, lon: position.coords.longitude });
+      applyUserPosition,
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          locationWatchRef.current = undefined;
+        }
       },
-      () => undefined,
-      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 },
+      { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 },
     );
-  }, []);
+  }, [applyUserPosition]);
+
+  const restartLocationWatch = useCallback(() => {
+    if (locationWatchRef.current != null) {
+      navigator.geolocation?.clearWatch(locationWatchRef.current);
+      locationWatchRef.current = undefined;
+    }
+    startLocationWatch();
+  }, [startLocationWatch]);
 
   const refreshLocationPermission = useCallback(async () => {
     if (!navigator.permissions?.query || !navigator.geolocation) return;
@@ -62,62 +85,83 @@ function App() {
       locationPermissionRef.current = permission;
       if (permission.state === 'granted') {
         setShowLocationHelp(false);
-        startLocationWatch();
+        restartLocationWatch();
       }
     } catch {
-      // Safari does not expose a reliable Permissions API on every version.
+      // Safari may omit Permissions API: a previously authorized watch can still restart.
+      if (latestLocationRef.current) restartLocationWatch();
     }
-  }, [startLocationWatch]);
+  }, [restartLocationWatch]);
 
-  const requestUserLocation = useCallback(() => new Promise<LatLng | undefined>((resolve) => {
+  const requestUserLocation = useCallback(() => {
     if (!navigator.geolocation) {
       notify('Geolocalizzazione non disponibile su questo browser');
       if (isIosLikeDevice()) setShowLocationHelp(true);
-      resolve(undefined);
-      return;
+      return Promise.resolve(undefined);
     }
 
     const isSecure = window.isSecureContext || ['localhost', '127.0.0.1'].includes(window.location.hostname);
     if (!isSecure) {
       notify('Apri BusRadar in HTTPS per usare la posizione su iPhone');
       if (isIosLikeDevice()) setShowLocationHelp(true);
-      resolve(undefined);
-      return;
+      return Promise.resolve(undefined);
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const nextLocation = { lat: position.coords.latitude, lon: position.coords.longitude };
-        setShowLocationHelp(false);
-        setHasUserLocation(true);
-        setUserLocation(nextLocation);
-        startLocationWatch();
-        notify(`Posizione aggiornata · precisione ${Math.round(position.coords.accuracy)} m`);
-        resolve(nextLocation);
-      },
-      (error) => {
-        const message = error.code === error.PERMISSION_DENIED
-          ? 'Consenti la posizione per Safari/iPhone e riprova'
-          : error.code === error.TIMEOUT
-            ? 'Posizione non trovata: riprova tra qualche secondo'
-            : 'Posizione iPhone non disponibile ora';
-        if (isIosLikeDevice() || error.code === error.PERMISSION_DENIED) setShowLocationHelp(true);
-        notify(message);
-        resolve(undefined);
-      },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
-    );
-  }), [startLocationWatch]);
+    const cached = latestLocationRef.current;
+    const cachedIsUsable = cached && Date.now() - cached.timestamp < 120_000;
+    if (cachedIsUsable) {
+      startLocationWatch();
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          applyUserPosition(position);
+          setShowLocationHelp(false);
+        },
+        () => undefined,
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 },
+      );
+      return Promise.resolve(cached.point);
+    }
+
+    if (pendingLocationRequestRef.current) return pendingLocationRequestRef.current;
+
+    const request = new Promise<LatLng | undefined>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const nextLocation = applyUserPosition(position);
+          setShowLocationHelp(false);
+          startLocationWatch();
+          notify(`Posizione trovata · precisione ${Math.round(position.coords.accuracy)} m`);
+          resolve(nextLocation);
+        },
+        (error) => {
+          const message = error.code === error.PERMISSION_DENIED
+            ? 'Consenti la posizione per Safari/iPhone e riprova'
+            : error.code === error.TIMEOUT
+              ? 'GPS lento: riprova tra qualche secondo'
+              : 'Posizione iPhone non disponibile ora';
+          if (isIosLikeDevice() || error.code === error.PERMISSION_DENIED) setShowLocationHelp(true);
+          notify(message);
+          resolve(undefined);
+        },
+        { enableHighAccuracy: false, maximumAge: 60_000, timeout: 5000 },
+      );
+    }).finally(() => {
+      pendingLocationRequestRef.current = undefined;
+    });
+
+    pendingLocationRequestRef.current = request;
+    return request;
+  }, [applyUserPosition, startLocationWatch]);
 
   useEffect(() => {
     navigator.permissions?.query({ name: 'geolocation' as PermissionName })
       .then((permission) => {
         locationPermissionRef.current = permission;
-        if (permission.state === 'granted') startLocationWatch();
+        if (permission.state === 'granted') restartLocationWatch();
         permission.onchange = () => {
           if (permission.state === 'granted') {
             setShowLocationHelp(false);
-            startLocationWatch();
+            restartLocationWatch();
           }
         };
       })
@@ -135,7 +179,7 @@ function App() {
       window.removeEventListener('focus', refreshLocationPermission);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [refreshLocationPermission, startLocationWatch]);
+  }, [refreshLocationPermission, restartLocationWatch]);
 
   useEffect(() => {
     let cancelled = false;
