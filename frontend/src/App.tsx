@@ -37,6 +37,7 @@ function App() {
   const [mapFocus, setMapFocus] = useState<LatLng>();
   const [userLocation, setUserLocation] = useState<LatLng>({ lat: 45.0706, lon: 7.6867 });
   const [hasUserLocation, setHasUserLocation] = useState(false);
+  const [userLocationAccuracy, setUserLocationAccuracy] = useState<number>();
   const [showLocationHelp, setShowLocationHelp] = useState(false);
   const [toast, setToast] = useState<string>();
   const locationWatchRef = useRef<number | undefined>(undefined);
@@ -46,13 +47,21 @@ function App() {
 
   const applyUserPosition = useCallback((position: GeolocationPosition) => {
     const point = { lat: position.coords.latitude, lon: position.coords.longitude };
+    const previous = latestLocationRef.current;
+    const timestamp = position.timestamp || Date.now();
+    const accuracy = position.coords.accuracy;
+    const previousIsFresh = previous && timestamp - previous.timestamp < 15_000;
+    if (previousIsFresh && previous.accuracy < 80 && accuracy > previous.accuracy * 1.8) {
+      return previous.point;
+    }
     latestLocationRef.current = {
       point,
-      timestamp: position.timestamp || Date.now(),
-      accuracy: position.coords.accuracy,
+      timestamp,
+      accuracy,
     };
     setHasUserLocation(true);
     setUserLocation(point);
+    setUserLocationAccuracy(accuracy);
     return point;
   }, []);
 
@@ -108,7 +117,7 @@ function App() {
     }
 
     const cached = latestLocationRef.current;
-    const cachedIsUsable = cached && Date.now() - cached.timestamp < 120_000;
+    const cachedIsUsable = cached && Date.now() - cached.timestamp < 45_000 && cached.accuracy <= 100;
     if (cachedIsUsable) {
       startLocationWatch();
       navigator.geolocation.getCurrentPosition(
@@ -125,26 +134,47 @@ function App() {
     if (pendingLocationRequestRef.current) return pendingLocationRequestRef.current;
 
     const request = new Promise<LatLng | undefined>((resolve) => {
-      navigator.geolocation.getCurrentPosition(
+      let bestPosition: GeolocationPosition | undefined;
+      let settled = false;
+      let watchId = 0;
+      let deadline = 0;
+      const finish = (position?: GeolocationPosition) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(deadline);
+        navigator.geolocation.clearWatch(watchId);
+        if (!position) {
+          notify('GPS non sufficientemente preciso: riprova all’aperto');
+          resolve(undefined);
+          return;
+        }
+        const nextLocation = applyUserPosition(position);
+        setShowLocationHelp(false);
+        startLocationWatch();
+        notify(`Posizione trovata · precisione ${Math.round(position.coords.accuracy)} m`);
+        resolve(nextLocation);
+      };
+      const failPermission = () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(deadline);
+        navigator.geolocation.clearWatch(watchId);
+        setShowLocationHelp(true);
+        notify('Consenti la posizione precisa nel browser e riprova');
+        resolve(undefined);
+      };
+      watchId = navigator.geolocation.watchPosition(
         (position) => {
-          const nextLocation = applyUserPosition(position);
-          setShowLocationHelp(false);
-          startLocationWatch();
-          notify(`Posizione trovata · precisione ${Math.round(position.coords.accuracy)} m`);
-          resolve(nextLocation);
+          if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) bestPosition = position;
+          if (position.coords.accuracy <= 35) finish(position);
         },
         (error) => {
-          const message = error.code === error.PERMISSION_DENIED
-            ? 'Consenti la posizione per Safari/iPhone e riprova'
-            : error.code === error.TIMEOUT
-              ? 'GPS lento: riprova tra qualche secondo'
-              : 'Posizione iPhone non disponibile ora';
-          if (isIosLikeDevice() || error.code === error.PERMISSION_DENIED) setShowLocationHelp(true);
-          notify(message);
-          resolve(undefined);
+          if (error.code !== error.PERMISSION_DENIED) return;
+          failPermission();
         },
-        { enableHighAccuracy: false, maximumAge: 60_000, timeout: 5000 },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 },
       );
+      deadline = window.setTimeout(() => finish(bestPosition), 6500);
     }).finally(() => {
       pendingLocationRequestRef.current = undefined;
     });
@@ -273,7 +303,16 @@ function App() {
 
     setSearchLoading(true);
     try {
-      const result = await geocodeTransitArea(query);
+      const matchingStops = gtfsNetwork.stops
+        .filter((stop) => stop.name.toLowerCase().includes(query.toLowerCase()) || stop.code === query)
+        .sort((a, b) => distanceMeters(hasUserLocation ? userLocation : { lat: 45.0706, lon: 7.6867 }, a) - distanceMeters(hasUserLocation ? userLocation : { lat: 45.0706, lon: 7.6867 }, b));
+      const exactStop = matchingStops.find((stop) => stop.code === query || stop.name.toLowerCase() === query.toLowerCase());
+      if (exactStop || matchingStops.length === 1) {
+        openStop(exactStop ?? matchingStops[0]);
+        return;
+      }
+
+      const result = await geocodeTransitArea(query, hasUserLocation ? userLocation : undefined);
       if (!result) {
         notify('Luogo non trovato nell’area di Torino e cintura');
         return;
@@ -369,6 +408,7 @@ function App() {
           followedVehicleId={followedVehicleId}
           focusPoint={mapFocus}
           userLocation={userLocation}
+          userLocationAccuracy={userLocationAccuracy}
           hasUserLocation={hasUserLocation}
           onLocateUser={requestUserLocation}
           showRouteForLine={showRouteForLine}
@@ -465,14 +505,28 @@ function App() {
       {showLocationHelp && (
         <div className="location-help" role="dialog" aria-label="Abilita posizione">
           <div>
-            <strong>Abilita posizione su iPhone</strong>
-            <span>Safari puo mostrare il menu permessi solo dopo un tuo tocco. Se hai gia negato, abilita da Impostazioni.</span>
-            <ol>
-              <li>Impostazioni iPhone</li>
-              <li>Privacy e sicurezza</li>
-              <li>Localizzazione</li>
-              <li>Safari: Consenti durante l'uso</li>
-            </ol>
+            <strong>Abilita posizione precisa</strong>
+            {isIosLikeDevice() ? (
+              <>
+                <span>Safari può mostrare il menu permessi solo dopo un tuo tocco. Verifica anche che “Posizione precisa” sia attiva.</span>
+                <ol>
+                  <li>Impostazioni iPhone</li>
+                  <li>Privacy e sicurezza · Localizzazione</li>
+                  <li>Safari</li>
+                  <li>Durante l’uso e Posizione precisa</li>
+                </ol>
+              </>
+            ) : (
+              <>
+                <span>Chrome può usare una posizione approssimativa anche quando il permesso risulta attivo.</span>
+                <ol>
+                  <li>Apri le informazioni del sito in Chrome</li>
+                  <li>Autorizzazioni · Posizione</li>
+                  <li>Seleziona Consenti</li>
+                  <li>In Android attiva “Usa posizione precisa”</li>
+                </ol>
+              </>
+            )}
             <div>
               <button type="button" onClick={() => void requestUserLocation()}>Riprova autorizzazione</button>
               <button type="button" className="secondary" onClick={() => setShowLocationHelp(false)}>Chiudi</button>

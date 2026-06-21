@@ -17,6 +17,7 @@ type Props = {
   followedVehicleId?: string;
   focusPoint?: LatLng;
   userLocation: LatLng;
+  userLocationAccuracy?: number;
   hasUserLocation?: boolean;
   onLocateUser?: () => Promise<LatLng | undefined>;
   showRouteForLine?: string;
@@ -693,7 +694,7 @@ function installTransitLayers(map: maplibregl.Map) {
   });
 }
 
-export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, hasUserLocation, onLocateUser, showRouteForLine, searchedArea, selectedStop, selectedStopRequest, onSelectVehicle, onResetMap }: Props) {
+export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, userLocationAccuracy, hasUserLocation, onLocateUser, showRouteForLine, searchedArea, selectedStop, selectedStopRequest, onSelectVehicle, onResetMap }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | undefined>(undefined);
   const vehicleFramesRef = useRef<Map<string, VehicleFrame>>(new Map());
@@ -1033,7 +1034,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       </button>
       <div ref={containerRef} className="bus-map" />
       <div className="map-floating-controls">
-        <IconButton label={locatingUser ? 'Ricerca posizione in corso' : 'Centra posizione'} active={hasUserLocation || locatingUser} onClick={() => void centerOnUser()}>
+        <IconButton label={locatingUser ? 'Ricerca posizione precisa in corso' : userLocationAccuracy ? `Centra posizione · precisione ${Math.round(userLocationAccuracy)} m` : 'Centra posizione'} active={hasUserLocation || locatingUser} onClick={() => void centerOnUser()}>
           <LocateFixed size={20} className={locatingUser ? 'is-locating' : undefined} />
         </IconButton>
       </div>
