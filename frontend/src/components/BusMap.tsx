@@ -691,6 +691,20 @@ function installTransitLayers(map: maplibregl.Map) {
   });
 
   map.addLayer({
+    id: 'user-accuracy',
+    type: 'circle',
+    source: 'user',
+    paint: {
+      'circle-radius': ['get', 'accuracyPixels'],
+      'circle-color': '#2f7dff',
+      'circle-opacity': 0.1,
+      'circle-stroke-color': '#2f7dff',
+      'circle-stroke-opacity': 0.35,
+      'circle-stroke-width': 1.5,
+    },
+  });
+
+  map.addLayer({
     id: 'user-circle',
     type: 'circle',
     source: 'user',
@@ -790,6 +804,14 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     return stopsForRoutes(highlightedRoutes);
   }, [highlightedRoutes, selectedLine, showRouteForLine]);
   const showOverviewStops = !showRouteForLine && !selectedLine && zoom >= 16;
+  const userAccuracyPixels = useMemo(() => {
+    if (!userLocationAccuracy) return 12;
+    const metersPerPixel = (
+      156543.03392
+      * Math.cos((userLocation.lat * Math.PI) / 180)
+    ) / (2 ** zoom);
+    return Math.min(180, Math.max(12, userLocationAccuracy / metersPerPixel));
+  }, [userLocation.lat, userLocationAccuracy, zoom]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
@@ -812,10 +834,26 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       mapRef.current,
       'user',
       hasUserLocation
-        ? { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [userLocation.lon, userLocation.lat] }, properties: {} }] }
+        ? {
+          type: 'FeatureCollection',
+          features: [{
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [userLocation.lon, userLocation.lat] },
+            properties: { accuracyPixels: userAccuracyPixels },
+          }],
+        }
         : emptyPointCollection(),
     );
-  }, [hasUserLocation, mapReady, userLocation.lat, userLocation.lon]);
+  }, [hasUserLocation, mapReady, userAccuracyPixels, userLocation.lat, userLocation.lon]);
+
+  useEffect(() => {
+    if (!locatingUser || !hasUserLocation || !mapReady || !mapRef.current) return;
+    mapRef.current.easeTo({
+      center: [userLocation.lon, userLocation.lat],
+      zoom: Math.max(mapRef.current.getZoom(), 15),
+      duration: 220,
+    });
+  }, [hasUserLocation, locatingUser, mapReady, userLocation.lat, userLocation.lon]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
