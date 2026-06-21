@@ -42,6 +42,7 @@ type Props = {
   onSelectVehicle: (vehicle: Vehicle) => void;
   onClearVehicle: () => void;
   onFollowVehicle: (vehicle: Vehicle) => void;
+  onToggleVehicleFavorite: (vehicle: Vehicle) => void;
   onShowRoute: (vehicle: Vehicle) => void;
   onResetMap: () => void;
 };
@@ -79,6 +80,7 @@ export function MapScreen({
   onSelectVehicle,
   onClearVehicle,
   onFollowVehicle,
+  onToggleVehicleFavorite,
   onShowRoute,
   onResetMap,
 }: Props) {
@@ -159,14 +161,12 @@ export function MapScreen({
           <span>La mappa resta centrata sul mezzo realtime</span>
         </div>
       )}
-      {(selectedVehicle ?? selectedVehicleFallback) && (
+      {!followedVehicleId && (selectedVehicle ?? selectedVehicleFallback) && (
         <VehicleSheet
           vehicle={(selectedVehicle ?? selectedVehicleFallback)!}
           onClose={onClearVehicle}
-          onFollow={() => {
-            onFollowVehicle((selectedVehicle ?? selectedVehicleFallback)!);
-            onClearVehicle();
-          }}
+          onFollow={() => onFollowVehicle((selectedVehicle ?? selectedVehicleFallback)!)}
+          onToggleFavorite={() => onToggleVehicleFavorite((selectedVehicle ?? selectedVehicleFallback)!)}
           onRoute={() => onShowRoute((selectedVehicle ?? selectedVehicleFallback)!)}
         />
       )}

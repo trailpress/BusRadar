@@ -1,13 +1,13 @@
 import { Clock3, Gauge, LocateFixed, Route as RouteIcon, Star, X } from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Vehicle } from '../types';
-import { notify } from '../utils/notify';
 import { vehicleIdentifierKind, vehicleIdentifierLabel } from '../utils/vehicleIdentity';
 import { LineBadge } from './LineBadge';
 
 type Props = {
   vehicle: Vehicle;
   onFollow: () => void;
+  onToggleFavorite: () => void;
   onRoute: () => void;
   onClose: () => void;
 };
@@ -39,7 +39,7 @@ function cardinalDirection(bearing: number) {
   return directions[Math.round(((bearing % 360) + 360) % 360 / 45) % directions.length];
 }
 
-export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
+export function VehicleSheet({ vehicle, onFollow, onToggleFavorite, onRoute, onClose }: Props) {
   const previousBearingRef = useRef(vehicle.bearing);
   const [displayBearing, setDisplayBearing] = useState(vehicle.bearing);
   useEffect(() => {
@@ -68,7 +68,12 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
   return (
     <section className="vehicle-sheet" aria-label={`Dettaglio mezzo ${vehicle.vehicleId}`}>
       <div className="detail-nav">
-        <button type="button" aria-label="Aggiungi ai preferiti" onClick={() => notify(`${identifierLabel} aggiunto ai preferiti`)}>
+        <button
+          type="button"
+          aria-label={vehicle.favorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+          aria-pressed={Boolean(vehicle.favorite)}
+          onClick={onToggleFavorite}
+        >
           <Star size={18} className={vehicle.favorite ? 'star-on' : ''} />
         </button>
         <strong>Dettagli mezzo</strong>
@@ -143,7 +148,13 @@ export function VehicleSheet({ vehicle, onFollow, onRoute, onClose }: Props) {
         </div>
       </div>
       <div className="sheet-actions">
-        <button type="button" onClick={onFollow}>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onFollow();
+          }}
+        >
           <LocateFixed size={17} />
           Segui vettura
         </button>

@@ -93,6 +93,7 @@ type StopTimeIndex = {
 
 export const GTT_REALTIME_API_BASE =
   import.meta.env.VITE_REALTIME_API_BASE ?? 'https://mtuwzlbxhmpnqpaahity.supabase.co/functions/v1/gtt-realtime';
+const vehicleSnapshotCacheKey = 'busradar:last-valid-vehicle-snapshot';
 
 const tramRoutes = new Set(['3', '4', '9', '10', '13', '15', '16']);
 
@@ -639,12 +640,28 @@ export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | 
     .filter((vehicle) => vehicle.vehicleId || vehicle.vehicleLabel)
     .filter(isValidTorinoCoordinate)
     .map(toVehicle);
-  if (vehicles.length === 0) return undefined;
+  if (vehicles.length === 0) {
+    try {
+      const cached = localStorage.getItem(vehicleSnapshotCacheKey);
+      if (!cached) return undefined;
+      const snapshot = JSON.parse(cached) as GttRealtimeSnapshot;
+      const age = Date.now() - new Date(snapshot.checkedAt).getTime();
+      return Number.isFinite(age) && age <= 5 * 60_000 ? snapshot : undefined;
+    } catch {
+      return undefined;
+    }
+  }
 
-  return {
+  const snapshot = {
     vehicles,
     entityCount: payload.entityCount ?? vehicles.length,
     vehiclePositionCount: payload.vehiclePositionCount ?? vehicles.length,
     checkedAt: payload.checkedAt ?? new Date().toISOString(),
   };
+  try {
+    localStorage.setItem(vehicleSnapshotCacheKey, JSON.stringify(snapshot));
+  } catch {
+    // The live snapshot remains usable even if browser storage is unavailable.
+  }
+  return snapshot;
 }

@@ -10,10 +10,15 @@ const targetRouteShortNames = new Set(['3', '4', '8', '10', '11', '13', '15', '1
 
 const gtfsDir = process.env.GTFS_STATIC_DIR;
 const writeShapes = process.argv.includes('--write-shapes');
+const defaultRealtimeUrls = {
+  GTFS_RT_VEHICLE_POSITIONS_URL: 'https://percorsieorari.gtt.to.it/das_gtfsrt/vehicle_position.aspx',
+  GTFS_RT_TRIP_UPDATES_URL: 'https://percorsieorari.gtt.to.it/das_gtfsrt/trip_update.aspx',
+  GTFS_RT_ALERTS_URL: 'https://percorsieorari.gtt.to.it/das_gtfsrt/alerts.aspx',
+};
 const realtimeFeeds = [
-  { kind: 'vehiclePositions', envName: 'GTFS_RT_VEHICLE_POSITIONS_URL', url: process.env.GTFS_RT_VEHICLE_POSITIONS_URL },
-  { kind: 'tripUpdates', envName: 'GTFS_RT_TRIP_UPDATES_URL', url: process.env.GTFS_RT_TRIP_UPDATES_URL },
-  { kind: 'alerts', envName: 'GTFS_RT_ALERTS_URL', url: process.env.GTFS_RT_ALERTS_URL },
+  { kind: 'vehiclePositions', envName: 'GTFS_RT_VEHICLE_POSITIONS_URL', url: process.env.GTFS_RT_VEHICLE_POSITIONS_URL ?? defaultRealtimeUrls.GTFS_RT_VEHICLE_POSITIONS_URL },
+  { kind: 'tripUpdates', envName: 'GTFS_RT_TRIP_UPDATES_URL', url: process.env.GTFS_RT_TRIP_UPDATES_URL ?? defaultRealtimeUrls.GTFS_RT_TRIP_UPDATES_URL },
+  { kind: 'alerts', envName: 'GTFS_RT_ALERTS_URL', url: process.env.GTFS_RT_ALERTS_URL ?? defaultRealtimeUrls.GTFS_RT_ALERTS_URL },
 ];
 
 function parseCsv(text) {
@@ -252,9 +257,9 @@ async function inspectRealtimeFeeds() {
 async function main() {
   const envSummary = {
     GTFS_STATIC_DIR: gtfsDir ? 'set' : 'missing',
-    GTFS_RT_VEHICLE_POSITIONS_URL: process.env.GTFS_RT_VEHICLE_POSITIONS_URL ? 'set' : 'missing',
-    GTFS_RT_TRIP_UPDATES_URL: process.env.GTFS_RT_TRIP_UPDATES_URL ? 'set' : 'missing',
-    GTFS_RT_ALERTS_URL: process.env.GTFS_RT_ALERTS_URL ? 'set' : 'missing',
+    GTFS_RT_VEHICLE_POSITIONS_URL: process.env.GTFS_RT_VEHICLE_POSITIONS_URL ? 'set' : 'default-gtt',
+    GTFS_RT_TRIP_UPDATES_URL: process.env.GTFS_RT_TRIP_UPDATES_URL ? 'set' : 'default-gtt',
+    GTFS_RT_ALERTS_URL: process.env.GTFS_RT_ALERTS_URL ? 'set' : 'default-gtt',
     GTFS_RT_API_KEY: process.env.GTFS_RT_API_KEY ? 'set' : 'missing',
   };
   const realtimeResults = await inspectRealtimeFeeds();

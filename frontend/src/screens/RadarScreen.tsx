@@ -19,12 +19,15 @@ const radiusOptions = [
 type Props = {
   vehicles: Vehicle[];
   userLocation: LatLng;
+  hasUserLocation: boolean;
+  onLocateUser: () => Promise<LatLng | undefined>;
   onSelectVehicle: (vehicle: Vehicle) => void;
   onBack: () => void;
 };
 
-export function RadarScreen({ vehicles, userLocation, onSelectVehicle, onBack }: Props) {
+export function RadarScreen({ vehicles, userLocation, hasUserLocation, onLocateUser, onSelectVehicle, onBack }: Props) {
   const [radius, setRadius] = useState(1000);
+  const [locating, setLocating] = useState(false);
   const matches = useMemo(
     () =>
       vehicles
@@ -49,7 +52,18 @@ export function RadarScreen({ vehicles, userLocation, onSelectVehicle, onBack }:
       </section>
 
       <section className="radar-panel">
-        <div className="radar-location"><Navigation size={14} /> Centro: La mia posizione</div>
+        <button
+          className="radar-location"
+          type="button"
+          disabled={locating}
+          onClick={() => {
+            setLocating(true);
+            void onLocateUser().finally(() => setLocating(false));
+          }}
+        >
+          <Navigation size={14} />
+          {locating ? 'Localizzazione in corso' : hasUserLocation ? 'Centro: la mia posizione' : 'Centro: Torino · usa la mia posizione'}
+        </button>
         <div className="radar-scope">
           <div className="radar-ring ring-1" />
           <div className="radar-ring ring-2" />

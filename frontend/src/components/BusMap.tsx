@@ -212,8 +212,8 @@ function routeMotion(vehicle: Vehicle, from: LatLng, to: LatLng) {
   if (!fromState || !toState) return undefined;
   const totalMeters = toState.traveledMeters + toState.remainingMeters;
   const traveledDelta = toState.traveledMeters - fromState.traveledMeters;
-  if (totalMeters <= 0 || traveledDelta > 1500) return undefined;
-  const stableToProgress = traveledDelta < 0
+  if (totalMeters <= 0 || Math.abs(traveledDelta) > 1500) return undefined;
+  const stableToProgress = Math.abs(traveledDelta) < 12
     ? fromState.traveledMeters / totalMeters
     : toState.traveledMeters / totalMeters;
   return {
@@ -744,6 +744,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const vehicleLastSeenAtRef = useRef<Map<string, number>>(new Map());
   const lastFollowCameraAtRef = useRef(0);
   const lastVehicleRenderAtRef = useRef(0);
+  const suppressVehicleClicksUntilRef = useRef(0);
   const userCenterRefinementUntilRef = useRef(0);
   const hadFocusedViewRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
@@ -1021,8 +1022,11 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   }, [followedVehicleId, mapReady, vehicles]);
 
   useEffect(() => {
-    if (followedVehicleId) return;
-    followedVehicleStartedRef.current = undefined;
+    if (followedVehicleId) {
+      suppressVehicleClicksUntilRef.current = performance.now() + 900;
+    } else {
+      followedVehicleStartedRef.current = undefined;
+    }
   }, [followedVehicleId]);
 
   useEffect(() => {
@@ -1043,8 +1047,13 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     const map = mapRef.current;
     const vehicleLayers = ['vehicle-selected-sprites', 'vehicle-sprites', 'vehicle-vector-fallback', 'vehicle-hit-area', 'vehicle-badges', 'vehicle-badge-labels', 'vehicle-heading', 'vehicle-sprite-labels'];
     const stopLayers = ['stops-hit-area', 'stops-circle'];
-    const hoverPopup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: '260px', offset: 18 });
-    const clickPopup = new maplibregl.Popup({ closeButton: true, closeOnClick: true, maxWidth: '280px', offset: 20 });
+    const hoverPopup = new maplibregl.Popup({
+      className: 'vehicle-hover-popup',
+      closeButton: false,
+      closeOnClick: false,
+      maxWidth: '260px',
+      offset: 18,
+    });
 
     const vehicleAtPoint = (event: MapMouseEvent) => {
       const feature = queryFeaturesNearPoint(map, event.point, vehicleLayers, 22)[0];
@@ -1065,16 +1074,13 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     };
 
     const handleVehicleClick = (event: MapMouseEvent) => {
+      if (performance.now() < suppressVehicleClicksUntilRef.current) return;
       const vehicle = vehicleAtPoint(event);
       if (!vehicle) return;
+      if (vehicle.vehicleId === followedVehicleIdRef.current) return;
       stopPopupRef.current?.remove();
       stopPopupRef.current = undefined;
-      const position = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
       hoverPopup.remove();
-      clickPopup
-        .setLngLat([position.lon, position.lat])
-        .setHTML(`<div class="vehicle-tooltip vehicle-tooltip-click"><strong>${escapeHtml(vehicleIdentifierLabel(vehicle))}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small></div>`)
-        .addTo(map);
       onSelectVehicle(vehicle);
     };
     const handleStopClick = (event: MapMouseEvent) => {
@@ -1107,7 +1113,6 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       map.off('click', handleStopClick);
       map.off('mousemove', handleMove);
       hoverPopup.remove();
-      clickPopup.remove();
     };
   }, [mapReady, onSelectVehicle, onStopPopupOpenChange, selectedLine]);
 
@@ -1136,7 +1141,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   };
 
   return (
-    <div className="map-shell map-shell--standard">
+    <div className={`map-shell map-shell--standard${followedVehicleId ? ' is-following' : ''}`}>
       {!selectedLine && !showRouteForLine && !followedVehicleId && !searchedArea && (
         <button type="button" className="map-mode-label" onClick={resetToOverview}>
           Live transit

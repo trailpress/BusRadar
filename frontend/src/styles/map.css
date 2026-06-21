@@ -47,6 +47,11 @@
   border-top-color: rgba(16, 23, 34, 0.96);
 }
 
+.maplibregl-popup.vehicle-hover-popup,
+.maplibregl-popup.vehicle-hover-popup .maplibregl-popup-content {
+  pointer-events: none;
+}
+
 .maplibregl-popup.stop-map-popup {
   z-index: 760;
   width: min(360px, calc(100vw - 24px));
@@ -391,7 +396,7 @@
 
 .map-floating-controls {
   position: absolute;
-  z-index: 700;
+  z-index: 790;
   right: 14px;
   bottom: 176px;
   display: grid;
@@ -403,6 +408,10 @@
   height: 40px;
   border-radius: 50%;
   background: rgba(8, 12, 18, 0.88);
+}
+
+.map-shell.is-following .map-floating-controls {
+  bottom: 298px;
 }
 
 @keyframes pulse-marker {

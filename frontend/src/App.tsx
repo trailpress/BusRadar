@@ -14,6 +14,7 @@ import { VehiclesScreen } from './screens/VehiclesScreen';
 import type { LatLng, Stop, TabKey, TransitLine, Vehicle } from './types';
 import { distanceMeters } from './utils/geo';
 import { notify } from './utils/notify';
+import { isVehicleFavorite, setVehicleFavorite } from './utils/vehicleFavorites';
 
 function isIosLikeDevice() {
   const ua = navigator.userAgent;
@@ -271,22 +272,25 @@ function App() {
 
   useEffect(() => {
     let cancelled = false;
+    let refreshTimer = 0;
 
     async function loadRealtimeVehicles() {
       const snapshot = await fetchGttRealtimeVehicles();
       if (cancelled) return;
-      if (!snapshot) {
-        return;
+      if (snapshot) {
+        setVehicles(snapshot.vehicles.map((vehicle) => ({
+          ...vehicle,
+          favorite: isVehicleFavorite(vehicle.vehicleId),
+        })));
       }
-      setVehicles(snapshot.vehicles);
+      refreshTimer = window.setTimeout(loadRealtimeVehicles, snapshot ? 15_000 : 3_000);
     }
 
     void loadRealtimeVehicles();
-    const id = window.setInterval(loadRealtimeVehicles, 15000);
 
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      window.clearTimeout(refreshTimer);
     };
   }, []);
 
@@ -355,8 +359,8 @@ function App() {
         targetId: line.id,
       }));
 
-    gtfsNetwork.stops
-      .filter((stop) => stop.code.startsWith(normalized) || stop.name.toLowerCase().includes(normalized))
+      gtfsNetwork.stops
+        .filter((stop) => stop.code.startsWith(normalized) || stop.name.toLowerCase().includes(normalized))
       .sort((a, b) => distanceMeters(bias, a) - distanceMeters(bias, b))
       .slice(0, 4)
       .forEach((stop) => suggestions.push({
@@ -503,12 +507,25 @@ function App() {
 
   function openVehicle(vehicle: Vehicle) {
     setSelectedStop(undefined);
+    setFollowedVehicleId(undefined);
     setSelectedVehicleId(vehicle.vehicleId);
     setSelectedVehicleFallback(vehicle);
     setLineFilter(vehicle.line);
     setShowRouteForLine(vehicle.routeId.replace(/^gtt-/, ''));
     setMapFocus({ lat: vehicle.lat, lon: vehicle.lon });
     setActiveTab('map');
+  }
+
+  function toggleVehicleFavorite(vehicle: Vehicle) {
+    const favorite = !isVehicleFavorite(vehicle.vehicleId);
+    setVehicleFavorite(vehicle.vehicleId, favorite);
+    setVehicles((current) => current.map((item) => (
+      item.vehicleId === vehicle.vehicleId ? { ...item, favorite } : item
+    )));
+    setSelectedVehicleFallback((current) => (
+      current?.vehicleId === vehicle.vehicleId ? { ...current, favorite } : current
+    ));
+    notify(`${vehicle.fleetNumber ? `Vettura ${vehicle.fleetNumber}` : 'Mezzo'} ${favorite ? 'aggiunto ai' : 'rimosso dai'} preferiti`);
   }
 
   function trackVehicleFromRadar(vehicle: Vehicle) {
@@ -632,13 +649,14 @@ function App() {
             setSelectedVehicleFallback(undefined);
           }}
           onFollowVehicle={(vehicle) => {
-            setSelectedVehicleId(vehicle.vehicleId);
-            setSelectedVehicleFallback(vehicle);
+            setSelectedVehicleId(undefined);
+            setSelectedVehicleFallback(undefined);
             setFollowedVehicleId(vehicle.vehicleId);
             setMapFocus({ lat: vehicle.lat, lon: vehicle.lon });
             setLineFilter(vehicle.line);
             setShowRouteForLine(vehicle.routeId.replace(/^gtt-/, ''));
           }}
+          onToggleVehicleFavorite={toggleVehicleFavorite}
           onShowRoute={(vehicle) => {
             const routeKey = vehicle.routeVariantId || vehicle.routeId.replace(/^gtt-/, '') || vehicle.line;
             setSelectedLine(undefined);
@@ -671,7 +689,16 @@ function App() {
       {activeTab === 'lines' && <LinesScreen vehicles={vehicles} onSelectLine={openLine} />}
       {activeTab === 'stops' && <StopsScreen onSelectStop={openStop} />}
       {activeTab === 'vehicles' && <VehiclesScreen vehicles={vehicles} onSelectVehicle={openVehicle} />}
-      {activeTab === 'more' && <RadarScreen vehicles={vehicles} userLocation={userLocation} onSelectVehicle={trackVehicleFromRadar} onBack={() => setActiveTab('map')} />}
+      {activeTab === 'more' && (
+        <RadarScreen
+          vehicles={vehicles}
+          userLocation={userLocation}
+          hasUserLocation={hasUserLocation}
+          onLocateUser={requestUserLocation}
+          onSelectVehicle={trackVehicleFromRadar}
+          onBack={() => setActiveTab('map')}
+        />
+      )}
       {showLocationHelp && (
         <div className="location-help" role="dialog" aria-label="Abilita posizione">
           <div>
