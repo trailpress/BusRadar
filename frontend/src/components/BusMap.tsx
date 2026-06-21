@@ -741,6 +741,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const selectedVehicleIdRef = useRef<string | undefined>(selectedVehicleId);
   const followedVehicleIdRef = useRef<string | undefined>(followedVehicleId);
   const lastFollowCameraAtRef = useRef(0);
+  const userCenterRefinementUntilRef = useRef(0);
   const hadFocusedViewRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [zoom, setZoom] = useState(13);
@@ -847,7 +848,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   }, [hasUserLocation, mapReady, userAccuracyPixels, userLocation.lat, userLocation.lon]);
 
   useEffect(() => {
-    if (!locatingUser || !hasUserLocation || !mapReady || !mapRef.current) return;
+    const shouldRefineCenter = performance.now() < userCenterRefinementUntilRef.current;
+    if ((!locatingUser && !shouldRefineCenter) || !hasUserLocation || !mapReady || !mapRef.current) return;
     mapRef.current.easeTo({
       center: [userLocation.lon, userLocation.lat],
       zoom: Math.max(mapRef.current.getZoom(), 15),
@@ -1078,6 +1080,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   }, [mapReady, onSelectVehicle, onStopPopupOpenChange, selectedLine]);
 
   const centerOnUser = async () => {
+    userCenterRefinementUntilRef.current = performance.now() + 5000;
     if (hasUserLocation) {
       mapRef.current?.easeTo({ center: [userLocation.lon, userLocation.lat], zoom: Math.max(mapRef.current.getZoom(), 15), duration: 280 });
     }
@@ -1102,9 +1105,11 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
 
   return (
     <div className="map-shell map-shell--standard">
-      <button type="button" className="map-mode-label" onClick={resetToOverview}>
-        Live transit map
-      </button>
+      {!selectedLine && !showRouteForLine && !followedVehicleId && !searchedArea && (
+        <button type="button" className="map-mode-label" onClick={resetToOverview}>
+          Live transit
+        </button>
+      )}
       <div ref={containerRef} className="bus-map" />
       <div className="map-floating-controls">
         <IconButton label={locatingUser ? 'Ricerca posizione precisa in corso' : userLocationAccuracy ? `Centra posizione · precisione ${Math.round(userLocationAccuracy)} m` : 'Centra posizione'} active={hasUserLocation || locatingUser} onClick={() => void centerOnUser()}>

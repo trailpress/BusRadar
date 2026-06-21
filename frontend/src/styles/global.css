@@ -649,39 +649,42 @@ button {
   left: 14px;
   right: auto;
   bottom: 92px;
-  width: min(250px, calc(100% - 28px));
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: rgba(8, 12, 18, 0.88);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(22px);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  width: auto;
+  max-width: calc(100% - 28px);
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  background: rgba(8, 12, 18, 0.76);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(16px);
 }
 
-.service-card > div,
-.service-card footer,
-.service-card footer span {
+.service-card > div {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
 }
 
 .service-card > div {
   color: var(--success);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
 .service-card > div strong {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
-.service-card footer {
-  justify-content: space-between;
-  margin-top: 8px;
+.service-card > span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 .vehicle-sheet {

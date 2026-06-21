@@ -156,6 +156,18 @@ function App() {
 
     const cached = latestLocationRef.current;
     const cachedIsUsable = Boolean(cached && Date.now() - cached.timestamp < 30_000 && cached.accuracy <= 60);
+    if (cachedIsUsable && cached) {
+      startLocationWatch();
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          applyUserPosition(position);
+          setShowLocationHelp(position.coords.accuracy > 80);
+        },
+        () => undefined,
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 6000 },
+      );
+      return Promise.resolve(cached.point);
+    }
 
     if (pendingLocationRequestRef.current) return pendingLocationRequestRef.current;
 
@@ -209,17 +221,17 @@ function App() {
       watchId = navigator.geolocation.watchPosition(
         (position) => {
           if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) bestPosition = position;
-          if (position.coords.accuracy <= 25) finish(position);
+          if (position.coords.accuracy <= 150) finish(position);
         },
         (error) => {
           if (error.code !== error.PERMISSION_DENIED) return;
           failPermission();
         },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 12_000 },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 6000 },
       );
       deadline = window.setTimeout(
         () => finish(bestPosition && bestPosition.coords.accuracy <= 150 ? bestPosition : undefined),
-        cachedIsUsable ? 8_000 : 10_000,
+        4500,
       );
     }).finally(() => {
       pendingLocationRequestRef.current = undefined;

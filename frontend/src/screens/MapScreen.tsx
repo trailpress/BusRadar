@@ -144,7 +144,9 @@ export function MapScreen({
           <small>Ricerca e dati cartografici © OpenStreetMap</small>
         </aside>
       )}
-      {!stopPopupOpen && <ServiceCard vehicles={vehicles} selectedLine={selectedLine} />}
+      {!stopPopupOpen && !searchedArea && !followedVehicleId && (
+        <ServiceCard vehicles={vehicles} selectedLine={selectedLine} />
+      )}
       {(selectedLine || showRouteForLine || followedVehicleId) && (
         <button type="button" className={`map-reset-button${followedVehicleId ? ' with-follow' : ''}`} onClick={onResetMap}>
           <Layers3 size={16} />
