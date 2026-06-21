@@ -1023,8 +1023,6 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       map.off('mousemove', handleMove);
       hoverPopup.remove();
       clickPopup.remove();
-      stopPopupRef.current?.remove();
-      stopPopupRef.current = undefined;
     };
   }, [mapReady, onSelectVehicle, onStopPopupOpenChange, selectedLine]);
 
