@@ -384,14 +384,18 @@ function App() {
             setLineFilter(vehicle.line);
             setShowRouteForLine(vehicle.routeId.replace(/^gtt-/, ''));
           }}
-          onShowRoute={(line) => {
-            const routeLine = gtfsNetwork.lines.find((item) => item.id === line);
-            if (routeLine) setSelectedLine(routeLine);
-            setShowRouteForLine(line);
-            setLineFilter(line);
+          onShowRoute={(vehicle) => {
+            const routeKey = vehicle.routeVariantId || vehicle.routeId.replace(/^gtt-/, '') || vehicle.line;
+            setSelectedLine(undefined);
+            setSelectedStop(undefined);
             setSelectedVehicleId(undefined);
+            setSelectedVehicleFallback(undefined);
             setFollowedVehicleId(undefined);
-            notify(`Percorso linea ${line} mostrato`);
+            setLineFilter(vehicle.line);
+            setShowRouteForLine(routeKey);
+            setMapFocus(undefined);
+            setActiveTab('map');
+            notify(`Percorso linea ${vehicle.line} mostrato sulla mappa`);
           }}
           onResetMap={() => {
             setSelectedVehicleId(undefined);

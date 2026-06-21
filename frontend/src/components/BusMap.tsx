@@ -68,6 +68,8 @@ function createMapStyle(): maplibregl.StyleSpecification {
 
 function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, showRouteForLine?: string) {
   if (showRouteForLine) {
+    const exactVariant = getGtfsRouteVariant(showRouteForLine);
+    if (exactVariant) return [exactVariant];
     const routesById = getGtfsRoutesForRouteId(showRouteForLine);
     return routesById.length > 0 ? routesById : getGtfsRoutesForLine(showRouteForLine);
   }
@@ -109,7 +111,7 @@ function routesToGeoJson(routes: GtfsRouteVariant[], selectedLine?: string, show
   return {
     type: 'FeatureCollection',
     features: routes.map((route) => {
-      const highlighted = showRouteForLine === route.routeId || showRouteForLine === route.line || selectedLine === route.routeId || selectedLine === route.line;
+      const highlighted = showRouteForLine === route.id || showRouteForLine === route.routeId || showRouteForLine === route.line || selectedLine === route.routeId || selectedLine === route.line;
       return {
         type: 'Feature',
         geometry: { type: 'LineString', coordinates: route.path.map((point) => [point.lon, point.lat]) },

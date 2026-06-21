@@ -36,7 +36,7 @@ type Props = {
   onSelectVehicle: (vehicle: Vehicle) => void;
   onClearVehicle: () => void;
   onFollowVehicle: (vehicle: Vehicle) => void;
-  onShowRoute: (line: string) => void;
+  onShowRoute: (vehicle: Vehicle) => void;
   onResetMap: () => void;
 };
 
@@ -142,7 +142,7 @@ export function MapScreen({
             onFollowVehicle((selectedVehicle ?? selectedVehicleFallback)!);
             onClearVehicle();
           }}
-          onRoute={() => onShowRoute((selectedVehicle ?? selectedVehicleFallback)!.line)}
+          onRoute={() => onShowRoute((selectedVehicle ?? selectedVehicleFallback)!)}
         />
       )}
     </main>
