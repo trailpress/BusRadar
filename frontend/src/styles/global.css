@@ -270,17 +270,39 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  max-height: 70px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
-.search-area-lines i,
+.search-area-lines button,
 .search-area-lines em {
   padding: 3px 6px;
+  border: 1px solid transparent;
   border-radius: 7px;
   background: rgba(47, 125, 255, 0.18);
   color: #dce9ff;
   font-size: 10px;
   font-style: normal;
   font-weight: 850;
+}
+
+.search-area-lines button {
+  cursor: pointer;
+}
+
+.search-area-lines button:hover,
+.search-area-lines button:focus-visible {
+  border-color: rgba(94, 158, 255, 0.7);
+  background: rgba(47, 125, 255, 0.3);
+}
+
+.search-area-lines button.is-active {
+  border-color: #8ab7ff;
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(47, 125, 255, 0.3);
 }
 
 .search-area-stops {

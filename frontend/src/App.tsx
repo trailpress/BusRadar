@@ -347,6 +347,21 @@ function App() {
             setSearchMode('filter');
             setSearch('');
           }}
+          onSelectAreaLine={(line) => {
+            const realtimeCount = vehicles.filter((vehicle) => vehicle.line === line).length;
+            setSelectedStop(undefined);
+            setSelectedVehicleId(undefined);
+            setSelectedVehicleFallback(undefined);
+            setFollowedVehicleId(undefined);
+            setLineFilter(line);
+            setShowRouteForLine(line);
+            setActiveTab('map');
+            notify(
+              realtimeCount > 0
+                ? `Linea ${line}: ${realtimeCount} mezzi realtime sul percorso`
+                : `Linea ${line}: percorso programmato, nessun mezzo realtime ora`,
+            );
+          }}
           selectedStop={selectedStop}
           selectedStopRequest={selectedStopRequest}
           onSelectAreaStop={(stop) => {

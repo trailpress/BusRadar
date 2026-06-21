@@ -28,6 +28,7 @@ type Props = {
   nearbyLines: string[];
   nearbyVehicleCount: number;
   onClearSearchedArea: () => void;
+  onSelectAreaLine: (line: string) => void;
   onSelectAreaStop: (stop: GtfsStop) => void;
   selectedStop?: GtfsStop;
   selectedStopRequest: number;
@@ -60,6 +61,7 @@ export function MapScreen({
   nearbyLines,
   nearbyVehicleCount,
   onClearSearchedArea,
+  onSelectAreaLine,
   onSelectAreaStop,
   selectedStop,
   selectedStopRequest,
@@ -95,8 +97,18 @@ export function MapScreen({
           <strong>{searchedArea.label}</strong>
           <span>{nearbyVehicleCount} mezzi realtime · {nearbyStopCount} fermate entro 1,2 km</span>
           <div className="search-area-lines">
-            {nearbyLines.slice(0, 9).map((line) => <i key={line}>{line}</i>)}
-            {nearbyLines.length > 9 && <em>+{nearbyLines.length - 9}</em>}
+            {nearbyLines.map((line) => (
+              <button
+                type="button"
+                className={selectedLine === line ? 'is-active' : undefined}
+                key={line}
+                onClick={() => onSelectAreaLine(line)}
+                aria-pressed={selectedLine === line}
+                aria-label={`Mostra linea ${line} e mezzi realtime`}
+              >
+                {line}
+              </button>
+            ))}
           </div>
           <div className="search-area-stops">
             {nearbyStops.slice(0, 8).map(({ stop, distance }) => (

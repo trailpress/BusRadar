@@ -74,11 +74,32 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
   if (selectedLine) return getGtfsRoutesForLine(selectedLine);
 
   const byRoute = new Map<string, GtfsRouteVariant>();
-  vehicles.slice(0, 28).forEach((vehicle) => {
+  const unresolvedLines = new Set<string>();
+
+  vehicles.forEach((vehicle) => {
+    const exactVariant = getGtfsRouteVariant(vehicle.routeVariantId);
+    if (exactVariant) {
+      byRoute.set(exactVariant.id, exactVariant);
+      return;
+    }
+
     const routeId = vehicle.routeId.replace(/^gtt-/, '');
     const variants = getGtfsRoutesForRouteId(routeId);
-    const lineVariants = variants.length > 0 ? variants : getGtfsRoutesForLine(vehicle.line);
-    lineVariants.forEach((route) => byRoute.set(route.id, route));
+    if (variants.length > 0) {
+      variants.forEach((route) => byRoute.set(route.id, route));
+      return;
+    }
+
+    unresolvedLines.add(vehicle.line);
+  });
+
+  unresolvedLines.forEach((line) => {
+    const variantsByDirection = new Map<string, GtfsRouteVariant>();
+    getGtfsRoutesForLine(line).forEach((route) => {
+      const key = route.directionId || route.headsign;
+      if (!variantsByDirection.has(key)) variantsByDirection.set(key, route);
+    });
+    variantsByDirection.forEach((route) => byRoute.set(route.id, route));
   });
 
   return [...byRoute.values()];
