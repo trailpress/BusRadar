@@ -2,6 +2,7 @@ import maplibregl, { type GeoJSONSource, type LngLatBoundsLike, type MapMouseEve
 import { LocateFixed } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, gtfsNetwork, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
+import { useGtfsNetwork } from '../data/useGtfsNetwork';
 import { fetchGttStopArrivalsInfo, type GttStopArrival, type GttStopArrivalsResult } from '../services/gttRealtime';
 import type { GeocodingResult } from '../services/geocoding';
 import type { LatLng, Vehicle } from '../types';
@@ -163,12 +164,16 @@ function stopsToGeoJson(stops: ReturnType<typeof stopsForRoutes>): GeoJSON.Featu
   };
 }
 
-let overviewStopsGeoJsonCache: GeoJSON.FeatureCollection<GeoJSON.Point, StopFeatureProperties> | undefined;
+let overviewStopsGeoJsonCache:
+  | { stopCount: number; data: GeoJSON.FeatureCollection<GeoJSON.Point, StopFeatureProperties> }
+  | undefined;
 
 function overviewStopsToGeoJson() {
-  if (overviewStopsGeoJsonCache) return overviewStopsGeoJsonCache;
+  if (overviewStopsGeoJsonCache?.stopCount === gtfsNetwork.stops.length) {
+    return overviewStopsGeoJsonCache.data;
+  }
 
-  overviewStopsGeoJsonCache = {
+  const data: GeoJSON.FeatureCollection<GeoJSON.Point, StopFeatureProperties> = {
     type: 'FeatureCollection',
     features: gtfsNetwork.stops.map((stop) => ({
       type: 'Feature',
@@ -183,8 +188,9 @@ function overviewStopsToGeoJson() {
       },
     })),
   };
+  overviewStopsGeoJsonCache = { stopCount: gtfsNetwork.stops.length, data };
 
-  return overviewStopsGeoJsonCache;
+  return data;
 }
 
 function vehicleIconName(vehicle: Vehicle) {
@@ -731,6 +737,7 @@ function installTransitLayers(map: maplibregl.Map) {
 }
 
 export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, userLocationAccuracy, hasUserLocation, onLocateUser, showRouteForLine, searchedArea, selectedStop, selectedStopRequest, onSelectVehicle, onSelectLine, onStopPopupOpenChange, onResetMap }: Props) {
+  const { revision: gtfsRevision } = useGtfsNetwork();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | undefined>(undefined);
   const vehicleFramesRef = useRef<Map<string, VehicleFrame>>(new Map());
@@ -801,7 +808,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
 
   const highlightedRoutes = useMemo(
     () => routeVariantsForVehicles(visibleVehicles, selectedLine, showRouteForLine),
-    [visibleVehicles, selectedLine, showRouteForLine],
+    [gtfsRevision, visibleVehicles, selectedLine, showRouteForLine],
   );
 
   const routeStops = useMemo(() => {
@@ -831,7 +838,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         ? overviewStopsToGeoJson()
         : emptyPointCollection();
     setSourceData(mapRef.current, 'stops', stopsData);
-  }, [mapReady, routeStops, selectedLine, showOverviewStops, showRouteForLine]);
+  }, [gtfsRevision, mapReady, routeStops, selectedLine, showOverviewStops, showRouteForLine]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;

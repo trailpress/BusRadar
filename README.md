@@ -19,7 +19,9 @@ Il progetto non effettua scraping, non usa endpoint privati e non include chiavi
 
 ## BusRadar v0.2 Live Transit Map
 
-La mappa usa Leaflet con tile cartografici reali per rendere Torino navigabile. I mezzi arrivano dal feed Vehicle Positions GTFS-RT, mentre linee, tracciati e fermate sono generati dal GTFS statico locale.
+La mappa usa MapLibre con tile cartografici reali per rendere Torino navigabile. I mezzi arrivano dal feed Vehicle Positions GTFS-RT, mentre linee, tracciati e fermate sono generati dal GTFS statico locale.
+
+La rete GTFS statica viene pubblicata come asset JSON separato e caricata dopo il primo rendering. In questo modo la mappa e l’interfaccia iniziale non devono più analizzare l’intero dataset dentro il bundle JavaScript principale.
 
 Il layer custom Diorama/landmark è stato rimosso: la versione attuale punta su una base cartografica pulita con mezzi animati, marker bus/tram distinti, bearing di marcia e percorsi GTFS.
 

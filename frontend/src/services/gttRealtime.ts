@@ -1,5 +1,5 @@
 import type { Vehicle } from '../types';
-import { getGtfsLine, getGtfsRoutesForLine, getGtfsRoutesForRouteId } from '../data/gtfsNetwork';
+import { getGtfsLine, getGtfsRoutesForLine, getGtfsRoutesForRouteId, loadGtfsNetwork } from '../data/gtfsNetwork';
 import { bearingDegrees, distanceMeters, routeProgressAtPoint } from '../utils/geo';
 
 type GttVehiclePosition = {
@@ -626,7 +626,11 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
 export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | undefined> {
   let response: Response;
   try {
-    response = await fetch(`${GTT_REALTIME_API_BASE}/vehicles`);
+    const [vehicleResponse] = await Promise.all([
+      fetch(`${GTT_REALTIME_API_BASE}/vehicles`),
+      loadGtfsNetwork().catch(() => undefined),
+    ]);
+    response = vehicleResponse;
   } catch {
     return undefined;
   }

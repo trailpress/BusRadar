@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import type { MapSearchSuggestion } from './components/AppHeader';
 import { gtfsNetwork, type GtfsStop } from './data/gtfsNetwork';
+import { useGtfsNetwork } from './data/useGtfsNetwork';
 import { geocodeTransitArea, geocodeTransitSuggestions, type GeocodingResult } from './services/geocoding';
 import { fetchGttRealtimeVehicles } from './services/gttRealtime';
 import { LineDetailScreen } from './screens/LineDetailScreen';
@@ -22,6 +23,7 @@ function isIosLikeDevice() {
 }
 
 function App() {
+  const { revision: gtfsRevision } = useGtfsNetwork();
   const [activeTab, setActiveTab] = useState<TabKey>('map');
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [search, setSearch] = useState('');
@@ -326,7 +328,7 @@ function App() {
         .filter((item) => item.distance <= 1200)
         .sort((a, b) => a.distance - b.distance)
       : [],
-    [searchedArea],
+    [gtfsRevision, searchedArea],
   );
   const nearbyAreaVehicles = useMemo(
     () => searchedArea
@@ -394,7 +396,7 @@ function App() {
       lon: result.lon,
     }));
     return suggestions.slice(0, 9);
-  }, [addressSuggestions, hasUserLocation, search, userLocation, vehicles]);
+  }, [addressSuggestions, gtfsRevision, hasUserLocation, search, userLocation, vehicles]);
 
   useEffect(() => {
     const query = search.trim();

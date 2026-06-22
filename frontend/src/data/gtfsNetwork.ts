@@ -1,5 +1,4 @@
 import type { LatLng, TransitLine } from '../types';
-import { gtfsNetwork as generatedNetwork } from './gtfsNetwork.generated';
 
 export type GtfsRouteVariant = {
   id: string;
@@ -35,22 +34,82 @@ export type GtfsNetwork = {
   stops: GtfsStop[];
 };
 
-export const gtfsNetwork = generatedNetwork as unknown as GtfsNetwork;
+export const gtfsNetwork: GtfsNetwork = {
+  generatedAt: '',
+  source: 'GTT GTFS static',
+  lines: [],
+  routes: [],
+  stops: [],
+};
 
 const routesByRouteId = new Map<string, GtfsRouteVariant[]>();
 const routesByLine = new Map<string, GtfsRouteVariant[]>();
 const routeByVariantId = new Map<string, GtfsRouteVariant>();
 const lineById = new Map<string, GtfsLine>();
 const stopById = new Map<string, GtfsStop>();
+const listeners = new Set<() => void>();
+let revision = 0;
+let loadPromise: Promise<GtfsNetwork> | undefined;
+let loaded = false;
 
-gtfsNetwork.routes.forEach((route) => {
-  routeByVariantId.set(route.id, route);
-  routesByRouteId.set(route.routeId, [...(routesByRouteId.get(route.routeId) ?? []), route]);
-  routesByLine.set(route.line, [...(routesByLine.get(route.line) ?? []), route]);
-});
+function rebuildIndexes() {
+  routesByRouteId.clear();
+  routesByLine.clear();
+  routeByVariantId.clear();
+  lineById.clear();
+  stopById.clear();
 
-gtfsNetwork.lines.forEach((line) => lineById.set(line.id, line));
-gtfsNetwork.stops.forEach((stop) => stopById.set(stop.id, stop));
+  gtfsNetwork.routes.forEach((route) => {
+    routeByVariantId.set(route.id, route);
+    routesByRouteId.set(route.routeId, [...(routesByRouteId.get(route.routeId) ?? []), route]);
+    routesByLine.set(route.line, [...(routesByLine.get(route.line) ?? []), route]);
+  });
+  gtfsNetwork.lines.forEach((line) => lineById.set(line.id, line));
+  gtfsNetwork.stops.forEach((stop) => stopById.set(stop.id, stop));
+}
+
+function publishNetwork(network: GtfsNetwork) {
+  gtfsNetwork.generatedAt = network.generatedAt;
+  gtfsNetwork.source = network.source;
+  gtfsNetwork.lines = network.lines;
+  gtfsNetwork.routes = network.routes;
+  gtfsNetwork.stops = network.stops;
+  rebuildIndexes();
+  loaded = true;
+  revision += 1;
+  listeners.forEach((listener) => listener());
+}
+
+export function loadGtfsNetwork() {
+  if (loaded) return Promise.resolve(gtfsNetwork);
+  loadPromise ??= fetch(`${import.meta.env.BASE_URL}assets/gtfs-network.json`)
+    .then((response) => {
+      if (!response.ok) throw new Error(`GTFS network HTTP ${response.status}`);
+      return response.json() as Promise<GtfsNetwork>;
+    })
+    .then((network) => {
+      publishNetwork(network);
+      return gtfsNetwork;
+    })
+    .catch((error) => {
+      loadPromise = undefined;
+      throw error;
+    });
+  return loadPromise;
+}
+
+export function subscribeGtfsNetwork(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function getGtfsNetworkRevision() {
+  return revision;
+}
+
+export function isGtfsNetworkLoaded() {
+  return loaded;
+}
 
 export function getGtfsLine(lineId: string) {
   return lineById.get(lineId);

@@ -1,6 +1,7 @@
 import { MapPinned } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { gtfsNetwork } from '../data/gtfsNetwork';
+import { useGtfsNetwork } from '../data/useGtfsNetwork';
 import { LineBadge } from '../components/LineBadge';
 import { SearchBox } from '../components/SearchBox';
 import type { Stop } from '../types';
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export function StopsScreen({ onSelectStop }: Props) {
+  const { loaded, revision: gtfsRevision } = useGtfsNetwork();
   const [query, setQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(120);
   const normalized = query.trim().toLowerCase();
@@ -17,7 +19,7 @@ export function StopsScreen({ onSelectStop }: Props) {
     () =>
       gtfsNetwork.stops
         .filter((stop) => !normalized || stop.name.toLowerCase().includes(normalized) || stop.code.includes(normalized)),
-    [normalized],
+    [gtfsRevision, normalized],
   );
   const visibleStops = stops.slice(0, visibleCount);
 
@@ -39,7 +41,7 @@ export function StopsScreen({ onSelectStop }: Props) {
       />
       <section className="list-section">
         <div className="list-result-count">
-          {stops.length} fermate trovate · mostrate {visibleStops.length}
+          {loaded ? `${stops.length} fermate trovate · mostrate ${visibleStops.length}` : 'Caricamento paline GTT…'}
         </div>
         {visibleStops.map((stop) => (
           <button className="stop-row" key={stop.id} type="button" onClick={() => onSelectStop(stop)}>

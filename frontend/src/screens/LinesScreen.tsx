@@ -1,6 +1,7 @@
 import { ChevronRight, Star } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { gtfsNetwork, type GtfsLine } from '../data/gtfsNetwork';
+import { useGtfsNetwork } from '../data/useGtfsNetwork';
 import type { Vehicle } from '../types';
 import { LineBadge } from '../components/LineBadge';
 import { SearchBox } from '../components/SearchBox';
@@ -12,13 +13,14 @@ type Props = {
 };
 
 export function LinesScreen({ vehicles, onSelectLine }: Props) {
+  const { loaded, revision: gtfsRevision } = useGtfsNetwork();
   const [query, setQuery] = useState('');
   const [editingFavorites, setEditingFavorites] = useState(false);
   const [, setFavoriteRevision] = useState(0);
   const normalized = query.trim().toLowerCase();
   const filtered = useMemo(
     () => gtfsNetwork.lines.filter((line) => line.id.toLowerCase().includes(normalized) || line.name.toLowerCase().includes(normalized) || line.direction.toLowerCase().includes(normalized)),
-    [normalized],
+    [gtfsRevision, normalized],
   );
   const favorites = filtered.filter((line) => isLineFavorite(line.id, Boolean(line.favorite)));
   const others = filtered.filter((line) => !isLineFavorite(line.id, Boolean(line.favorite)));
@@ -72,6 +74,7 @@ export function LinesScreen({ vehicles, onSelectLine }: Props) {
           {favorites.length === 0 && <button type="button" onClick={() => setEditingFavorites((value) => !value)}>{editingFavorites ? 'Fine' : 'Modifica preferite'}</button>}
         </div>
         {others.map(renderLine)}
+        {!loaded && <div className="list-result-count">Caricamento rete GTT…</div>}
       </section>
     </main>
   );

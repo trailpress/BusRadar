@@ -287,13 +287,11 @@ const serviceIndex = {
   }, {}),
 };
 
-const outFile = path.join(process.cwd(), 'src/data/gtfsNetwork.generated.ts');
-fs.writeFileSync(
-  outFile,
-  `// Generated from GTT GTFS static. Do not edit by hand.\nimport type { GtfsNetwork } from './gtfsNetwork';\n\nexport const gtfsNetwork = ${JSON.stringify(payload)} as const satisfies GtfsNetwork;\n`,
-);
-
 fs.mkdirSync(path.join(process.cwd(), 'public/assets'), { recursive: true });
+fs.writeFileSync(
+  path.join(process.cwd(), 'public/assets/gtfs-network.json'),
+  JSON.stringify(payload),
+);
 fs.writeFileSync(
   path.join(process.cwd(), 'public/assets/gtfs-stop-times.json'),
   JSON.stringify({

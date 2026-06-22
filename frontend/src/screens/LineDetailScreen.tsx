@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { BusMap } from '../components/BusMap';
 import { LineBadge } from '../components/LineBadge';
 import { getGtfsRoutesForLine, getGtfsStopsForRoute, gtfsNetwork, type GtfsStop } from '../data/gtfsNetwork';
+import { useGtfsNetwork } from '../data/useGtfsNetwork';
 import type { LatLng, TransitLine, Vehicle } from '../types';
 import { isLineFavorite, setLineFavorite } from '../utils/lineFavorites';
 import { notify } from '../utils/notify';
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelectVehicle, onSelectStop }: Props) {
+  useGtfsNetwork();
   const [tab, setTab] = useState<'details' | 'route' | 'stops'>('route');
   const [favorite, setFavorite] = useState(() => isLineFavorite(line.id, Boolean(line.favorite)));
   const routeVariants = getGtfsRoutesForLine(line.id);
