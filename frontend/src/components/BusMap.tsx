@@ -778,6 +778,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const latestVehiclesRef = useRef<Vehicle[]>(vehicles);
   const onSelectLineRef = useRef(onSelectLine);
   const stopPopupRef = useRef<maplibregl.Popup | undefined>(undefined);
+  const vehicleClickPopupRef = useRef<maplibregl.Popup | undefined>(undefined);
   const selectedVehicleIdRef = useRef<string | undefined>(selectedVehicleId);
   const followedVehicleIdRef = useRef<string | undefined>(followedVehicleId);
   const followedVehicleStartedRef = useRef<string | undefined>(undefined);
@@ -795,6 +796,35 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   onSelectLineRef.current = onSelectLine;
   selectedVehicleIdRef.current = selectedVehicleId;
   followedVehicleIdRef.current = followedVehicleId;
+
+  useEffect(() => {
+    const openVehicleFromPopup = (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      const action = target?.closest<HTMLElement>('[data-open-vehicle]');
+      if (!action) return;
+
+      const vehicleId = action.dataset.openVehicle;
+      const vehicle = latestVehiclesRef.current.find((item) => item.vehicleId === vehicleId);
+      if (!vehicle) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      vehicleClickPopupRef.current?.remove();
+      vehicleClickPopupRef.current = undefined;
+      onSelectVehicle(vehicle);
+    };
+
+    document.addEventListener('pointerup', openVehicleFromPopup, true);
+    document.addEventListener('touchend', openVehicleFromPopup, true);
+    document.addEventListener('click', openVehicleFromPopup, true);
+    return () => {
+      document.removeEventListener('pointerup', openVehicleFromPopup, true);
+      document.removeEventListener('touchend', openVehicleFromPopup, true);
+      document.removeEventListener('click', openVehicleFromPopup, true);
+    };
+  }, [onSelectVehicle]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -1134,6 +1164,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         .setLngLat([position.lon, position.lat])
         .setHTML(renderVehiclePopup(vehicle, true))
         .addTo(map);
+      vehicleClickPopupRef.current = clickPopup;
       bindVehiclePopupActions(clickPopup, vehicle, onSelectVehicle);
     };
     const handleStopClick = (event: MapMouseEvent) => {
@@ -1167,6 +1198,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       map.off('mousemove', handleMove);
       hoverPopup.remove();
       clickPopup.remove();
+      if (vehicleClickPopupRef.current === clickPopup) vehicleClickPopupRef.current = undefined;
     };
   }, [mapReady, onSelectVehicle, onStopPopupOpenChange, selectedLine]);
 
