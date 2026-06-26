@@ -1,4 +1,4 @@
-import { Activity, BusFront, LoaderCircle, MapPin, Radar, Route, Search, Signpost } from 'lucide-react';
+import { Activity, BusFront, LoaderCircle, MapPin, Route, Search, Signpost } from 'lucide-react';
 
 export type MapSearchSuggestion = {
   id: string;
@@ -29,13 +29,15 @@ const suggestionIcon = {
   vehicle: BusFront,
 };
 
+const appIconUrl = `${import.meta.env.BASE_URL}assets/icons/busradar-app-icon-512.png`;
+
 export function AppHeader({ search, onSearch, onSearchSubmit, searchLoading, suggestions, suggestionsLoading, onSelectSuggestion, onRadar }: Props) {
   const showSuggestions = search.trim().length >= 2 && (suggestions.length > 0 || suggestionsLoading);
   return (
     <header className="app-header">
       <div className="brand-row">
         <div className="brand-mark">
-          <Radar size={19} />
+          <img src={appIconUrl} alt="" aria-hidden="true" />
         </div>
         <div>
           <strong>BusRadar</strong>

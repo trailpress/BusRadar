@@ -454,53 +454,7 @@ function boundsFromRoutes(routes: GtfsRouteVariant[]): LngLatBoundsLike | undefi
   return bounds;
 }
 
-function createTransitBusPin() {
-  const size = 96;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return new ImageData(size, size);
-
-  ctx.clearRect(0, 0, size, size);
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.16)';
-  ctx.beginPath();
-  ctx.ellipse(50, 52, 36, 36, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = '#ffffff';
-  ctx.strokeStyle = '#0057a8';
-  ctx.lineWidth = 7;
-  ctx.beginPath();
-  ctx.arc(48, 48, 34, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.fillStyle = '#0057a8';
-  ctx.beginPath();
-  ctx.roundRect(29, 25, 38, 43, 8);
-  ctx.fill();
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.roundRect(34, 32, 28, 16, 3);
-  ctx.fill();
-  ctx.fillStyle = '#0057a8';
-  ctx.fillRect(38, 54, 5, 5);
-  ctx.fillRect(53, 54, 5, 5);
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.arc(37, 68, 4, 0, Math.PI * 2);
-  ctx.arc(59, 68, 4, 0, Math.PI * 2);
-  ctx.fill();
-
-  return ctx.getImageData(0, 0, size, size);
-}
-
 async function loadVehicleImages(map: maplibregl.Map) {
-  if (!map.hasImage('transit-bus-pin')) {
-    map.addImage('transit-bus-pin', createTransitBusPin(), { pixelRatio: 2 });
-  }
-
   const images: Array<[string, string]> = [
     ['bus-top', `${vehicleAssetBase}assets/vehicles/bus-top.png`],
     ['bus-articulated', `${vehicleAssetBase}assets/vehicles/bus-articulated-top.png`],
@@ -584,25 +538,6 @@ function installTransitLayers(map: maplibregl.Map) {
   });
 
   map.addLayer({
-    id: 'vehicle-transit-pins',
-    type: 'symbol',
-    source: 'vehicles',
-    minzoom: 12,
-    maxzoom: spriteZoomThreshold,
-    layout: {
-      'icon-image': 'transit-bus-pin',
-      'icon-size': ['interpolate', ['linear'], ['zoom'], 12, 0.32, 14.2, 0.43],
-      'icon-rotate': ['get', 'bearing'],
-      'icon-rotation-alignment': 'map',
-      'icon-allow-overlap': true,
-      'icon-ignore-placement': true,
-    },
-    paint: {
-      'icon-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0.96, 14.2, 0.78],
-    },
-  });
-
-  map.addLayer({
     id: 'vehicle-badges',
     type: 'circle',
     source: 'vehicles',
@@ -660,22 +595,6 @@ function installTransitLayers(map: maplibregl.Map) {
   });
 
   map.addLayer({
-    id: 'vehicle-heading',
-    type: 'symbol',
-    source: 'vehicles',
-    maxzoom: spriteZoomThreshold,
-    layout: {
-      'text-field': '▲',
-      'text-size': 13,
-      'text-rotate': ['get', 'bearing'],
-      'text-offset': [0, -1.55],
-      'text-allow-overlap': true,
-      'text-ignore-placement': true,
-    },
-    paint: { 'text-color': '#0b5cab', 'text-halo-color': '#ffffff', 'text-halo-width': 1.4 },
-  });
-
-  map.addLayer({
     id: 'vehicle-sprites',
     type: 'symbol',
     source: 'vehicles',
@@ -703,36 +622,6 @@ function installTransitLayers(map: maplibregl.Map) {
       'icon-ignore-placement': true,
     },
     paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 14.25, 0.82, 14.8, 1] },
-  });
-
-  map.addLayer({
-    id: 'vehicle-vector-fallback',
-    type: 'symbol',
-    source: 'vehicles',
-    minzoom: 13.6,
-    maxzoom: 14,
-    layout: {
-      'text-field': '▬',
-      'text-size': [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        13.6,
-        ['case', ['get', 'isArticulated'], 30, 24],
-        18,
-        ['case', ['get', 'isArticulated'], 44, 36],
-      ],
-      'text-rotate': ['get', 'spriteBearing'],
-      'text-rotation-alignment': 'map',
-      'text-allow-overlap': true,
-      'text-ignore-placement': true,
-    },
-    paint: {
-      'text-color': '#ffffff',
-      'text-opacity': 0.42,
-      'text-halo-color': ['get', 'color'],
-      'text-halo-width': 1.8,
-    },
   });
 
   map.addLayer({
@@ -1140,7 +1029,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     const map = mapRef.current;
-    const vehicleLayers = ['vehicle-selected-sprites', 'vehicle-sprites', 'vehicle-vector-fallback', 'vehicle-transit-pins', 'vehicle-hit-area', 'vehicle-badges', 'vehicle-badge-labels', 'vehicle-heading', 'vehicle-sprite-labels'];
+    const vehicleLayers = ['vehicle-selected-sprites', 'vehicle-sprites', 'vehicle-hit-area', 'vehicle-badges', 'vehicle-badge-labels', 'vehicle-sprite-labels'];
     const stopLayers = ['stops-hit-area', 'stops-circle'];
     const hoverPopup = new maplibregl.Popup({
       className: 'vehicle-hover-popup',
