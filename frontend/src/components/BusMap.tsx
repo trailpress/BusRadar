@@ -391,6 +391,13 @@ function renderStopArrivals(result: GttStopArrivalsResult) {
   return '<div class="stop-popup-source">Orario GTFS statico consultato</div><div class="arrival-list"><small>Nessuna corsa programmata nelle prossime 30 ore per questa palina e per il calendario di servizio attivo.</small></div>';
 }
 
+function renderVehiclePopup(vehicle: Vehicle, withAction = false) {
+  const action = withAction
+    ? `<button type="button" class="vehicle-tooltip-action" data-open-vehicle="${escapeHtml(vehicle.vehicleId)}">Apri dettaglio</button>`
+    : '';
+  return `<div class="vehicle-tooltip"><strong>${escapeHtml(vehicleIdentifierLabel(vehicle))}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small>${action}</div>`;
+}
+
 function showStopPopup(
   map: maplibregl.Map,
   properties: StopFeatureProperties,
@@ -547,8 +554,10 @@ function installTransitLayers(map: maplibregl.Map) {
         'interpolate',
         ['linear'],
         ['zoom'],
+        10.5,
+        ['case', ['get', 'selected'], 12, 9],
         12,
-        ['case', ['get', 'selected'], 13, 10],
+        ['case', ['get', 'selected'], 14, 11],
         16,
         ['case', ['get', 'selected'], 12, 9],
         20,
@@ -558,7 +567,7 @@ function installTransitLayers(map: maplibregl.Map) {
       'circle-stroke-color': '#ffffff',
       'circle-stroke-width': ['case', ['get', 'selected'], 2.4, 1.8],
       'circle-translate': [13, -13],
-      'circle-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0.98, 14, 0.92],
+      'circle-opacity': ['interpolate', ['linear'], ['zoom'], 9.8, 0, 10.5, 0.9, 14, 0.92],
     },
   });
 
@@ -569,7 +578,7 @@ function installTransitLayers(map: maplibregl.Map) {
     maxzoom: spriteZoomThreshold,
     layout: {
       'text-field': ['get', 'line'],
-      'text-size': ['interpolate', ['linear'], ['zoom'], 12, 9.5, 14, 9],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 10.5, 8.8, 12, 9.8, 14, 9],
       'text-offset': [1.45, -1.45],
       'text-allow-overlap': true,
       'text-ignore-placement': true,
@@ -579,7 +588,7 @@ function installTransitLayers(map: maplibregl.Map) {
       'text-color': ['get', 'textColor'],
       'text-halo-color': ['get', 'color'],
       'text-halo-width': 0.3,
-      'text-opacity': ['interpolate', ['linear'], ['zoom'], 12, 1, 14.2, 0.9],
+      'text-opacity': ['interpolate', ['linear'], ['zoom'], 9.8, 0, 10.5, 1, 14.2, 0.9],
     },
   });
 
@@ -1075,9 +1084,14 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       const position = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
       clickPopup
         .setLngLat([position.lon, position.lat])
-        .setHTML(`<div class="vehicle-tooltip"><strong>${escapeHtml(vehicleIdentifierLabel(vehicle))}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small></div>`)
+        .setHTML(renderVehiclePopup(vehicle, true))
         .addTo(map);
-      onSelectVehicle(vehicle);
+      const popupElement = clickPopup.getElement();
+      popupElement.querySelector('[data-open-vehicle]')?.addEventListener('click', (popupEvent) => {
+        popupEvent.stopPropagation();
+        clickPopup.remove();
+        onSelectVehicle(vehicle);
+      }, { once: true });
     };
     const handleStopClick = (event: MapMouseEvent) => {
       if (vehicleAtPoint(event)) return;
@@ -1093,7 +1107,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       if (vehicle) {
         hoverPopup
           .setLngLat(event.lngLat)
-          .setHTML(`<div class="vehicle-tooltip"><strong>${escapeHtml(vehicleIdentifierLabel(vehicle))}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small></div>`)
+          .setHTML(renderVehiclePopup(vehicle))
           .addTo(map);
       } else {
         hoverPopup.remove();
