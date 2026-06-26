@@ -392,8 +392,9 @@ function renderStopArrivals(result: GttStopArrivalsResult) {
 }
 
 function renderVehiclePopup(vehicle: Vehicle, withAction = false) {
+  const vehicleId = escapeHtml(vehicle.vehicleId);
   const action = withAction
-    ? `<button type="button" class="vehicle-tooltip-action" data-open-vehicle="${escapeHtml(vehicle.vehicleId)}">Apri dettaglio vettura</button>`
+    ? `<a href="#vehicle-${vehicleId}" role="button" class="vehicle-tooltip-action" data-open-vehicle="${vehicleId}" onclick="window.dispatchEvent(new CustomEvent('busradar:open-vehicle-detail',{detail:'${vehicleId}'}));return false;" ontouchend="window.dispatchEvent(new CustomEvent('busradar:open-vehicle-detail',{detail:'${vehicleId}'}));return false;">Apri dettaglio vettura</a>`
     : '';
   return `<div class="vehicle-tooltip"><strong>${escapeHtml(vehicleIdentifierLabel(vehicle))}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small>${action}</div>`;
 }
@@ -798,31 +799,41 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   followedVehicleIdRef.current = followedVehicleId;
 
   useEffect(() => {
+    const openVehicleById = (vehicleId?: string) => {
+      const vehicle = latestVehiclesRef.current.find((item) => item.vehicleId === vehicleId);
+      if (!vehicle) return false;
+
+      vehicleClickPopupRef.current?.remove();
+      vehicleClickPopupRef.current = undefined;
+      onSelectVehicle(vehicle);
+      return true;
+    };
+
     const openVehicleFromPopup = (event: Event) => {
       const target = event.target as HTMLElement | null;
       const action = target?.closest<HTMLElement>('[data-open-vehicle]');
       if (!action) return;
 
-      const vehicleId = action.dataset.openVehicle;
-      const vehicle = latestVehiclesRef.current.find((item) => item.vehicleId === vehicleId);
-      if (!vehicle) return;
-
+      if (!openVehicleById(action.dataset.openVehicle)) return;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
+    };
 
-      vehicleClickPopupRef.current?.remove();
-      vehicleClickPopupRef.current = undefined;
-      onSelectVehicle(vehicle);
+    const openVehicleFromCustomEvent = (event: Event) => {
+      const vehicleId = (event as CustomEvent<string>).detail;
+      openVehicleById(vehicleId);
     };
 
     document.addEventListener('pointerup', openVehicleFromPopup, true);
     document.addEventListener('touchend', openVehicleFromPopup, true);
     document.addEventListener('click', openVehicleFromPopup, true);
+    window.addEventListener('busradar:open-vehicle-detail', openVehicleFromCustomEvent as EventListener);
     return () => {
       document.removeEventListener('pointerup', openVehicleFromPopup, true);
       document.removeEventListener('touchend', openVehicleFromPopup, true);
       document.removeEventListener('click', openVehicleFromPopup, true);
+      window.removeEventListener('busradar:open-vehicle-detail', openVehicleFromCustomEvent as EventListener);
     };
   }, [onSelectVehicle]);
 
