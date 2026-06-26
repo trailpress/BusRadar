@@ -29,7 +29,7 @@ const suggestionIcon = {
   vehicle: BusFront,
 };
 
-const appIconUrl = `${import.meta.env.BASE_URL}assets/icons/busradar-app-icon-512.png`;
+const appIconUrl = `${import.meta.env.BASE_URL}assets/icons/busradar-app-icon-36417d2.png`;
 
 export function AppHeader({ search, onSearch, onSearchSubmit, searchLoading, suggestions, suggestionsLoading, onSelectSuggestion, onRadar }: Props) {
   const showSuggestions = search.trim().length >= 2 && (suggestions.length > 0 || suggestionsLoading);
