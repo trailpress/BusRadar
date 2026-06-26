@@ -84,28 +84,40 @@
 }
 
 .maplibregl-popup.stop-map-popup .maplibregl-popup-content {
+  position: relative;
   width: 100%;
   max-height: min(56vh, 520px);
   max-height: min(56dvh, 520px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 16px 14px;
+  padding: 18px 16px 16px;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
 }
 
 .maplibregl-popup.stop-map-popup .maplibregl-popup-close-button {
-  position: sticky;
-  z-index: 2;
-  top: -12px;
-  float: right;
-  width: 34px;
-  height: 34px;
+  position: absolute;
+  z-index: 5;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 50%;
-  background: rgba(8, 12, 18, 0.82);
+  background: rgba(8, 12, 18, 0.9);
   color: #ffffff;
-  font-size: 22px;
+  font-size: 24px;
+  line-height: 1;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.32);
+  touch-action: manipulation;
+}
+
+.maplibregl-popup.stop-map-popup .maplibregl-popup-close-button:hover,
+.maplibregl-popup.stop-map-popup .maplibregl-popup-close-button:active {
+  background: rgba(47, 125, 255, 0.92);
 }
 
 .map-popup {
@@ -355,6 +367,7 @@
   display: grid;
   gap: 8px;
   min-width: 190px;
+  padding-right: 34px;
 }
 
 .stop-popup > span,
