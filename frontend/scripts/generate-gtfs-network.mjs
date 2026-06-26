@@ -63,10 +63,37 @@ function lineType(routeType) {
   return routeType === '0' ? 'tram' : 'bus';
 }
 
+const routeColors = [
+  '#006BB6',
+  '#00AEEF',
+  '#009B3A',
+  '#CE1126',
+  '#FCCC0A',
+  '#B933AD',
+  '#FF6319',
+  '#6CBE45',
+  '#A7A9AC',
+  '#8E258D',
+  '#00A88F',
+  '#EE352E',
+  '#2850AD',
+  '#996633',
+  '#2E7D32',
+  '#D81B60',
+  '#00838F',
+  '#5E35B1',
+];
+
+const tramColors = ['#009BDE', '#006BB6', '#00A88F', '#6CBE45', '#8E258D'];
+
+function hashRouteId(routeId) {
+  return [...String(routeId).toUpperCase()].reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0);
+}
+
 function colorForRoute(route) {
-  const fromFeed = route.route_color && route.route_color !== 'FFFFFF' ? `#${route.route_color}` : '';
-  if (fromFeed) return fromFeed;
-  return route.route_type === '0' ? '#2563EB' : '#10B981';
+  const line = cleanLineName(route.route_short_name, route.route_id);
+  const palette = lineType(route.route_type) === 'tram' ? tramColors : routeColors;
+  return palette[Math.abs(hashRouteId(line)) % palette.length];
 }
 
 function gtfsTimeToSeconds(value) {
