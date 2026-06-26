@@ -597,10 +597,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const snapLimitMeters = vehicleLivery === 'interurban-blue' ? 70 : 55;
   const isSnappedToRoute = Boolean(estimate.snappedPoint && estimate.offRouteMeters != null && estimate.offRouteMeters <= snapLimitMeters);
   const displayPoint = isSnappedToRoute ? estimate.snappedPoint! : rawPoint;
-  const compensated = isSnappedToRoute
-    ? compensateFeedLatency(estimate.routeVariantId, displayPoint, speed, ageSeconds)
-    : undefined;
-  const finalPoint = compensated?.point ?? displayPoint;
+  const finalPoint = displayPoint;
   const routeMatchStatus: Vehicle['routeMatchStatus'] = estimate.offRouteMeters == null
     ? 'unmatched'
     : isSnappedToRoute
@@ -637,7 +634,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     lat: finalPoint.lat,
     lon: finalPoint.lon,
     bearing: isSnappedToRoute
-      ? compensated?.bearing ?? estimate.bearing ?? 0
+      ? estimate.bearing ?? 0
       : preferredBearing ?? estimate.bearing ?? 0,
     speed,
     speedSource,

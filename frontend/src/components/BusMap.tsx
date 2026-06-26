@@ -223,7 +223,7 @@ function routeMotion(vehicle: Vehicle, from: LatLng, to: LatLng) {
   const totalMeters = toState.traveledMeters + toState.remainingMeters;
   const traveledDelta = toState.traveledMeters - fromState.traveledMeters;
   if (totalMeters <= 0 || Math.abs(traveledDelta) > 1500) return undefined;
-  const stableToProgress = Math.abs(traveledDelta) < 12
+  const stableToProgress = traveledDelta < 18
     ? fromState.traveledMeters / totalMeters
     : toState.traveledMeters / totalMeters;
   return {
@@ -986,13 +986,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       const animatedVehicles: Vehicle[] = [];
       vehicleFramesRef.current.forEach((frame, id) => {
         const rawElapsed = Math.max(0, (time - frame.startedAt) / frame.durationMs);
-        const canExtrapolateFollowedRoute = (
-          id === followedVehicleIdRef.current
-          && frame.routePath
-          && frame.fromRouteProgress != null
-          && frame.toRouteProgress != null
-        );
-        const elapsed = Math.min(canExtrapolateFollowedRoute ? 2 : 1, rawElapsed);
+        const elapsed = Math.min(1, rawElapsed);
         const routeProgress = frame.fromRouteProgress != null && frame.toRouteProgress != null
           ? Math.min(
             0.999999,
