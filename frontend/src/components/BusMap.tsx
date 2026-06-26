@@ -401,7 +401,16 @@ function renderVehiclePopup(vehicle: Vehicle, withAction = false) {
 function bindVehiclePopupActions(popup: maplibregl.Popup, vehicle: Vehicle, onSelectVehicle: (vehicle: Vehicle) => void) {
   const popupElement = popup.getElement();
   let opened = false;
-  const contain = (event: Event) => event.stopPropagation();
+  const listeners: Array<{ target: EventTarget; eventName: string; handler: EventListener; options?: AddEventListenerOptions | boolean }> = [];
+  const addListener = (target: EventTarget, eventName: string, handler: EventListener, options?: AddEventListenerOptions | boolean) => {
+    target.addEventListener(eventName, handler, options);
+    listeners.push({ target, eventName, handler, options });
+  };
+  const contain = (event: Event) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('.maplibregl-popup-close-button')) return;
+    event.stopPropagation();
+  };
   const openDetails = (event: Event) => {
     const target = event.target as HTMLElement | null;
     if (!target?.closest('[data-open-vehicle]')) return;
@@ -413,17 +422,26 @@ function bindVehiclePopupActions(popup: maplibregl.Popup, vehicle: Vehicle, onSe
     onSelectVehicle(vehicle);
   };
 
-  ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'click', 'dblclick'].forEach((eventName) => {
-    popupElement.addEventListener(eventName, contain);
+  ['pointerdown', 'mousedown', 'touchstart', 'dblclick'].forEach((eventName) => {
+    addListener(popupElement, eventName, contain, true);
   });
-  popupElement.addEventListener('click', openDetails);
-  popupElement.addEventListener('pointerup', openDetails);
-  popup.on('close', () => {
-    ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'click', 'dblclick'].forEach((eventName) => {
-      popupElement.removeEventListener(eventName, contain);
+  ['pointerup', 'touchend', 'click'].forEach((eventName) => {
+    addListener(popupElement, eventName, openDetails, true);
+  });
+
+  requestAnimationFrame(() => {
+    const button = popupElement.querySelector<HTMLButtonElement>('[data-open-vehicle]');
+    if (!button) return;
+    const directOpen = (event: Event) => openDetails(event);
+    ['pointerup', 'touchend', 'click'].forEach((eventName) => {
+      addListener(button, eventName, directOpen, { capture: true });
     });
-    popupElement.removeEventListener('click', openDetails);
-    popupElement.removeEventListener('pointerup', openDetails);
+  });
+
+  popup.on('close', () => {
+    listeners.forEach(({ target, eventName, handler, options }) => {
+      target.removeEventListener(eventName, handler, options);
+    });
   });
 }
 
