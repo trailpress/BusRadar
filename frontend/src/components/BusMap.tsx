@@ -398,6 +398,35 @@ function renderVehiclePopup(vehicle: Vehicle, withAction = false) {
   return `<div class="vehicle-tooltip"><strong>${escapeHtml(vehicleIdentifierLabel(vehicle))}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small>${action}</div>`;
 }
 
+function bindVehiclePopupActions(popup: maplibregl.Popup, vehicle: Vehicle, onSelectVehicle: (vehicle: Vehicle) => void) {
+  const popupElement = popup.getElement();
+  let opened = false;
+  const contain = (event: Event) => event.stopPropagation();
+  const openDetails = (event: Event) => {
+    const target = event.target as HTMLElement | null;
+    if (!target?.closest('[data-open-vehicle]')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (opened) return;
+    opened = true;
+    popup.remove();
+    onSelectVehicle(vehicle);
+  };
+
+  ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'click', 'dblclick'].forEach((eventName) => {
+    popupElement.addEventListener(eventName, contain);
+  });
+  popupElement.addEventListener('click', openDetails);
+  popupElement.addEventListener('pointerup', openDetails);
+  popup.on('close', () => {
+    ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'click', 'dblclick'].forEach((eventName) => {
+      popupElement.removeEventListener(eventName, contain);
+    });
+    popupElement.removeEventListener('click', openDetails);
+    popupElement.removeEventListener('pointerup', openDetails);
+  });
+}
+
 function showStopPopup(
   map: maplibregl.Map,
   properties: StopFeatureProperties,
@@ -901,7 +930,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     if (!mapReady || !mapRef.current) return;
     let frameId = 0;
     const tick = (time: number) => {
-      if (time - lastVehicleRenderAtRef.current < 50) {
+      if (time - lastVehicleRenderAtRef.current < 33) {
         frameId = requestAnimationFrame(tick);
         return;
       }
@@ -1087,14 +1116,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         .setLngLat([position.lon, position.lat])
         .setHTML(renderVehiclePopup(vehicle, true))
         .addTo(map);
-      const popupElement = clickPopup.getElement();
-      popupElement.onclick = (popupEvent) => {
-        popupEvent.stopPropagation();
-        const target = popupEvent.target as HTMLElement | null;
-        if (!target?.closest('[data-open-vehicle]')) return;
-        clickPopup.remove();
-        onSelectVehicle(vehicle);
-      };
+      bindVehiclePopupActions(clickPopup, vehicle, onSelectVehicle);
     };
     const handleStopClick = (event: MapMouseEvent) => {
       if (vehicleAtPoint(event)) return;

@@ -1,6 +1,6 @@
 import type { Vehicle } from '../types';
-import { getGtfsLine, getGtfsRoutesForLine, getGtfsRoutesForRouteId, loadGtfsNetwork } from '../data/gtfsNetwork';
-import { bearingDegrees, distanceMeters, routeProgressAtPoint } from '../utils/geo';
+import { getGtfsLine, getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, loadGtfsNetwork } from '../data/gtfsNetwork';
+import { bearingDegrees, distanceMeters, interpolatePathState, routeProgressAtPoint } from '../utils/geo';
 
 type GttVehiclePosition = {
   entityId?: string | null;
@@ -439,6 +439,10 @@ function timestampMs(timestamp: string | null) {
   return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : Date.now();
 }
 
+function feedAgeSeconds(timestamp: string | null) {
+  return Math.max(0, Math.round((Date.now() - timestampMs(timestamp)) / 1000));
+}
+
 function observedSpeed(vehicleId: string, vehicle: GttVehiclePosition) {
   if (typeof vehicle.lat !== 'number' || typeof vehicle.lon !== 'number') return { speed: 0, source: 'unavailable' as const, bearing: undefined };
 
@@ -525,6 +529,30 @@ function terminalEstimate(
   };
 }
 
+function compensateFeedLatency(
+  routeVariantId: string | undefined,
+  point: { lat: number; lon: number },
+  speedKmhValue: number,
+  ageSeconds: number,
+) {
+  if (!routeVariantId || speedKmhValue < 3 || speedKmhValue > 75 || ageSeconds < 4) return undefined;
+  const routeVariant = getGtfsRouteVariant(routeVariantId);
+  if (!routeVariant || routeVariant.path.length < 2) return undefined;
+  const progress = routeProgressAtPoint(routeVariant.path, point);
+  if (!progress) return undefined;
+
+  const totalMeters = progress.traveledMeters + progress.remainingMeters;
+  if (totalMeters <= 0) return undefined;
+  const compensationSeconds = Math.min(ageSeconds, 28);
+  const advanceMeters = Math.min(260, (speedKmhValue / 3.6) * compensationSeconds);
+  if (advanceMeters < 8) return undefined;
+  const compensated = interpolatePathState(
+    routeVariant.path,
+    Math.min(0.999999, (progress.traveledMeters + advanceMeters) / totalMeters),
+  );
+  return compensated ? { point: compensated.point, bearing: compensated.bearing } : undefined;
+}
+
 function isValidTorinoCoordinate(vehicle: GttVehiclePosition) {
   return (
     typeof vehicle.lat === 'number' &&
@@ -554,6 +582,8 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     : 'feed-internal';
   const { speed, source: speedSource, bearing: observedBearing } = observedSpeed(vehicleId || String(index), vehicle);
   const rawPoint = { lat: vehicle.lat ?? 0, lon: vehicle.lon ?? 0 };
+  const sampleTimestampMs = timestampMs(vehicle.timestamp);
+  const ageSeconds = feedAgeSeconds(vehicle.timestamp);
   const feedBearing = vehicle.bearing != null && vehicle.bearing >= 0 ? vehicle.bearing : undefined;
   const preferredBearing = observedBearing ?? feedBearing;
   const estimate = terminalEstimate(
@@ -567,6 +597,10 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const snapLimitMeters = vehicleLivery === 'interurban-blue' ? 70 : 55;
   const isSnappedToRoute = Boolean(estimate.snappedPoint && estimate.offRouteMeters != null && estimate.offRouteMeters <= snapLimitMeters);
   const displayPoint = isSnappedToRoute ? estimate.snappedPoint! : rawPoint;
+  const compensated = isSnappedToRoute
+    ? compensateFeedLatency(estimate.routeVariantId, displayPoint, speed, ageSeconds)
+    : undefined;
+  const finalPoint = compensated?.point ?? displayPoint;
   const routeMatchStatus: Vehicle['routeMatchStatus'] = estimate.offRouteMeters == null
     ? 'unmatched'
     : isSnappedToRoute
@@ -600,13 +634,15 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     routeVariantId: estimate.routeVariantId,
     shapeId: estimate.shapeId,
     offRouteMeters: estimate.offRouteMeters,
-    lat: displayPoint.lat,
-    lon: displayPoint.lon,
+    lat: finalPoint.lat,
+    lon: finalPoint.lon,
     bearing: isSnappedToRoute
-      ? estimate.bearing ?? 0
+      ? compensated?.bearing ?? estimate.bearing ?? 0
       : preferredBearing ?? estimate.bearing ?? 0,
     speed,
     speedSource,
+    feedTimestampMs: sampleTimestampMs,
+    feedAgeSeconds: ageSeconds,
     updatedAt: formatTimestamp(vehicle.timestamp),
     source: 'gtfs-rt',
     status: speed > 1 ? 'moving' : 'unknown',

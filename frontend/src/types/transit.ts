@@ -43,6 +43,8 @@ export type TransitVehicle = {
   bearing: number;
   speed: number;
   speedSource?: 'feed' | 'observed' | 'unavailable';
+  feedTimestampMs?: number;
+  feedAgeSeconds?: number;
   updatedAt: string;
   source: VehicleSource;
   status: VehicleStatus;
