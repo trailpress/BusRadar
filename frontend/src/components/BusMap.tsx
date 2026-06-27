@@ -625,6 +625,8 @@ function installTransitLayers(map: maplibregl.Map) {
         'interpolate',
         ['linear'],
         ['zoom'],
+        7.4,
+        ['case', ['get', 'selected'], 8.5, 6.5],
         8.8,
         ['case', ['get', 'selected'], 10, 7.5],
         10.5,
@@ -640,7 +642,7 @@ function installTransitLayers(map: maplibregl.Map) {
       'circle-stroke-color': '#ffffff',
       'circle-stroke-width': ['case', ['get', 'selected'], 2.4, 1.8],
       'circle-translate': [13, -13],
-      'circle-opacity': ['interpolate', ['linear'], ['zoom'], 8.4, 0, 9.1, 0.82, 10.5, 0.9, 14, 0.92],
+      'circle-opacity': ['interpolate', ['linear'], ['zoom'], 7.2, 0, 7.9, 0.72, 9.1, 0.82, 10.5, 0.9, 14, 0.92],
     },
   });
 
@@ -651,7 +653,7 @@ function installTransitLayers(map: maplibregl.Map) {
     maxzoom: spriteZoomThreshold,
     layout: {
       'text-field': '▲',
-      'text-size': ['interpolate', ['linear'], ['zoom'], 8.8, 5.8, 11, 7, 14, 7.8],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 7.4, 4.9, 8.8, 5.8, 11, 7, 14, 7.8],
       'text-offset': [1.45, -2.45],
       'text-rotate': ['get', 'arrowBearing'],
       'text-rotation-alignment': 'map',
@@ -663,7 +665,28 @@ function installTransitLayers(map: maplibregl.Map) {
       'text-color': '#ffffff',
       'text-halo-color': ['get', 'color'],
       'text-halo-width': 1.1,
-      'text-opacity': ['interpolate', ['linear'], ['zoom'], 8.4, 0, 9.1, 0.92, 14.2, 0.95],
+      'text-opacity': ['interpolate', ['linear'], ['zoom'], 7.2, 0, 7.9, 0.86, 9.1, 0.92, 14.2, 0.95],
+    },
+  });
+
+  map.addLayer({
+    id: 'vehicle-badge-mode',
+    type: 'symbol',
+    source: 'vehicles',
+    maxzoom: 11.2,
+    layout: {
+      'text-field': ['case', ['get', 'isTram'], 'TRAM', 'BUS'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 7.4, 4.8, 9.5, 5.6, 11, 6.2],
+      'text-offset': [1.45, -0.58],
+      'text-allow-overlap': true,
+      'text-ignore-placement': true,
+      'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+    },
+    paint: {
+      'text-color': ['get', 'textColor'],
+      'text-halo-color': ['get', 'color'],
+      'text-halo-width': 0.4,
+      'text-opacity': ['interpolate', ['linear'], ['zoom'], 7.2, 0, 7.9, 0.78, 10.8, 0.8, 11.2, 0],
     },
   });
 
@@ -674,7 +697,7 @@ function installTransitLayers(map: maplibregl.Map) {
     maxzoom: spriteZoomThreshold,
     layout: {
       'text-field': ['get', 'line'],
-      'text-size': ['interpolate', ['linear'], ['zoom'], 8.8, 7.4, 10.5, 8.8, 12, 9.8, 14, 9],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 7.4, 6.5, 8.8, 7.4, 10.5, 8.8, 12, 9.8, 14, 9],
       'text-offset': [1.45, -1.45],
       'text-allow-overlap': true,
       'text-ignore-placement': true,
@@ -684,7 +707,7 @@ function installTransitLayers(map: maplibregl.Map) {
       'text-color': ['get', 'textColor'],
       'text-halo-color': ['get', 'color'],
       'text-halo-width': 0.3,
-      'text-opacity': ['interpolate', ['linear'], ['zoom'], 8.4, 0, 9.1, 0.96, 10.5, 1, 14.2, 0.9],
+      'text-opacity': ['interpolate', ['linear'], ['zoom'], 7.2, 0, 7.9, 0.9, 9.1, 0.96, 10.5, 1, 14.2, 0.9],
     },
   });
 
@@ -1215,7 +1238,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     const map = mapRef.current;
-    const vehicleLayers = ['vehicle-selected-sprites', 'vehicle-sprites', 'vehicle-hit-area', 'vehicle-badges', 'vehicle-badge-arrows', 'vehicle-badge-labels', 'vehicle-sprite-labels'];
+    const vehicleLayers = ['vehicle-selected-sprites', 'vehicle-sprites', 'vehicle-hit-area', 'vehicle-badges', 'vehicle-badge-arrows', 'vehicle-badge-mode', 'vehicle-badge-labels', 'vehicle-sprite-labels'];
     const stopLayers = ['stops-hit-area', 'stops-circle'];
     const hoverPopup = new maplibregl.Popup({
       className: 'vehicle-hover-popup',
