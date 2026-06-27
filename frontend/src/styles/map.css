@@ -61,21 +61,6 @@
   padding: 12px 12px 11px;
 }
 
-.maplibregl-popup.vehicle-click-popup .maplibregl-popup-close-button {
-  top: 4px;
-  right: 5px;
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  color: #ffffff;
-  font-size: 18px;
-  line-height: 22px;
-}
-
-.maplibregl-popup.vehicle-click-popup .maplibregl-popup-close-button:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-
 .maplibregl-popup.stop-map-popup {
   z-index: 760;
   width: min(360px, calc(100vw - 24px));
@@ -179,13 +164,38 @@
 .maplibregl-popup .vehicle-tooltip {
   position: static;
   min-width: 150px;
-  padding: 0 20px 0 0;
+  padding: 0 26px 0 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
   opacity: 1;
   transform: none;
+}
+
+.vehicle-tooltip-close {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font: inherit;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.vehicle-tooltip-close:active {
+  transform: scale(0.94);
 }
 
 .maplibregl-popup .vehicle-tooltip::after {
