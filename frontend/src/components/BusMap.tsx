@@ -241,18 +241,14 @@ function routeMotion(vehicle: Vehicle, from: LatLng, to: LatLng) {
 }
 
 function laneOffsetMetersForZoom(zoom: number) {
-  if (zoom < 14.5) return 0;
-  if (zoom < 16) return 0.8 + ((zoom - 14.5) / 1.5) * 0.8;
-  if (zoom < 18) return 1.6 + ((zoom - 16) / 2) * 0.35;
-  return 1.95;
+  void zoom;
+  return 0;
 }
 
 function vehicleSeparationMeters(vehicle: Vehicle, zoom: number) {
-  const baseLength = vehicle.vehicleLengthClass === 'articulated-18m' ? 15 : vehicle.vehicleType === 'tram' ? 13 : 10;
-  if (zoom < 14.5) return 0;
-  if (zoom < 16) return baseLength * 0.55;
-  if (zoom < 18) return baseLength * 0.75;
-  return baseLength;
+  void vehicle;
+  void zoom;
+  return 0;
 }
 
 function vehiclesToGeoJson(
@@ -641,7 +637,6 @@ function installTransitLayers(map: maplibregl.Map) {
       'circle-color': ['get', 'color'],
       'circle-stroke-color': '#ffffff',
       'circle-stroke-width': ['case', ['get', 'selected'], 2.4, 1.8],
-      'circle-translate': [13, -13],
       'circle-opacity': ['interpolate', ['linear'], ['zoom'], 7.2, 0, 7.9, 0.72, 9.1, 0.82, 10.5, 0.9, 14, 0.92],
     },
   });
@@ -654,9 +649,9 @@ function installTransitLayers(map: maplibregl.Map) {
     layout: {
       'text-field': '▲',
       'text-size': ['interpolate', ['linear'], ['zoom'], 7.4, 6.2, 8.8, 7.2, 11, 8.2, 14, 8.8],
-      'text-offset': [1.45, -2.08],
+      'text-offset': [0, -1.24],
       'text-rotate': ['get', 'arrowBearing'],
-      'text-rotation-alignment': 'map',
+      'text-rotation-alignment': 'viewport',
       'text-allow-overlap': true,
       'text-ignore-placement': true,
       'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
@@ -677,7 +672,7 @@ function installTransitLayers(map: maplibregl.Map) {
     layout: {
       'text-field': ['get', 'line'],
       'text-size': ['interpolate', ['linear'], ['zoom'], 7.4, 6.5, 8.8, 7.4, 10.5, 8.8, 12, 9.8, 14, 9],
-      'text-offset': [1.45, -1.45],
+      'text-offset': [0, 0],
       'text-allow-overlap': true,
       'text-ignore-placement': true,
       'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
