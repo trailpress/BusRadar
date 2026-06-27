@@ -213,7 +213,7 @@ const previousSamples = new Map<string, { lat: number; lon: number; timestampMs:
 const previousRouteVariants = new Map<string, string>();
 
 async function fetchRawVehicles() {
-  if (rawVehiclesCache && Date.now() - rawVehiclesCache.at < 15000) return rawVehiclesCache.vehicles;
+  if (rawVehiclesCache && Date.now() - rawVehiclesCache.at < 6000) return rawVehiclesCache.vehicles;
 
   const response = await fetch(`${GTT_REALTIME_API_BASE}/vehicles`);
   if (!response.ok) return [];

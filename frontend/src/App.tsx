@@ -285,7 +285,7 @@ function App() {
           favorite: isVehicleFavorite(vehicle.vehicleId),
         })));
       }
-      refreshTimer = window.setTimeout(loadRealtimeVehicles, snapshot ? 15_000 : 3_000);
+      refreshTimer = window.setTimeout(loadRealtimeVehicles, snapshot ? 6_000 : 3_000);
     }
 
     void loadRealtimeVehicles();

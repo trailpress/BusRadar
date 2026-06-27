@@ -1054,9 +1054,9 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       vehicleFramesRef.current.set(vehicle.vehicleId, {
         from: isPlausibleUpdate ? previous : next,
         to: next,
-        startedAt: isPlausibleUpdate ? now : now - 14500,
+        startedAt: isPlausibleUpdate ? now : now - 6200,
         vehicle,
-        durationMs: 14500,
+        durationMs: 6200,
         ...motion,
       });
     });
