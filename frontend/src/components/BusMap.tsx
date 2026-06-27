@@ -62,6 +62,10 @@ type ActiveVehiclePopup = {
 const spriteZoomThreshold = 14.25;
 const vehicleAssetBase = import.meta.env.BASE_URL;
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
 function createMapStyle(): maplibregl.StyleSpecification {
   return {
     version: 8,
@@ -242,13 +246,20 @@ function routeMotion(vehicle: Vehicle, from: LatLng, to: LatLng) {
 
 function laneOffsetMetersForZoom(zoom: number) {
   void zoom;
-  return 0;
+  return 1.15;
 }
 
 function vehicleSeparationMeters(vehicle: Vehicle, zoom: number) {
   void vehicle;
-  void zoom;
-  return 0;
+  return zoom >= 14 ? 4.2 : 0;
+}
+
+function vehicleMovementDurationMs(vehicle: Vehicle, meters: number) {
+  if (meters < 1.5) return 9000;
+  const feedSpeedMps = vehicle.speed >= 3 && vehicle.speed <= 70 ? vehicle.speed / 3.6 : undefined;
+  const catchUpSpeedMps = meters / 18;
+  const speedMps = Math.max(feedSpeedMps ?? 0, catchUpSpeedMps, 2.2);
+  return clamp((meters / speedMps) * 1000, 5500, 18000);
 }
 
 function vehiclesToGeoJson(
@@ -1049,14 +1060,15 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       const previous = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
       const next = { lat: vehicle.lat, lon: vehicle.lon };
       const meters = new maplibregl.LngLat(previous.lon, previous.lat).distanceTo(new maplibregl.LngLat(next.lon, next.lat));
-      const isPlausibleUpdate = meters <= 600;
+      const isPlausibleUpdate = meters <= 420;
       const motion = isPlausibleUpdate ? routeMotion(vehicle, previous, next) : undefined;
+      const durationMs = isPlausibleUpdate ? vehicleMovementDurationMs(vehicle, meters) : 1;
       vehicleFramesRef.current.set(vehicle.vehicleId, {
         from: isPlausibleUpdate ? previous : next,
         to: next,
-        startedAt: isPlausibleUpdate ? now : now - 6200,
+        startedAt: isPlausibleUpdate ? now : now - 1,
         vehicle,
-        durationMs: 6200,
+        durationMs,
         ...motion,
       });
     });
