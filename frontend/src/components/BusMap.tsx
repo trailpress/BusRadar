@@ -653,8 +653,8 @@ function installTransitLayers(map: maplibregl.Map) {
     maxzoom: spriteZoomThreshold,
     layout: {
       'text-field': '▲',
-      'text-size': ['interpolate', ['linear'], ['zoom'], 7.4, 4.9, 8.8, 5.8, 11, 7, 14, 7.8],
-      'text-offset': [1.45, -2.45],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 7.4, 6.2, 8.8, 7.2, 11, 8.2, 14, 8.8],
+      'text-offset': [1.45, -2.08],
       'text-rotate': ['get', 'arrowBearing'],
       'text-rotation-alignment': 'map',
       'text-allow-overlap': true,
@@ -664,29 +664,8 @@ function installTransitLayers(map: maplibregl.Map) {
     paint: {
       'text-color': '#ffffff',
       'text-halo-color': ['get', 'color'],
-      'text-halo-width': 1.1,
-      'text-opacity': ['interpolate', ['linear'], ['zoom'], 7.2, 0, 7.9, 0.86, 9.1, 0.92, 14.2, 0.95],
-    },
-  });
-
-  map.addLayer({
-    id: 'vehicle-badge-mode',
-    type: 'symbol',
-    source: 'vehicles',
-    maxzoom: 11.2,
-    layout: {
-      'text-field': ['case', ['get', 'isTram'], 'TRAM', 'BUS'],
-      'text-size': ['interpolate', ['linear'], ['zoom'], 7.4, 4.8, 9.5, 5.6, 11, 6.2],
-      'text-offset': [1.45, -0.58],
-      'text-allow-overlap': true,
-      'text-ignore-placement': true,
-      'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-    },
-    paint: {
-      'text-color': ['get', 'textColor'],
-      'text-halo-color': ['get', 'color'],
-      'text-halo-width': 0.4,
-      'text-opacity': ['interpolate', ['linear'], ['zoom'], 7.2, 0, 7.9, 0.78, 10.8, 0.8, 11.2, 0],
+      'text-halo-width': 1.45,
+      'text-opacity': ['interpolate', ['linear'], ['zoom'], 7.2, 0, 7.8, 0.96, 9.1, 1, 14.2, 0.98],
     },
   });
 
@@ -1238,7 +1217,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     const map = mapRef.current;
-    const vehicleLayers = ['vehicle-selected-sprites', 'vehicle-sprites', 'vehicle-hit-area', 'vehicle-badges', 'vehicle-badge-arrows', 'vehicle-badge-mode', 'vehicle-badge-labels', 'vehicle-sprite-labels'];
+    const vehicleLayers = ['vehicle-selected-sprites', 'vehicle-sprites', 'vehicle-hit-area', 'vehicle-badges', 'vehicle-badge-arrows', 'vehicle-badge-labels', 'vehicle-sprite-labels'];
     const stopLayers = ['stops-hit-area', 'stops-circle'];
     const hoverPopup = new maplibregl.Popup({
       className: 'vehicle-hover-popup',
