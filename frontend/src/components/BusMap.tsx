@@ -91,9 +91,9 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
     return routesById.length > 0 ? routesById : getGtfsRoutesForLine(showRouteForLine);
   }
   if (selectedLine) return getGtfsRoutesForLine(selectedLine);
-  if (vehicles.length === 0) return overviewRouteVariants();
 
   const byRoute = new Map<string, GtfsRouteVariant>();
+  overviewRouteVariants().forEach((route) => byRoute.set(route.id, route));
   const unresolvedLines = new Set<string>();
 
   vehicles.forEach((vehicle) => {
