@@ -40,6 +40,7 @@ type VehicleFrame = {
   routePath?: LatLng[];
   fromRouteProgress?: number;
   toRouteProgress?: number;
+  routeTotalMeters?: number;
   durationMs: number;
 };
 
@@ -241,6 +242,7 @@ function routeMotion(vehicle: Vehicle, from: LatLng, to: LatLng) {
     routePath: route.path,
     fromRouteProgress: fromState.traveledMeters / totalMeters,
     toRouteProgress: stableToProgress,
+    routeTotalMeters: totalMeters,
   };
 }
 
@@ -260,6 +262,12 @@ function vehicleMovementDurationMs(vehicle: Vehicle, meters: number) {
   const catchUpSpeedMps = meters / 18;
   const speedMps = Math.max(feedSpeedMps ?? 0, catchUpSpeedMps, 2.2);
   return clamp((meters / speedMps) * 1000, 5500, 18000);
+}
+
+function vehicleInertiaMeters(vehicle: Vehicle, elapsedSeconds: number) {
+  if (elapsedSeconds <= 0) return 0;
+  const speedKmh = clamp(vehicle.speed || 8, 5, 28);
+  return Math.min(55, (speedKmh / 3.6) * Math.min(elapsedSeconds, 7));
 }
 
 function vehiclesToGeoJson(
@@ -1087,22 +1095,30 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       vehicleFramesRef.current.forEach((frame, id) => {
         const rawElapsed = Math.max(0, (time - frame.startedAt) / frame.durationMs);
         const elapsed = Math.min(1, rawElapsed);
+        const inertialMeters = vehicleInertiaMeters(frame.vehicle, Math.max(0, rawElapsed - 1) * (frame.durationMs / 1000));
         const routeProgress = frame.fromRouteProgress != null && frame.toRouteProgress != null
           ? Math.min(
             0.999999,
             Math.max(
               0,
-              frame.fromRouteProgress + (frame.toRouteProgress - frame.fromRouteProgress) * elapsed,
+              frame.fromRouteProgress
+                + (frame.toRouteProgress - frame.fromRouteProgress) * elapsed
+                + (frame.routeTotalMeters ? inertialMeters / frame.routeTotalMeters : 0),
             ),
           )
           : undefined;
         const routeState = frame.routePath && routeProgress != null
           ? interpolatePathState(frame.routePath, routeProgress)
           : undefined;
-        const position = routeState?.point ?? {
+        const linearPosition = {
           lat: frame.from.lat + (frame.to.lat - frame.from.lat) * elapsed,
           lon: frame.from.lon + (frame.to.lon - frame.from.lon) * elapsed,
         };
+        const position = routeState?.point ?? (
+          inertialMeters > 0
+            ? offsetPointMeters(linearPosition, frame.vehicle.bearing, Math.min(35, inertialMeters))
+            : linearPosition
+        );
         currentPositionsRef.current.set(id, position);
         animatedVehicles.push(routeState ? { ...frame.vehicle, bearing: routeState.bearing } : frame.vehicle);
       });
