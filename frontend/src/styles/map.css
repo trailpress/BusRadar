@@ -328,6 +328,76 @@
   transform: translate(-50%, 0) scale(1);
 }
 
+.vehicle-html-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 705;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.vehicle-html-marker {
+  --line-color: #2f7dff;
+  --line-text-color: #ffffff;
+  --bearing: 0deg;
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid rgba(255, 255, 255, 0.96);
+  border-radius: 999px;
+  background: var(--line-color);
+  color: var(--line-text-color);
+  box-shadow:
+    0 5px 12px rgba(15, 23, 42, 0.22),
+    0 0 0 1px rgba(15, 23, 42, 0.08);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 950;
+  line-height: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+.vehicle-html-marker.is-selected {
+  width: 34px;
+  height: 34px;
+  box-shadow:
+    0 7px 18px rgba(47, 125, 255, 0.34),
+    0 0 0 5px rgba(47, 125, 255, 0.18);
+}
+
+.vehicle-html-arrow {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-right: 5px solid transparent;
+  border-bottom: 9px solid var(--line-color);
+  border-left: 5px solid transparent;
+  filter:
+    drop-shadow(0 -1px 0 rgba(255, 255, 255, 0.96))
+    drop-shadow(0 2px 3px rgba(15, 23, 42, 0.18));
+  transform: translateX(-50%) rotate(var(--bearing));
+  transform-origin: 50% 22px;
+}
+
+.vehicle-html-label {
+  position: relative;
+  z-index: 1;
+  max-width: 26px;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .vehicle-marker i {
   position: absolute;
   top: -6px;

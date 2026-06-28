@@ -1,6 +1,6 @@
 import maplibregl, { type GeoJSONSource, type LngLatBoundsLike, type MapMouseEvent } from 'maplibre-gl';
 import { LocateFixed } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, gtfsNetwork, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
 import { useGtfsNetwork } from '../data/useGtfsNetwork';
 import { fetchGttStopArrivalsInfo, type GttStopArrival, type GttStopArrivalsResult } from '../services/gttRealtime';
@@ -59,6 +59,17 @@ type ActiveVehiclePopup = {
   vehicle: Vehicle;
   x: number;
   y: number;
+};
+
+type VehicleOverlayMarker = {
+  id: string;
+  vehicle: Vehicle;
+  x: number;
+  y: number;
+  color: string;
+  textColor: string;
+  bearing: number;
+  selected: boolean;
 };
 
 const spriteZoomThreshold = 14.25;
@@ -391,6 +402,43 @@ function vehiclesToGeoJson(
       };
     }),
   };
+}
+
+function vehicleOverlayMarkers(
+  map: maplibregl.Map,
+  vehicles: Vehicle[],
+  positions: Map<string, LatLng>,
+  selectedVehicleId?: string,
+  followedVehicleId?: string,
+) {
+  const canvas = map.getCanvas();
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  return vehicles
+    .map((vehicle) => {
+      const position = positions.get(vehicle.vehicleId) ?? vehicle;
+      const projected = map.project([position.lon, position.lat]);
+      const margin = 42;
+      if (
+        projected.x < -margin ||
+        projected.x > width + margin ||
+        projected.y < -margin ||
+        projected.y > height + margin
+      ) {
+        return undefined;
+      }
+      return {
+        id: vehicle.vehicleId,
+        vehicle,
+        x: projected.x,
+        y: projected.y,
+        color: getLineColor(vehicle.line),
+        textColor: routeDisplayTextColor(vehicle.line, vehicle.vehicleType),
+        bearing: vehicle.bearing,
+        selected: vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId,
+      };
+    })
+    .filter((marker): marker is VehicleOverlayMarker => Boolean(marker));
 }
 
 function emptyPointCollection(): GeoJSON.FeatureCollection<GeoJSON.Point> {
@@ -883,6 +931,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const vehicleLastSeenAtRef = useRef<Map<string, number>>(new Map());
   const lastFollowCameraAtRef = useRef(0);
   const lastVehicleRenderAtRef = useRef(0);
+  const lastVehicleOverlayAtRef = useRef(0);
   const lastVehiclePopupRenderAtRef = useRef(0);
   const suppressVehicleClicksUntilRef = useRef(0);
   const userCenterRefinementUntilRef = useRef(0);
@@ -891,6 +940,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const [zoom, setZoom] = useState(13);
   const [locatingUser, setLocatingUser] = useState(false);
   const [activeVehiclePopup, setActiveVehiclePopup] = useState<ActiveVehiclePopup | undefined>();
+  const [vehicleOverlay, setVehicleOverlay] = useState<VehicleOverlayMarker[]>([]);
   const activeVehiclePopupRef = useRef<ActiveVehiclePopup | undefined>(undefined);
 
   latestVehiclesRef.current = vehicles;
@@ -1083,7 +1133,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   }, [mapReady, searchedArea]);
 
   useEffect(() => {
-    if (!mapReady) return;
+    if (!mapRef.current) return;
+    const map = mapRef.current;
     const now = performance.now();
     const active = new Set(visibleVehicles.map((vehicle) => vehicle.vehicleId));
     visibleVehicles.forEach((vehicle) => vehicleLastSeenAtRef.current.set(vehicle.vehicleId, now));
@@ -1100,6 +1151,9 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     visibleVehicles.forEach((vehicle) => {
       const previous = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
       const next = { lat: vehicle.lat, lon: vehicle.lon };
+      if (!currentPositionsRef.current.has(vehicle.vehicleId)) {
+        currentPositionsRef.current.set(vehicle.vehicleId, next);
+      }
       const meters = new maplibregl.LngLat(previous.lon, previous.lat).distanceTo(new maplibregl.LngLat(next.lon, next.lat));
       const isPlausibleUpdate = meters <= 420;
       const motion = isPlausibleUpdate ? routeMotion(vehicle, previous, next) : undefined;
@@ -1114,7 +1168,14 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         ...motion,
       });
     });
-  }, [visibleVehicles, mapReady]);
+    setVehicleOverlay(vehicleOverlayMarkers(
+      map,
+      visibleVehicles,
+      currentPositionsRef.current,
+      selectedVehicleIdRef.current,
+      followedVehicleIdRef.current,
+    ));
+  }, [visibleVehicles, zoom]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
@@ -1169,6 +1230,16 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           followedVehicleIdRef.current,
         ),
       );
+      if (time - lastVehicleOverlayAtRef.current > 110) {
+        lastVehicleOverlayAtRef.current = time;
+        setVehicleOverlay(vehicleOverlayMarkers(
+          map,
+          animatedVehicles,
+          currentPositionsRef.current,
+          selectedVehicleIdRef.current,
+          followedVehicleIdRef.current,
+        ));
+      }
       const activePopup = activeVehiclePopupRef.current;
       if (activePopup && time - lastVehiclePopupRenderAtRef.current > 120) {
         const liveVehicle = latestVehiclesRef.current.find((item) => item.vehicleId === activePopup.vehicleId);
@@ -1386,6 +1457,35 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         </button>
       )}
       <div ref={containerRef} className="bus-map" />
+      <div className="vehicle-html-overlay" aria-hidden={vehicleOverlay.length === 0}>
+        {vehicleOverlay.map((marker) => (
+          <button
+            key={marker.id}
+            type="button"
+            className={`vehicle-html-marker${marker.selected ? ' is-selected' : ''}`}
+            style={{
+              left: marker.x,
+              top: marker.y,
+              '--line-color': marker.color,
+              '--line-text-color': marker.textColor,
+              '--bearing': `${marker.bearing}deg`,
+            } as CSSProperties}
+            aria-label={`Linea ${marker.vehicle.line}, vettura ${vehicleIdentifierLabel(marker.vehicle)}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              setActiveVehiclePopup({
+                vehicleId: marker.vehicle.vehicleId,
+                vehicle: marker.vehicle,
+                x: marker.x,
+                y: Math.max(92, marker.y - 98),
+              });
+            }}
+          >
+            <span className="vehicle-html-arrow" />
+            <span className="vehicle-html-label">{marker.vehicle.line}</span>
+          </button>
+        ))}
+      </div>
       {activeVehiclePopup && (
         <aside
           className="vehicle-react-popup"

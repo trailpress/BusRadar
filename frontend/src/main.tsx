@@ -10,6 +10,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>,
 );
 
-requestAnimationFrame(() => {
-  document.getElementById('boot-status')?.remove();
-});
+const removeBootStatus = () => document.getElementById('boot-status')?.remove();
+requestAnimationFrame(removeBootStatus);
+window.setTimeout(removeBootStatus, 0);
+window.setTimeout(removeBootStatus, 1000);
