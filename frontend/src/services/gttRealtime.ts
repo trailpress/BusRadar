@@ -553,15 +553,41 @@ function compensateFeedLatency(
   return compensated ? { point: compensated.point, bearing: compensated.bearing } : undefined;
 }
 
-function isValidTorinoCoordinate(vehicle: GttVehiclePosition) {
+function hasNumericCoordinate(vehicle: GttVehiclePosition): vehicle is GttVehiclePosition & { lat: number; lon: number } {
   return (
     typeof vehicle.lat === 'number' &&
     typeof vehicle.lon === 'number' &&
-    vehicle.lat > 44.7 &&
-    vehicle.lat < 45.3 &&
-    vehicle.lon > 7.3 &&
-    vehicle.lon < 8.1
+    Number.isFinite(vehicle.lat) &&
+    Number.isFinite(vehicle.lon) &&
+    !(vehicle.lat === 0 && vehicle.lon === 0)
   );
+}
+
+function isValidGttCoverageCoordinate(vehicle: GttVehiclePosition) {
+  return (
+    hasNumericCoordinate(vehicle) &&
+    // GTT includes urban, suburban and interurban services around Torino.
+    // Keep this deliberately wider than the city core so valid extraurban
+    // vehicles are not filtered out before reaching the map.
+    vehicle.lat > 44.7 &&
+    vehicle.lat < 45.35 &&
+    vehicle.lon > 7.25 &&
+    vehicle.lon < 8.15
+  );
+}
+
+function toVehicleSafely(vehicle: GttVehiclePosition, index: number) {
+  try {
+    return toVehicle(vehicle, index);
+  } catch (error) {
+    console.warn('[BusRadar] Veicolo GTFS-RT ignorato durante la trasformazione', {
+      vehicleId: vehicle.vehicleId,
+      routeId: vehicle.routeId,
+      tripId: vehicle.tripId,
+      error,
+    });
+    return undefined;
+  }
 }
 
 function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
@@ -673,10 +699,14 @@ export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | 
   const payload = (await response.json()) as GttVehiclesResponse;
   if (payload.status !== 'ok' || !Array.isArray(payload.vehicles)) return undefined;
 
-  const vehicles = payload.vehicles
-    .filter((vehicle) => vehicle.vehicleId || vehicle.vehicleLabel)
-    .filter(isValidTorinoCoordinate)
-    .map(toVehicle);
+  const identifiableVehicles = payload.vehicles.filter((vehicle) => vehicle.vehicleId || vehicle.vehicleLabel);
+  const inCoverageVehicles = identifiableVehicles.filter(isValidGttCoverageCoordinate);
+  const sourceVehicles = inCoverageVehicles.length > 0
+    ? inCoverageVehicles
+    : identifiableVehicles.filter(hasNumericCoordinate);
+  const vehicles = sourceVehicles
+    .map(toVehicleSafely)
+    .filter((vehicle): vehicle is Vehicle => Boolean(vehicle));
   if (vehicles.length === 0) {
     try {
       const cached = localStorage.getItem(vehicleSnapshotCacheKey);

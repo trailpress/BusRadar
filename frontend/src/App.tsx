@@ -277,8 +277,15 @@ function App() {
     let refreshTimer = 0;
 
     async function loadRealtimeVehicles() {
-      const snapshot = await fetchGttRealtimeVehicles();
-      if (cancelled) return;
+      let snapshot: Awaited<ReturnType<typeof fetchGttRealtimeVehicles>>;
+      try {
+        snapshot = await fetchGttRealtimeVehicles();
+      } catch (error) {
+        console.warn('[BusRadar] Caricamento mezzi realtime fallito, ritento', error);
+        snapshot = undefined;
+      } finally {
+        if (cancelled) return;
+      }
       if (snapshot) {
         setVehicles(snapshot.vehicles.map((vehicle) => ({
           ...vehicle,
