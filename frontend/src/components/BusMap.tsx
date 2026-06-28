@@ -91,6 +91,7 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
     return routesById.length > 0 ? routesById : getGtfsRoutesForLine(showRouteForLine);
   }
   if (selectedLine) return getGtfsRoutesForLine(selectedLine);
+  if (vehicles.length === 0) return overviewRouteVariants();
 
   const byRoute = new Map<string, GtfsRouteVariant>();
   const unresolvedLines = new Set<string>();
@@ -121,6 +122,23 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
     variantsByDirection.forEach((route) => byRoute.set(route.id, route));
   });
 
+  return [...byRoute.values()];
+}
+
+function overviewRouteVariants() {
+  const byRoute = new Map<string, GtfsRouteVariant>();
+  gtfsNetwork.lines
+    .filter((line) => line.stats.tripsToday >= 120)
+    .sort((a, b) => b.stats.tripsToday - a.stats.tripsToday)
+    .slice(0, 70)
+    .forEach((line) => {
+      const byDirection = new Map<string, GtfsRouteVariant>();
+      getGtfsRoutesForLine(line.id).forEach((route) => {
+        const key = route.directionId || route.headsign || route.id;
+        if (!byDirection.has(key)) byDirection.set(key, route);
+      });
+      byDirection.forEach((route) => byRoute.set(route.id, route));
+    });
   return [...byRoute.values()];
 }
 
