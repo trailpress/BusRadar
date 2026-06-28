@@ -27,6 +27,7 @@ export function LinesScreen({ vehicles, onSelectLine }: Props) {
 
   const renderLine = (line: GtfsLine) => {
     const favorite = isLineFavorite(line.id, Boolean(line.favorite));
+    const realtimeVehicles = vehicles.filter((vehicle) => vehicle.line === line.id).length;
     return (
     <button
       key={line.id}
@@ -45,7 +46,13 @@ export function LinesScreen({ vehicles, onSelectLine }: Props) {
       <LineBadge line={line.id} size="lg" />
       <div>
         <strong>{line.name}</strong>
-        <span>{vehicles.filter((vehicle) => vehicle.line === line.id).length} mezzi realtime · {line.vehicleType === 'tram' ? 'tram' : 'bus'}</span>
+        <span>
+          {realtimeVehicles > 0
+            ? `${realtimeVehicles} mezzi realtime`
+            : `programmato GTFS · ${line.stats.tripsToday} corse`}
+          {' · '}
+          {line.vehicleType === 'tram' ? 'tram' : 'bus'}
+        </span>
       </div>
       <div className="row-meta">
         {editingFavorites || favorite ? <Star size={17} className={favorite ? 'star-on' : ''} /> : <ChevronRight size={18} />}

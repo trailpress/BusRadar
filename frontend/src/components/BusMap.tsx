@@ -62,6 +62,7 @@ type ActiveVehiclePopup = {
 
 const spriteZoomThreshold = 14.25;
 const vehicleAssetBase = import.meta.env.BASE_URL;
+const priorityScheduledLines = ['1510', '1511', '1432', '1085'];
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -127,6 +128,14 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
 
 function overviewRouteVariants() {
   const byRoute = new Map<string, GtfsRouteVariant>();
+  priorityScheduledLines.forEach((lineId) => {
+    const byDirection = new Map<string, GtfsRouteVariant>();
+    getGtfsRoutesForLine(lineId).forEach((route) => {
+      const key = route.directionId || route.headsign || route.id;
+      if (!byDirection.has(key)) byDirection.set(key, route);
+    });
+    byDirection.forEach((route) => byRoute.set(route.id, route));
+  });
   gtfsNetwork.lines
     .filter((line) => line.stats.tripsToday >= 120)
     .sort((a, b) => b.stats.tripsToday - a.stats.tripsToday)
