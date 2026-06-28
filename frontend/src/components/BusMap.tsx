@@ -37,6 +37,7 @@ type VehicleFrame = {
   to: LatLng;
   startedAt: number;
   vehicle: Vehicle;
+  meters: number;
   routePath?: LatLng[];
   fromRouteProgress?: number;
   toRouteProgress?: number;
@@ -284,17 +285,22 @@ function vehicleSeparationMeters(vehicle: Vehicle, zoom: number) {
 }
 
 function vehicleMovementDurationMs(vehicle: Vehicle, meters: number) {
-  if (meters < 1.5) return 9000;
+  if (meters < 1.5) return 4200;
   const feedSpeedMps = vehicle.speed >= 3 && vehicle.speed <= 70 ? vehicle.speed / 3.6 : undefined;
-  const catchUpSpeedMps = meters / 18;
+  const catchUpSpeedMps = meters / 7.5;
   const speedMps = Math.max(feedSpeedMps ?? 0, catchUpSpeedMps, 2.2);
-  return clamp((meters / speedMps) * 1000, 5500, 18000);
+  return clamp((meters / speedMps) * 1000, 2600, 9000);
 }
 
-function vehicleInertiaMeters(vehicle: Vehicle, elapsedSeconds: number) {
+function vehicleCruiseMeters(vehicle: Vehicle, frameMeters: number, elapsedSeconds: number) {
   if (elapsedSeconds <= 0) return 0;
-  const speedKmh = clamp(vehicle.speed || 8, 5, 28);
-  return Math.min(55, (speedKmh / 3.6) * Math.min(elapsedSeconds, 7));
+  const hasMeaningfulGpsDelta = frameMeters >= 6;
+  if (hasMeaningfulGpsDelta) return 0;
+
+  const routeAnchored = vehicle.routeMatchStatus === 'on-route';
+  const speedKmh = clamp(vehicle.speed || (routeAnchored ? 12 : 7), 5, routeAnchored ? 22 : 12);
+  const maxMeters = routeAnchored ? 62 : 18;
+  return Math.min(maxMeters, (speedKmh / 3.6) * Math.min(elapsedSeconds, 12));
 }
 
 function vehiclesToGeoJson(
@@ -1103,6 +1109,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         to: next,
         startedAt: isPlausibleUpdate ? now : now - 1,
         vehicle,
+        meters: isPlausibleUpdate ? meters : 0,
         durationMs,
         ...motion,
       });
@@ -1122,7 +1129,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       vehicleFramesRef.current.forEach((frame, id) => {
         const rawElapsed = Math.max(0, (time - frame.startedAt) / frame.durationMs);
         const elapsed = Math.min(1, rawElapsed);
-        const inertialMeters = vehicleInertiaMeters(frame.vehicle, Math.max(0, rawElapsed - 1) * (frame.durationMs / 1000));
+        const elapsedSeconds = Math.max(0, (time - frame.startedAt) / 1000);
+        const cruiseMeters = vehicleCruiseMeters(frame.vehicle, frame.meters, elapsedSeconds);
         const routeProgress = frame.fromRouteProgress != null && frame.toRouteProgress != null
           ? Math.min(
             0.999999,
@@ -1130,7 +1138,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
               0,
               frame.fromRouteProgress
                 + (frame.toRouteProgress - frame.fromRouteProgress) * elapsed
-                + (frame.routeTotalMeters ? inertialMeters / frame.routeTotalMeters : 0),
+                + (frame.routeTotalMeters ? cruiseMeters / frame.routeTotalMeters : 0),
             ),
           )
           : undefined;
@@ -1142,8 +1150,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           lon: frame.from.lon + (frame.to.lon - frame.from.lon) * elapsed,
         };
         const position = routeState?.point ?? (
-          inertialMeters > 0
-            ? offsetPointMeters(linearPosition, frame.vehicle.bearing, Math.min(35, inertialMeters))
+          cruiseMeters > 0
+            ? offsetPointMeters(linearPosition, frame.vehicle.bearing, Math.min(18, cruiseMeters))
             : linearPosition
         );
         currentPositionsRef.current.set(id, position);
