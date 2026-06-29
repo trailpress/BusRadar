@@ -483,9 +483,10 @@ function routeMatchesVehicle(route: GtfsRouteVariant, vehicle: Vehicle) {
 }
 
 function snapVehicleToRoute(vehicle: Vehicle, position: LatLng, displayRoutes: GtfsRouteVariant[] = []) {
-  const routes = displayRoutes.filter((route) => routeMatchesVehicle(route, vehicle));
+  const visibleRoutes = displayRoutes.filter((route) => routeMatchesVehicle(route, vehicle));
+  const routes = [...visibleRoutes];
   const fallbackRoute = getGtfsRouteVariant(vehicle.routeVariantId);
-  if (fallbackRoute && !routes.some((route) => route.id === fallbackRoute.id)) routes.push(fallbackRoute);
+  if (!routes.length && fallbackRoute) routes.push(fallbackRoute);
 
   let best: { point: LatLng; bearing: number; distanceMeters: number } | undefined;
   routes.forEach((route) => {
@@ -523,58 +524,17 @@ function syncVehicleOverlay(
   followedVehicleId?: string,
   displayRoutes: GtfsRouteVariant[] = [],
 ) {
+  void map;
+  void vehicles;
+  void positions;
+  void selectedVehicleId;
+  void followedVehicleId;
+  void displayRoutes;
   if (!container) return;
-  if (map.getZoom() >= spriteZoomThreshold) {
-    markerElements.forEach((marker) => {
-      marker.hidden = true;
-    });
-    container.setAttribute('aria-hidden', 'true');
-    return;
-  }
-  const canvas = map.getCanvas();
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  const visibleIds = new Set<string>();
-  const margin = 46;
-
-  for (const vehicle of vehicles) {
-    const rawPosition = positions.get(vehicle.vehicleId) ?? vehicle;
-    const snapped = snapVehicleToRoute(vehicle, rawPosition, displayRoutes);
-    const position = snapped?.point ?? rawPosition;
-    const projected = map.project([position.lon, position.lat]);
-    if (
-      projected.x < -margin ||
-      projected.x > width + margin ||
-      projected.y < -margin ||
-      projected.y > height + margin
-    ) {
-      continue;
-    }
-
-    let marker = markerElements.get(vehicle.vehicleId);
-    if (!marker) {
-      marker = createVehicleOverlayElement(vehicle.vehicleId);
-      markerElements.set(vehicle.vehicleId, marker);
-      container.appendChild(marker);
-    }
-
-    const label = marker.children[1] as HTMLSpanElement;
-    if (label.textContent !== vehicle.line) label.textContent = vehicle.line;
-    marker.setAttribute('aria-label', `Linea ${vehicle.line}, vettura ${vehicleIdentifierLabel(vehicle)}`);
-    marker.classList.toggle('is-selected', vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId);
-    marker.style.setProperty('--line-color', getLineColor(vehicle.line));
-    marker.style.setProperty('--line-text-color', routeDisplayTextColor(vehicle.line, vehicle.vehicleType));
-    marker.style.setProperty('--bearing', `${snapped?.bearing ?? vehicle.bearing}deg`);
-    marker.style.transform = `translate3d(${projected.x}px, ${projected.y}px, 0) translate(-50%, -50%)`;
-    marker.hidden = false;
-    visibleIds.add(vehicle.vehicleId);
-  }
-
-  markerElements.forEach((marker, id) => {
-    if (visibleIds.has(id)) return;
+  markerElements.forEach((marker) => {
     marker.hidden = true;
   });
-  container.setAttribute('aria-hidden', visibleIds.size === 0 ? 'true' : 'false');
+  container.setAttribute('aria-hidden', 'true');
 }
 
 function emptyPointCollection(): GeoJSON.FeatureCollection<GeoJSON.Point> {
@@ -852,7 +812,6 @@ function installTransitLayers(map: maplibregl.Map) {
     type: 'circle',
     source: 'vehicles',
     maxzoom: spriteZoomThreshold,
-    layout: { visibility: 'none' },
     paint: {
       'circle-radius': [
         'interpolate',
@@ -884,7 +843,6 @@ function installTransitLayers(map: maplibregl.Map) {
     source: 'vehicles',
     maxzoom: spriteZoomThreshold,
     layout: {
-      visibility: 'none',
       'text-field': '▲',
       'text-size': ['interpolate', ['linear'], ['zoom'], 7.4, 6.2, 8.8, 7.2, 11, 8.2, 14, 8.8],
       'text-offset': [0, -1.24],
@@ -908,7 +866,6 @@ function installTransitLayers(map: maplibregl.Map) {
     source: 'vehicles',
     maxzoom: spriteZoomThreshold,
     layout: {
-      visibility: 'none',
       'text-field': ['get', 'line'],
       'text-size': ['interpolate', ['linear'], ['zoom'], 7.4, 6.5, 8.8, 7.4, 10.5, 8.8, 12, 9.8, 14, 9],
       'text-offset': [0, 0],

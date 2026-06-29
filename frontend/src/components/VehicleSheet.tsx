@@ -15,13 +15,17 @@ type Props = {
 function vehicleDetailImage(vehicle: Vehicle) {
   const base = import.meta.env.BASE_URL;
   if (vehicle.vehicleType === 'tram') return `${base}assets/vehicles/detail/tram-3d.png`;
-  if (vehicle.vehicleFleetKey === 'iveco-urbanway-cng-18m' || vehicle.vehicleFleetKey === 'iveco-eway-electric-18m') return `${base}assets/vehicles/detail/iveco-urbanway-18m-3d.png`;
+  if (vehicle.vehicleFleetKey === 'byd-articulated-electric-18m') return `${base}assets/vehicles/detail/urban-articulated-18m-3d-v2.png`;
+  if (vehicle.vehicleFleetKey === 'iveco-urbanway-cng-18m' || vehicle.vehicleFleetKey === 'iveco-eway-electric-18m') return `${base}assets/vehicles/detail/urban-articulated-18m-3d-v2.png`;
+  if (vehicle.vehicleFleetKey === 'irisbus-citelis-18m') return `${base}assets/vehicles/detail/urban-articulated-18m-3d-v2.png`;
   if (vehicle.vehicleFleetKey === 'mercedes-conecto-18m') return `${base}assets/vehicles/detail/mercedes-conecto-18m-3d.png`;
-  if (vehicle.vehicleFleetKey === 'byd-k9-electric-12m' || vehicle.vehicleFleetKey === 'byd-k7-electric-9m') return `${base}assets/vehicles/detail/byd-electric-12m-3d.png`;
+  if (vehicle.vehicleFleetKey === 'byd-k9-electric-12m' || vehicle.vehicleFleetKey === 'byd-k7-electric-9m') return `${base}assets/vehicles/detail/byd-electric-12m-3d-v2.png`;
   if (vehicle.vehicleFleetKey === 'iia-citymood-cng-12m') return `${base}assets/vehicles/detail/citymood-cng-12m-3d.png`;
+  if (vehicle.vehicleFleetKey === 'iveco-crossway-suburban') return `${base}assets/vehicles/detail/interurban-blue-12m-3d.png`;
   if (vehicle.vehicleFleetKey === 'iveco-eway-electric-12m') return `${base}assets/vehicles/detail/electric-standard-12m-3d.png`;
-  if (vehicle.vehicleLivery === 'electric-compact') return `${base}assets/vehicles/detail/byd-electric-12m-3d.png`;
-  if (vehicle.vehicleLengthClass === 'articulated-18m') return `${base}assets/vehicles/detail/urban-articulated-18m-3d.png`;
+  if (vehicle.vehicleLivery === 'interurban-blue') return `${base}assets/vehicles/detail/interurban-blue-12m-3d.png`;
+  if (vehicle.vehicleLivery === 'electric-compact') return `${base}assets/vehicles/detail/byd-electric-12m-3d-v2.png`;
+  if (vehicle.vehicleLengthClass === 'articulated-18m') return `${base}assets/vehicles/detail/urban-articulated-18m-3d-v2.png`;
   return `${base}assets/vehicles/detail/urban-standard-12m-3d.png`;
 }
 

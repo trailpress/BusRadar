@@ -7,6 +7,7 @@ export type VehicleFleetKey =
   | 'tram'
   | 'byd-k7-electric-9m'
   | 'byd-k9-electric-12m'
+  | 'byd-articulated-electric-18m'
   | 'iia-citymood-cng-12m'
   | 'iveco-citelis-12m'
   | 'iveco-eway-electric-12m'

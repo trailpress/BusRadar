@@ -130,7 +130,7 @@ function isVehicleNumberInRange(vehicleId: string | null, min: number, max: numb
 }
 
 function isBydElectric12m(vehicleId: string | null) {
-  return isVehicleNumberInRange(vehicleId, 30, 81) || isVehicleNumberInRange(vehicleId, 9000, 9121);
+  return isVehicleNumberInRange(vehicleId, 30, 81) || isVehicleNumberInRange(vehicleId, 9000, 9099);
 }
 
 function isMethane12m(vehicleId: string | null) {
@@ -150,6 +150,7 @@ function isArticulated18m(vehicleId: string | null) {
     isVehicleNumberInRange(vehicleId, 790, 899) ||
     isVehicleNumberInRange(vehicleId, 1310, 1399) ||
     isVehicleNumberInRange(vehicleId, 9300, 9399) ||
+    isVehicleNumberInRange(vehicleId, 9400, 9499) ||
     isVehicleNumberInRange(vehicleId, 9600, 9727)
   );
 }
@@ -162,7 +163,8 @@ function vehicleFleetKey(vehicleId: string | null, vehicleType: Vehicle['vehicle
   if (isVehicleNumberInRange(vehicleId, 3000, 3380)) return 'iveco-citelis-12m';
   if (isVehicleNumberInRange(vehicleId, 3400, 3440)) return 'mercedes-conecto-12m';
   if (isMercedes12m(vehicleId)) return 'mercedes-conecto-12m';
-  if (isVehicleNumberInRange(vehicleId, 9400, 9535)) return 'iveco-eway-electric-12m';
+  if (isVehicleNumberInRange(vehicleId, 9400, 9499)) return 'byd-articulated-electric-18m';
+  if (isVehicleNumberInRange(vehicleId, 9500, 9535)) return 'iveco-eway-electric-12m';
   if (isVehicleNumberInRange(vehicleId, 1150, 1168)) return 'iveco-crossway-suburban';
   if (isVehicleNumberInRange(vehicleId, 1300, 1399)) return 'mercedes-conecto-18m';
   if (isVehicleNumberInRange(vehicleId, 9600, 9727)) return 'iveco-eway-electric-18m';
@@ -193,7 +195,8 @@ function vehicleFleetLabel(vehicleId: string | null, vehicleType: Vehicle['vehic
   if (vehicleType === 'tram') return 'Tram';
   if (isVehicleNumberInRange(vehicleId, 9300, 9399)) return 'Iveco Urbanway 18m CNG';
   if (isVehicleNumberInRange(vehicleId, 9600, 9727)) return 'Iveco E-Way 18m elettrico';
-  if (isVehicleNumberInRange(vehicleId, 9400, 9535)) return 'Iveco E-Way 12m elettrico';
+  if (isVehicleNumberInRange(vehicleId, 9400, 9499)) return 'BYD autosnodato elettrico 18m';
+  if (isVehicleNumberInRange(vehicleId, 9500, 9535)) return 'Iveco E-Way 12m elettrico';
   if (isBydElectric12m(vehicleId)) return 'BYD elettrico 12m';
   if (isMethane12m(vehicleId)) return 'IIA Citymood CNG 12m';
   if (isIveco12m(vehicleId)) return 'Irisbus/Iveco Citelis 12m';
