@@ -360,8 +360,14 @@
   line-height: 1;
   pointer-events: auto;
   transform: translate(-50%, -50%);
+  will-change: transform;
+  contain: layout style paint;
   touch-action: manipulation;
   cursor: pointer;
+}
+
+.vehicle-html-marker[hidden] {
+  display: none;
 }
 
 .vehicle-html-marker.is-selected {

@@ -1,6 +1,6 @@
 import maplibregl, { type GeoJSONSource, type LngLatBoundsLike, type MapMouseEvent } from 'maplibre-gl';
 import { LocateFixed } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, gtfsNetwork, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
 import { useGtfsNetwork } from '../data/useGtfsNetwork';
 import { fetchGttStopArrivalsInfo, type GttStopArrival, type GttStopArrivalsResult } from '../services/gttRealtime';
@@ -59,17 +59,6 @@ type ActiveVehiclePopup = {
   vehicle: Vehicle;
   x: number;
   y: number;
-};
-
-type VehicleOverlayMarker = {
-  id: string;
-  vehicle: Vehicle;
-  x: number;
-  y: number;
-  color: string;
-  textColor: string;
-  bearing: number;
-  selected: boolean;
 };
 
 const spriteZoomThreshold = 14.25;
@@ -287,12 +276,13 @@ function routeMotion(vehicle: Vehicle, from: LatLng, to: LatLng) {
 
 function laneOffsetMetersForZoom(zoom: number) {
   void zoom;
-  return 1.15;
+  return 0;
 }
 
 function vehicleSeparationMeters(vehicle: Vehicle, zoom: number) {
   void vehicle;
-  return zoom >= 14 ? 4.2 : 0;
+  void zoom;
+  return 0;
 }
 
 function vehicleMovementDurationMs(vehicle: Vehicle, meters: number) {
@@ -393,41 +383,69 @@ function vehiclesToGeoJson(
   };
 }
 
-function vehicleOverlayMarkers(
+function createVehicleOverlayElement(vehicleId: string) {
+  const marker = document.createElement('button');
+  marker.type = 'button';
+  marker.className = 'vehicle-html-marker';
+  marker.dataset.vehicleId = vehicleId;
+  marker.append(document.createElement('span'), document.createElement('span'));
+  marker.children[0].className = 'vehicle-html-arrow';
+  marker.children[1].className = 'vehicle-html-label';
+  return marker;
+}
+
+function syncVehicleOverlay(
+  container: HTMLDivElement | null,
   map: maplibregl.Map,
+  markerElements: Map<string, HTMLButtonElement>,
   vehicles: Vehicle[],
   positions: Map<string, LatLng>,
   selectedVehicleId?: string,
   followedVehicleId?: string,
 ) {
+  if (!container) return;
   const canvas = map.getCanvas();
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
-  return vehicles
-    .map((vehicle) => {
-      const position = positions.get(vehicle.vehicleId) ?? vehicle;
-      const projected = map.project([position.lon, position.lat]);
-      const margin = 42;
-      if (
-        projected.x < -margin ||
-        projected.x > width + margin ||
-        projected.y < -margin ||
-        projected.y > height + margin
-      ) {
-        return undefined;
-      }
-      return {
-        id: vehicle.vehicleId,
-        vehicle,
-        x: projected.x,
-        y: projected.y,
-        color: getLineColor(vehicle.line),
-        textColor: routeDisplayTextColor(vehicle.line, vehicle.vehicleType),
-        bearing: vehicle.bearing,
-        selected: vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId,
-      };
-    })
-    .filter((marker): marker is VehicleOverlayMarker => Boolean(marker));
+  const visibleIds = new Set<string>();
+  const margin = 46;
+
+  for (const vehicle of vehicles) {
+    const position = positions.get(vehicle.vehicleId) ?? vehicle;
+    const projected = map.project([position.lon, position.lat]);
+    if (
+      projected.x < -margin ||
+      projected.x > width + margin ||
+      projected.y < -margin ||
+      projected.y > height + margin
+    ) {
+      continue;
+    }
+
+    let marker = markerElements.get(vehicle.vehicleId);
+    if (!marker) {
+      marker = createVehicleOverlayElement(vehicle.vehicleId);
+      markerElements.set(vehicle.vehicleId, marker);
+      container.appendChild(marker);
+    }
+
+    const label = marker.children[1] as HTMLSpanElement;
+    if (label.textContent !== vehicle.line) label.textContent = vehicle.line;
+    marker.setAttribute('aria-label', `Linea ${vehicle.line}, vettura ${vehicleIdentifierLabel(vehicle)}`);
+    marker.classList.toggle('is-selected', vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId);
+    marker.style.setProperty('--line-color', getLineColor(vehicle.line));
+    marker.style.setProperty('--line-text-color', routeDisplayTextColor(vehicle.line, vehicle.vehicleType));
+    marker.style.setProperty('--bearing', `${vehicle.bearing}deg`);
+    marker.style.transform = `translate3d(${projected.x}px, ${projected.y}px, 0) translate(-50%, -50%)`;
+    marker.hidden = false;
+    visibleIds.add(vehicle.vehicleId);
+  }
+
+  markerElements.forEach((marker, id) => {
+    if (visibleIds.has(id)) return;
+    marker.hidden = true;
+  });
+  container.setAttribute('aria-hidden', visibleIds.size === 0 ? 'true' : 'false');
 }
 
 function emptyPointCollection(): GeoJSON.FeatureCollection<GeoJSON.Point> {
@@ -907,9 +925,11 @@ function installTransitLayers(map: maplibregl.Map) {
 export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, userLocationAccuracy, hasUserLocation, onLocateUser, showRouteForLine, searchedArea, selectedStop, selectedStopRequest, onSelectVehicle, onSelectLine, onStopPopupOpenChange, onResetMap }: Props) {
   const { revision: gtfsRevision } = useGtfsNetwork();
   const containerRef = useRef<HTMLDivElement>(null);
+  const vehicleOverlayRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | undefined>(undefined);
   const vehicleFramesRef = useRef<Map<string, VehicleFrame>>(new Map());
   const currentPositionsRef = useRef<Map<string, LatLng>>(new Map());
+  const vehicleOverlayElementsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
   const latestVehiclesRef = useRef<Vehicle[]>(vehicles);
   const onSelectLineRef = useRef(onSelectLine);
   const stopPopupRef = useRef<maplibregl.Popup | undefined>(undefined);
@@ -929,7 +949,6 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const [zoom, setZoom] = useState(13);
   const [locatingUser, setLocatingUser] = useState(false);
   const [activeVehiclePopup, setActiveVehiclePopup] = useState<ActiveVehiclePopup | undefined>();
-  const [vehicleOverlay, setVehicleOverlay] = useState<VehicleOverlayMarker[]>([]);
   const activeVehiclePopupRef = useRef<ActiveVehiclePopup | undefined>(undefined);
 
   latestVehiclesRef.current = vehicles;
@@ -1006,6 +1025,37 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   }, [onSelectVehicle]);
 
   useEffect(() => {
+    const overlay = vehicleOverlayRef.current;
+    if (!overlay) return;
+
+    const openOverlayVehicle = (event: MouseEvent) => {
+      const marker = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>('[data-vehicle-id]');
+      if (!marker) return;
+      const vehicle = latestVehiclesRef.current.find((item) => item.vehicleId === marker.dataset.vehicleId);
+      const map = mapRef.current;
+      if (!vehicle || !map) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      stopPopupRef.current?.remove();
+      stopPopupRef.current = undefined;
+      vehicleClickPopupRef.current?.remove();
+      vehicleClickPopupRef.current = undefined;
+      const position = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
+      const projected = map.project([position.lon, position.lat]);
+      setActiveVehiclePopup({
+        vehicleId: vehicle.vehicleId,
+        vehicle,
+        x: Math.min(Math.max(projected.x, 148), Math.max(148, map.getCanvas().clientWidth - 148)),
+        y: Math.max(92, projected.y - 98),
+      });
+    };
+
+    overlay.addEventListener('click', openOverlayVehicle);
+    return () => overlay.removeEventListener('click', openOverlayVehicle);
+  }, []);
+
+  useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
     const map = new maplibregl.Map({
@@ -1039,6 +1089,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     return () => {
       map.remove();
       mapRef.current = undefined;
+      vehicleOverlayElementsRef.current.clear();
       setMapReady(false);
     };
   }, []);
@@ -1157,13 +1208,15 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         ...motion,
       });
     });
-    setVehicleOverlay(vehicleOverlayMarkers(
+    syncVehicleOverlay(
+      vehicleOverlayRef.current,
       map,
+      vehicleOverlayElementsRef.current,
       visibleVehicles,
       currentPositionsRef.current,
       selectedVehicleIdRef.current,
       followedVehicleIdRef.current,
-    ));
+    );
   }, [visibleVehicles, zoom]);
 
   useEffect(() => {
@@ -1212,15 +1265,17 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           followedVehicleIdRef.current,
         ),
       );
-      if (time - lastVehicleOverlayAtRef.current > 33) {
+      if (time - lastVehicleOverlayAtRef.current > 16) {
         lastVehicleOverlayAtRef.current = time;
-        setVehicleOverlay(vehicleOverlayMarkers(
+        syncVehicleOverlay(
+          vehicleOverlayRef.current,
           map,
+          vehicleOverlayElementsRef.current,
           animatedVehicles,
           currentPositionsRef.current,
           selectedVehicleIdRef.current,
           followedVehicleIdRef.current,
-        ));
+        );
       }
       const activePopup = activeVehiclePopupRef.current;
       if (activePopup && time - lastVehiclePopupRenderAtRef.current > 120) {
@@ -1439,35 +1494,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         </button>
       )}
       <div ref={containerRef} className="bus-map" />
-      <div className="vehicle-html-overlay" aria-hidden={vehicleOverlay.length === 0}>
-        {vehicleOverlay.map((marker) => (
-          <button
-            key={marker.id}
-            type="button"
-            className={`vehicle-html-marker${marker.selected ? ' is-selected' : ''}`}
-            style={{
-              left: marker.x,
-              top: marker.y,
-              '--line-color': marker.color,
-              '--line-text-color': marker.textColor,
-              '--bearing': `${marker.bearing}deg`,
-            } as CSSProperties}
-            aria-label={`Linea ${marker.vehicle.line}, vettura ${vehicleIdentifierLabel(marker.vehicle)}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              setActiveVehiclePopup({
-                vehicleId: marker.vehicle.vehicleId,
-                vehicle: marker.vehicle,
-                x: marker.x,
-                y: Math.max(92, marker.y - 98),
-              });
-            }}
-          >
-            <span className="vehicle-html-arrow" />
-            <span className="vehicle-html-label">{marker.vehicle.line}</span>
-          </button>
-        ))}
-      </div>
+      <div ref={vehicleOverlayRef} className="vehicle-html-overlay" aria-hidden="true" />
       {activeVehiclePopup && (
         <aside
           className="vehicle-react-popup"
