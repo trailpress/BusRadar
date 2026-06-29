@@ -42,6 +42,8 @@ type VehicleFrame = {
   fromRouteProgress?: number;
   toRouteProgress?: number;
   routeTotalMeters?: number;
+  routeSpeedMps?: number;
+  extrapolateUntilMs?: number;
   durationMs: number;
 };
 
@@ -281,16 +283,29 @@ function laneOffsetMetersForZoom(zoom: number) {
 
 function vehicleSeparationMeters(vehicle: Vehicle, zoom: number) {
   void vehicle;
-  void zoom;
+  if (zoom >= 15.25) return 5.5;
+  if (zoom >= 14.25) return 3.5;
   return 0;
 }
 
-function vehicleMovementDurationMs(vehicle: Vehicle, meters: number) {
-  if (meters < 1.5) return 1;
-  const feedSpeedMps = vehicle.speed >= 3 && vehicle.speed <= 70 ? vehicle.speed / 3.6 : undefined;
-  const catchUpSpeedMps = meters / 6.5;
-  const speedMps = Math.max(feedSpeedMps ?? 0, catchUpSpeedMps, 1.8);
-  return clamp((meters / speedMps) * 1000, 4200, 9000);
+function targetVehicleSpeedMps(vehicle: Vehicle, meters: number, secondsSinceUpdate: number, previousSpeedMps?: number) {
+  const feedSpeedMps = vehicle.speed >= 2 && vehicle.speed <= 70 ? vehicle.speed / 3.6 : undefined;
+  const measuredSpeedMps = secondsSinceUpdate > 0 && meters >= 1.5 ? meters / secondsSinceUpdate : undefined;
+
+  let target = feedSpeedMps ?? measuredSpeedMps ?? previousSpeedMps ?? 2.8;
+  if (meters < 2 && (vehicle.speed <= 2 || !Number.isFinite(vehicle.speed))) {
+    target = previousSpeedMps ? previousSpeedMps * 0.55 : 0.25;
+  }
+
+  const clampedTarget = clamp(target, 0.15, vehicle.vehicleType === 'tram' ? 12 : 13.5);
+  return previousSpeedMps == null
+    ? clampedTarget
+    : previousSpeedMps * 0.72 + clampedTarget * 0.28;
+}
+
+function vehicleMovementDurationMs(meters: number, speedMps: number) {
+  if (meters < 1.5) return 900;
+  return clamp((meters / Math.max(0.8, speedMps)) * 1000, 2400, 8500);
 }
 
 function vehiclesToGeoJson(
@@ -1189,6 +1204,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       }
     });
     visibleVehicles.forEach((vehicle) => {
+      const previousFrame = vehicleFramesRef.current.get(vehicle.vehicleId);
       const previous = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
       const next = { lat: vehicle.lat, lon: vehicle.lon };
       if (!currentPositionsRef.current.has(vehicle.vehicleId)) {
@@ -1197,7 +1213,19 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       const meters = new maplibregl.LngLat(previous.lon, previous.lat).distanceTo(new maplibregl.LngLat(next.lon, next.lat));
       const isPlausibleUpdate = meters <= 420;
       const motion = isPlausibleUpdate ? routeMotion(vehicle, previous, next) : undefined;
-      const durationMs = isPlausibleUpdate ? vehicleMovementDurationMs(vehicle, meters) : 1;
+      const secondsSinceUpdate = previousFrame
+        ? clamp((now - previousFrame.startedAt) / 1000, 3, 24)
+        : 6;
+      const routeDistanceMeters = motion?.fromRouteProgress != null && motion.toRouteProgress != null && motion.routeTotalMeters
+        ? Math.max(0, (motion.toRouteProgress - motion.fromRouteProgress) * motion.routeTotalMeters)
+        : meters;
+      const routeSpeedMps = targetVehicleSpeedMps(
+        vehicle,
+        isPlausibleUpdate ? Math.max(meters, routeDistanceMeters) : 0,
+        secondsSinceUpdate,
+        previousFrame?.routeSpeedMps,
+      );
+      const durationMs = isPlausibleUpdate ? vehicleMovementDurationMs(Math.max(meters, routeDistanceMeters), routeSpeedMps) : 900;
       vehicleFramesRef.current.set(vehicle.vehicleId, {
         from: isPlausibleUpdate ? previous : next,
         to: next,
@@ -1205,6 +1233,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         vehicle,
         meters: isPlausibleUpdate ? meters : 0,
         durationMs,
+        routeSpeedMps,
+        extrapolateUntilMs: now + 12_000,
         ...motion,
       });
     });
@@ -1217,7 +1247,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       selectedVehicleIdRef.current,
       followedVehicleIdRef.current,
     );
-  }, [visibleVehicles, zoom]);
+  }, [visibleVehicles]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
@@ -1232,16 +1262,22 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       vehicleFramesRef.current.forEach((frame, id) => {
         const rawElapsed = Math.max(0, (time - frame.startedAt) / frame.durationMs);
         const elapsed = Math.min(1, rawElapsed);
-        const routeProgress = frame.fromRouteProgress != null && frame.toRouteProgress != null
-          ? Math.min(
-            0.999999,
-            Math.max(
-              0,
-              frame.fromRouteProgress
-                + (frame.toRouteProgress - frame.fromRouteProgress) * elapsed,
-            ),
-          )
+        let routeProgress = frame.fromRouteProgress != null && frame.toRouteProgress != null
+          ? frame.fromRouteProgress + (frame.toRouteProgress - frame.fromRouteProgress) * elapsed
           : undefined;
+        if (
+          routeProgress != null
+          && frame.toRouteProgress != null
+          && frame.routeTotalMeters
+          && frame.routeSpeedMps
+          && time > frame.startedAt + frame.durationMs
+          && time <= (frame.extrapolateUntilMs ?? 0)
+        ) {
+          const extraSeconds = (time - frame.startedAt - frame.durationMs) / 1000;
+          const extraProgress = Math.min(75, Math.max(0, frame.routeSpeedMps * extraSeconds)) / frame.routeTotalMeters;
+          routeProgress = frame.toRouteProgress + extraProgress;
+        }
+        routeProgress = routeProgress == null ? undefined : Math.min(0.999999, Math.max(0, routeProgress));
         const routeState = frame.routePath && routeProgress != null
           ? interpolatePathState(frame.routePath, routeProgress)
           : undefined;
