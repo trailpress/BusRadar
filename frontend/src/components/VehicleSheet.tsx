@@ -15,7 +15,6 @@ type Props = {
 function vehicleDetailImage(vehicle: Vehicle) {
   const base = import.meta.env.BASE_URL;
   if (vehicle.vehicleType === 'tram') return `${base}assets/vehicles/detail/tram-3d.png`;
-  if (vehicle.vehicleFleetKey === 'byd-articulated-electric-18m') return `${base}assets/vehicles/detail/urban-articulated-18m-3d-v2.png`;
   if (vehicle.vehicleFleetKey === 'iveco-urbanway-cng-18m' || vehicle.vehicleFleetKey === 'iveco-eway-electric-18m') return `${base}assets/vehicles/detail/urban-articulated-18m-3d-v2.png`;
   if (vehicle.vehicleFleetKey === 'irisbus-citelis-18m') return `${base}assets/vehicles/detail/urban-articulated-18m-3d-v2.png`;
   if (vehicle.vehicleFleetKey === 'mercedes-conecto-18m') return `${base}assets/vehicles/detail/mercedes-conecto-18m-3d.png`;
