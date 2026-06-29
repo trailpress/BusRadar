@@ -142,17 +142,31 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
 }
 
 function activeRouteVariantsForLine(vehicles: Vehicle[], line: string) {
-  const byDirection = new Map<string, { route: GtfsRouteVariant; count: number }>();
-  vehicles
-    .filter((vehicle) => vehicle.line === line || vehicle.routeId.replace(/^gtt-/, '').replace(/U$/, '') === line.replace(/U$/, ''))
-    .forEach((vehicle) => {
-      const route = getGtfsRouteVariant(vehicle.routeVariantId);
-      if (!route) return;
-      const key = route.directionId || route.headsign || route.id;
-      const existing = byDirection.get(key);
-      byDirection.set(key, { route, count: (existing?.count ?? 0) + 1 });
+  const lineKey = line.replace(/U$/, '');
+  const lineVehicles = vehicles.filter((vehicle) => (
+    vehicle.line === line || vehicle.routeId.replace(/^gtt-/, '').replace(/U$/, '') === lineKey
+  ));
+  if (lineVehicles.length === 0) return [];
+
+  const candidates = getGtfsRoutesForLine(lineKey);
+  const byDirection = new Map<string, { route: GtfsRouteVariant; score: number }>();
+  candidates.forEach((route) => {
+    let closeVehicles = 0;
+    let assignedVehicles = 0;
+    lineVehicles.forEach((vehicle) => {
+      if (vehicle.routeVariantId === route.id) assignedVehicles += 1;
+      const match = routeProgressAtPoint(route.path, vehicle);
+      if (match && match.distanceMeters <= 260) closeVehicles += 1;
     });
-  return [...byDirection.values()].sort((a, b) => b.count - a.count).slice(0, 2).map((item) => item.route);
+    if (closeVehicles === 0 && assignedVehicles === 0) return;
+
+    const score = closeVehicles * 100 + assignedVehicles * 8 - routeLengthMeters(route) / 600;
+    const key = route.directionId || route.headsign || route.id;
+    const existing = byDirection.get(key);
+    if (!existing || score > existing.score) byDirection.set(key, { route, score });
+  });
+
+  return [...byDirection.values()].sort((a, b) => b.score - a.score).slice(0, 2).map((item) => item.route);
 }
 
 function compactRouteVariants(routes: GtfsRouteVariant[]) {
@@ -160,9 +174,22 @@ function compactRouteVariants(routes: GtfsRouteVariant[]) {
   routes.forEach((route) => {
     const key = route.directionId || route.headsign || route.id;
     const existing = byDirection.get(key);
-    if (!existing || route.stops.length > existing.stops.length) byDirection.set(key, route);
+    if (!existing || routeLengthMeters(route) < routeLengthMeters(existing)) byDirection.set(key, route);
   });
   return [...byDirection.values()].slice(0, 2);
+}
+
+const routeLengthCache = new Map<string, number>();
+
+function routeLengthMeters(route: GtfsRouteVariant) {
+  const cached = routeLengthCache.get(route.id);
+  if (cached != null) return cached;
+  let length = 0;
+  for (let index = 1; index < route.path.length; index += 1) {
+    length += distanceMeters(route.path[index - 1], route.path[index]);
+  }
+  routeLengthCache.set(route.id, length);
+  return length;
 }
 
 function overviewRouteVariants() {
@@ -329,13 +356,13 @@ function vehicleSeparationMeters(vehicle: Vehicle, zoom: number) {
   return 0;
 }
 
-function targetVehicleSpeedMps(vehicle: Vehicle, meters: number, secondsSinceUpdate: number, previousSpeedMps?: number) {
+function targetVehicleSpeedMps(vehicle: Vehicle, meters: number, secondsSinceUpdate: number, previousSpeedMps?: number, hasRouteMotion = false) {
   const feedSpeedMps = vehicle.speed >= 2 && vehicle.speed <= 70 ? vehicle.speed / 3.6 : undefined;
   const measuredSpeedMps = secondsSinceUpdate > 0 && meters >= 1.5 ? meters / secondsSinceUpdate : undefined;
 
   let target = feedSpeedMps ?? measuredSpeedMps ?? previousSpeedMps ?? 2.8;
   if (meters < 2 && (vehicle.speed <= 2 || !Number.isFinite(vehicle.speed))) {
-    target = previousSpeedMps ? previousSpeedMps * 0.55 : 0.25;
+    target = hasRouteMotion ? Math.max(previousSpeedMps ?? 0, 1.7) : previousSpeedMps ? previousSpeedMps * 0.55 : 0.25;
   }
 
   const clampedTarget = clamp(target, 0.15, vehicle.vehicleType === 'tram' ? 12 : 13.5);
@@ -1299,6 +1326,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         isPlausibleUpdate ? Math.max(meters, routeDistanceMeters) : 0,
         secondsSinceUpdate,
         previousFrame?.routeSpeedMps,
+        Boolean(motion?.routePath),
       );
       const durationMs = isPlausibleUpdate ? vehicleMovementDurationMs(Math.max(meters, routeDistanceMeters), routeSpeedMps) : 900;
       vehicleFramesRef.current.set(vehicle.vehicleId, {
