@@ -482,21 +482,35 @@ function routeMatchesVehicle(route: GtfsRouteVariant, vehicle: Vehicle) {
   );
 }
 
+function routeVehicleMatchScore(route: GtfsRouteVariant, vehicle: Vehicle) {
+  const vehicleRoute = vehicle.routeId.replace(/^gtt-/, '');
+  if (route.id === vehicle.routeVariantId) return 0;
+  if (route.shapeId === vehicle.shapeId) return 1;
+  if (route.routeId === vehicleRoute) return 2;
+  if (route.routeId.replace(/U$/, '') === vehicleRoute.replace(/U$/, '')) return 3;
+  if (route.line === vehicle.line) return 6;
+  return 99;
+}
+
 function snapVehicleToRoute(vehicle: Vehicle, position: LatLng, displayRoutes: GtfsRouteVariant[] = []) {
-  const visibleRoutes = displayRoutes.filter((route) => routeMatchesVehicle(route, vehicle));
+  const visibleRoutes = displayRoutes
+    .filter((route) => routeMatchesVehicle(route, vehicle))
+    .map((route) => ({ route, score: routeVehicleMatchScore(route, vehicle) }));
   const routes = [...visibleRoutes];
   const fallbackRoute = getGtfsRouteVariant(vehicle.routeVariantId);
-  if (!routes.length && fallbackRoute) routes.push(fallbackRoute);
+  if (!routes.length && fallbackRoute) routes.push({ route: fallbackRoute, score: 0 });
 
-  let best: { point: LatLng; bearing: number; distanceMeters: number } | undefined;
-  routes.forEach((route) => {
+  let best: { point: LatLng; bearing: number; distanceMeters: number; weightedDistance: number } | undefined;
+  routes.forEach(({ route, score }) => {
     const match = routeProgressAtPoint(route.path, position);
     if (!match) return;
-    if (!best || match.distanceMeters < best.distanceMeters) {
+    const weightedDistance = match.distanceMeters + score * 120;
+    if (!best || weightedDistance < best.weightedDistance) {
       best = {
         point: match.projectedPoint,
         bearing: match.bearing,
         distanceMeters: match.distanceMeters,
+        weightedDistance,
       };
     }
   });
@@ -1062,16 +1076,19 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     };
   };
 
+  const openVehicleDetail = (vehicleId?: string, fallbackVehicle?: Vehicle) => {
+    const vehicle = latestVehiclesRef.current.find((item) => item.vehicleId === vehicleId) ?? fallbackVehicle;
+    if (!vehicle) return false;
+    vehicleClickPopupRef.current?.remove();
+    vehicleClickPopupRef.current = undefined;
+    setActiveVehiclePopup(undefined);
+    onSelectVehicle(vehicle);
+    return true;
+  };
+
   useEffect(() => {
     const openVehicleById = (vehicleId?: string) => {
-      const vehicle = latestVehiclesRef.current.find((item) => item.vehicleId === vehicleId);
-      if (!vehicle) return false;
-
-      vehicleClickPopupRef.current?.remove();
-      vehicleClickPopupRef.current = undefined;
-      setActiveVehiclePopup(undefined);
-      onSelectVehicle(vehicle);
-      return true;
+      return openVehicleDetail(vehicleId);
     };
 
     const openVehicleFromPopup = (event: Event) => {
@@ -1115,7 +1132,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       document.removeEventListener('click', openVehicleFromPopup, true);
       window.removeEventListener('busradar:open-vehicle-detail', openVehicleFromCustomEvent as EventListener);
     };
-  }, [onSelectVehicle]);
+  }, [openVehicleDetail]);
 
   useEffect(() => {
     const overlay = vehicleOverlayRef.current;
@@ -1671,10 +1688,21 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           <button
             type="button"
             className="vehicle-tooltip-action"
-            onClick={() => {
-              const vehicle = latestVehiclesRef.current.find((item) => item.vehicleId === activeVehiclePopup.vehicleId) ?? activeVehiclePopup.vehicle;
-              setActiveVehiclePopup(undefined);
-              onSelectVehicle(vehicle);
+            data-open-vehicle={activeVehiclePopup.vehicleId}
+            onPointerUp={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              openVehicleDetail(activeVehiclePopup.vehicleId, activeVehiclePopup.vehicle);
+            }}
+            onTouchEnd={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              openVehicleDetail(activeVehiclePopup.vehicleId, activeVehiclePopup.vehicle);
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              openVehicleDetail(activeVehiclePopup.vehicleId, activeVehiclePopup.vehicle);
             }}
           >
             Apri dettaglio vettura
