@@ -296,22 +296,11 @@ function vehicleSeparationMeters(vehicle: Vehicle, zoom: number) {
 }
 
 function vehicleMovementDurationMs(vehicle: Vehicle, meters: number) {
-  if (meters < 1.5) return 4200;
+  if (meters < 1.5) return 1;
   const feedSpeedMps = vehicle.speed >= 3 && vehicle.speed <= 70 ? vehicle.speed / 3.6 : undefined;
-  const catchUpSpeedMps = meters / 7.5;
-  const speedMps = Math.max(feedSpeedMps ?? 0, catchUpSpeedMps, 2.2);
-  return clamp((meters / speedMps) * 1000, 2600, 9000);
-}
-
-function vehicleCruiseMeters(vehicle: Vehicle, frameMeters: number, elapsedSeconds: number) {
-  if (elapsedSeconds <= 0) return 0;
-  const hasMeaningfulGpsDelta = frameMeters >= 6;
-  if (hasMeaningfulGpsDelta) return 0;
-
-  const routeAnchored = vehicle.routeMatchStatus === 'on-route';
-  const speedKmh = clamp(vehicle.speed || (routeAnchored ? 12 : 7), 5, routeAnchored ? 22 : 12);
-  const maxMeters = routeAnchored ? 62 : 18;
-  return Math.min(maxMeters, (speedKmh / 3.6) * Math.min(elapsedSeconds, 12));
+  const catchUpSpeedMps = meters / 6.5;
+  const speedMps = Math.max(feedSpeedMps ?? 0, catchUpSpeedMps, 1.8);
+  return clamp((meters / speedMps) * 1000, 4200, 9000);
 }
 
 function vehiclesToGeoJson(
@@ -1190,16 +1179,13 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       vehicleFramesRef.current.forEach((frame, id) => {
         const rawElapsed = Math.max(0, (time - frame.startedAt) / frame.durationMs);
         const elapsed = Math.min(1, rawElapsed);
-        const elapsedSeconds = Math.max(0, (time - frame.startedAt) / 1000);
-        const cruiseMeters = vehicleCruiseMeters(frame.vehicle, frame.meters, elapsedSeconds);
         const routeProgress = frame.fromRouteProgress != null && frame.toRouteProgress != null
           ? Math.min(
             0.999999,
             Math.max(
               0,
               frame.fromRouteProgress
-                + (frame.toRouteProgress - frame.fromRouteProgress) * elapsed
-                + (frame.routeTotalMeters ? cruiseMeters / frame.routeTotalMeters : 0),
+                + (frame.toRouteProgress - frame.fromRouteProgress) * elapsed,
             ),
           )
           : undefined;
@@ -1210,11 +1196,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           lat: frame.from.lat + (frame.to.lat - frame.from.lat) * elapsed,
           lon: frame.from.lon + (frame.to.lon - frame.from.lon) * elapsed,
         };
-        const position = routeState?.point ?? (
-          cruiseMeters > 0
-            ? offsetPointMeters(linearPosition, frame.vehicle.bearing, Math.min(18, cruiseMeters))
-            : linearPosition
-        );
+        const position = routeState?.point ?? linearPosition;
         currentPositionsRef.current.set(id, position);
         animatedVehicles.push(routeState ? { ...frame.vehicle, bearing: routeState.bearing } : frame.vehicle);
       });
@@ -1230,7 +1212,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           followedVehicleIdRef.current,
         ),
       );
-      if (time - lastVehicleOverlayAtRef.current > 110) {
+      if (time - lastVehicleOverlayAtRef.current > 33) {
         lastVehicleOverlayAtRef.current = time;
         setVehicleOverlay(vehicleOverlayMarkers(
           map,
