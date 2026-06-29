@@ -97,10 +97,16 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
   if (showRouteForLine) {
     const exactVariant = getGtfsRouteVariant(showRouteForLine);
     if (exactVariant) return [exactVariant];
+    const activeRoutes = activeRouteVariantsForLine(vehicles, showRouteForLine);
+    if (activeRoutes.length > 0) return activeRoutes;
     const routesById = getGtfsRoutesForRouteId(showRouteForLine);
-    return routesById.length > 0 ? routesById : getGtfsRoutesForLine(showRouteForLine);
+    return compactRouteVariants(routesById.length > 0 ? routesById : getGtfsRoutesForLine(showRouteForLine));
   }
-  if (selectedLine) return getGtfsRoutesForLine(selectedLine);
+  if (selectedLine) {
+    const activeRoutes = activeRouteVariantsForLine(vehicles, selectedLine);
+    if (activeRoutes.length > 0) return activeRoutes;
+    return compactRouteVariants(getGtfsRoutesForLine(selectedLine));
+  }
 
   const byRoute = new Map<string, GtfsRouteVariant>();
   overviewRouteVariants().forEach((route) => byRoute.set(route.id, route));
@@ -133,6 +139,30 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
   });
 
   return [...byRoute.values()];
+}
+
+function activeRouteVariantsForLine(vehicles: Vehicle[], line: string) {
+  const byDirection = new Map<string, { route: GtfsRouteVariant; count: number }>();
+  vehicles
+    .filter((vehicle) => vehicle.line === line || vehicle.routeId.replace(/^gtt-/, '').replace(/U$/, '') === line.replace(/U$/, ''))
+    .forEach((vehicle) => {
+      const route = getGtfsRouteVariant(vehicle.routeVariantId);
+      if (!route) return;
+      const key = route.directionId || route.headsign || route.id;
+      const existing = byDirection.get(key);
+      byDirection.set(key, { route, count: (existing?.count ?? 0) + 1 });
+    });
+  return [...byDirection.values()].sort((a, b) => b.count - a.count).slice(0, 2).map((item) => item.route);
+}
+
+function compactRouteVariants(routes: GtfsRouteVariant[]) {
+  const byDirection = new Map<string, GtfsRouteVariant>();
+  routes.forEach((route) => {
+    const key = route.directionId || route.headsign || route.id;
+    const existing = byDirection.get(key);
+    if (!existing || route.stops.length > existing.stops.length) byDirection.set(key, route);
+  });
+  return [...byDirection.values()].slice(0, 2);
 }
 
 function overviewRouteVariants() {
@@ -430,6 +460,13 @@ function syncVehicleOverlay(
   followedVehicleId?: string,
 ) {
   if (!container) return;
+  if (map.getZoom() >= spriteZoomThreshold) {
+    markerElements.forEach((marker) => {
+      marker.hidden = true;
+    });
+    container.setAttribute('aria-hidden', 'true');
+    return;
+  }
   const canvas = map.getCanvas();
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
@@ -839,7 +876,6 @@ function installTransitLayers(map: maplibregl.Map) {
     minzoom: spriteZoomThreshold,
     filter: ['==', ['get', 'selected'], false],
     layout: {
-      visibility: 'none',
       'icon-image': ['get', 'icon'],
       'icon-size': [
         'interpolate',
@@ -870,7 +906,6 @@ function installTransitLayers(map: maplibregl.Map) {
     minzoom: spriteZoomThreshold,
     filter: ['==', ['get', 'selected'], true],
     layout: {
-      visibility: 'none',
       'icon-image': ['get', 'icon'],
       'icon-size': [
         'interpolate',
@@ -900,7 +935,6 @@ function installTransitLayers(map: maplibregl.Map) {
     source: 'vehicles',
     minzoom: spriteZoomThreshold,
     layout: {
-      visibility: 'none',
       'text-field': ['get', 'line'],
       'text-size': 10,
       'text-offset': [0, 2.8],
