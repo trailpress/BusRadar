@@ -39,12 +39,18 @@ type VehicleFrame = {
   vehicle: Vehicle;
   meters: number;
   routePath?: LatLng[];
+  routeVariantId?: string;
   fromRouteProgress?: number;
   toRouteProgress?: number;
   routeTotalMeters?: number;
   routeSpeedMps?: number;
   extrapolateUntilMs?: number;
   durationMs: number;
+};
+
+type VehicleRouteMemory = {
+  routeVariantId?: string;
+  progress: number;
 };
 
 type StopFeatureProperties = {
@@ -256,21 +262,26 @@ function trackingLabel(vehicle: Vehicle) {
   return 'GPS reale';
 }
 
-function routeMotion(vehicle: Vehicle, from: LatLng, to: LatLng) {
+function routeMotion(vehicle: Vehicle, from: LatLng, to: LatLng, previousProgress?: VehicleRouteMemory) {
   const route = getGtfsRouteVariant(vehicle.routeVariantId);
   if (!route || route.path.length < 2) return undefined;
   const fromState = routeProgressAtPoint(route.path, from);
   const toState = routeProgressAtPoint(route.path, to);
   if (!fromState || !toState) return undefined;
   const totalMeters = toState.traveledMeters + toState.remainingMeters;
-  const traveledDelta = toState.traveledMeters - fromState.traveledMeters;
-  if (totalMeters <= 0 || Math.abs(traveledDelta) > 1500) return undefined;
-  const stableToProgress = traveledDelta < -8
-    ? fromState.traveledMeters / totalMeters
-    : toState.traveledMeters / totalMeters;
+  if (totalMeters <= 0) return undefined;
+  const hasPreviousProgress = previousProgress?.routeVariantId === vehicle.routeVariantId;
+  const displayProgress = hasPreviousProgress
+    ? previousProgress!.progress
+    : fromState.traveledMeters / totalMeters;
+  const feedProgress = toState.traveledMeters / totalMeters;
+  const traveledDeltaMeters = (feedProgress - displayProgress) * totalMeters;
+  if (Math.abs(traveledDeltaMeters) > 1500) return undefined;
+  const stableToProgress = traveledDeltaMeters < -10 ? displayProgress : Math.max(displayProgress, feedProgress);
   return {
     routePath: route.path,
-    fromRouteProgress: fromState.traveledMeters / totalMeters,
+    routeVariantId: route.id,
+    fromRouteProgress: displayProgress,
     toRouteProgress: stableToProgress,
     routeTotalMeters: totalMeters,
   };
@@ -738,6 +749,7 @@ function installTransitLayers(map: maplibregl.Map) {
     type: 'circle',
     source: 'vehicles',
     maxzoom: spriteZoomThreshold,
+    layout: { visibility: 'none' },
     paint: {
       'circle-radius': [
         'interpolate',
@@ -769,6 +781,7 @@ function installTransitLayers(map: maplibregl.Map) {
     source: 'vehicles',
     maxzoom: spriteZoomThreshold,
     layout: {
+      visibility: 'none',
       'text-field': '▲',
       'text-size': ['interpolate', ['linear'], ['zoom'], 7.4, 6.2, 8.8, 7.2, 11, 8.2, 14, 8.8],
       'text-offset': [0, -1.24],
@@ -792,6 +805,7 @@ function installTransitLayers(map: maplibregl.Map) {
     source: 'vehicles',
     maxzoom: spriteZoomThreshold,
     layout: {
+      visibility: 'none',
       'text-field': ['get', 'line'],
       'text-size': ['interpolate', ['linear'], ['zoom'], 7.4, 6.5, 8.8, 7.4, 10.5, 8.8, 12, 9.8, 14, 9],
       'text-offset': [0, 0],
@@ -825,6 +839,7 @@ function installTransitLayers(map: maplibregl.Map) {
     minzoom: spriteZoomThreshold,
     filter: ['==', ['get', 'selected'], false],
     layout: {
+      visibility: 'none',
       'icon-image': ['get', 'icon'],
       'icon-size': [
         'interpolate',
@@ -855,6 +870,7 @@ function installTransitLayers(map: maplibregl.Map) {
     minzoom: spriteZoomThreshold,
     filter: ['==', ['get', 'selected'], true],
     layout: {
+      visibility: 'none',
       'icon-image': ['get', 'icon'],
       'icon-size': [
         'interpolate',
@@ -884,6 +900,7 @@ function installTransitLayers(map: maplibregl.Map) {
     source: 'vehicles',
     minzoom: spriteZoomThreshold,
     layout: {
+      visibility: 'none',
       'text-field': ['get', 'line'],
       'text-size': 10,
       'text-offset': [0, 2.8],
@@ -944,8 +961,10 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const mapRef = useRef<maplibregl.Map | undefined>(undefined);
   const vehicleFramesRef = useRef<Map<string, VehicleFrame>>(new Map());
   const currentPositionsRef = useRef<Map<string, LatLng>>(new Map());
+  const vehicleRouteProgressRef = useRef<Map<string, VehicleRouteMemory>>(new Map());
   const vehicleOverlayElementsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
   const latestVehiclesRef = useRef<Vehicle[]>(vehicles);
+  const visibleVehiclesRef = useRef<Vehicle[]>([]);
   const onSelectLineRef = useRef(onSelectLine);
   const stopPopupRef = useRef<maplibregl.Popup | undefined>(undefined);
   const vehicleClickPopupRef = useRef<maplibregl.Popup | undefined>(undefined);
@@ -1113,6 +1132,27 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     () => vehicles.filter((vehicle) => !selectedLine || vehicle.line === selectedLine),
     [vehicles, selectedLine],
   );
+  visibleVehiclesRef.current = visibleVehicles;
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const map = mapRef.current;
+    const renderOverlay = () => {
+      syncVehicleOverlay(
+        vehicleOverlayRef.current,
+        map,
+        vehicleOverlayElementsRef.current,
+        visibleVehiclesRef.current,
+        currentPositionsRef.current,
+        selectedVehicleIdRef.current,
+        followedVehicleIdRef.current,
+      );
+    };
+    map.on('render', renderOverlay);
+    return () => {
+      map.off('render', renderOverlay);
+    };
+  }, [mapReady]);
 
   const highlightedRoutes = useMemo(
     () => routeVariantsForVehicles(visibleVehicles, selectedLine, showRouteForLine),
@@ -1200,6 +1240,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       if (!active.has(id) && !keepDuringFeedGap) {
         vehicleFramesRef.current.delete(id);
         currentPositionsRef.current.delete(id);
+        vehicleRouteProgressRef.current.delete(id);
         vehicleLastSeenAtRef.current.delete(id);
       }
     });
@@ -1212,7 +1253,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       }
       const meters = new maplibregl.LngLat(previous.lon, previous.lat).distanceTo(new maplibregl.LngLat(next.lon, next.lat));
       const isPlausibleUpdate = meters <= 420;
-      const motion = isPlausibleUpdate ? routeMotion(vehicle, previous, next) : undefined;
+      const motion = isPlausibleUpdate ? routeMotion(vehicle, previous, next, vehicleRouteProgressRef.current.get(vehicle.vehicleId)) : undefined;
       const secondsSinceUpdate = previousFrame
         ? clamp((now - previousFrame.startedAt) / 1000, 3, 24)
         : 6;
@@ -1287,6 +1328,12 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         };
         const position = routeState?.point ?? linearPosition;
         currentPositionsRef.current.set(id, position);
+        if (frame.routeVariantId && routeProgress != null) {
+          vehicleRouteProgressRef.current.set(id, {
+            routeVariantId: frame.routeVariantId,
+            progress: routeProgress,
+          });
+        }
         animatedVehicles.push(routeState ? { ...frame.vehicle, bearing: routeState.bearing } : frame.vehicle);
       });
       const map = mapRef.current!;
