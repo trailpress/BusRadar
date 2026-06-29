@@ -351,8 +351,7 @@ function laneOffsetMetersForZoom(zoom: number) {
 
 function vehicleSeparationMeters(vehicle: Vehicle, zoom: number) {
   void vehicle;
-  if (zoom >= 15.25) return 5.5;
-  if (zoom >= 14.25) return 3.5;
+  void zoom;
   return 0;
 }
 
@@ -382,6 +381,7 @@ function vehiclesToGeoJson(
   zoom: number,
   selectedVehicleId?: string,
   followedVehicleId?: string,
+  displayRoutes: GtfsRouteVariant[] = [],
 ): GeoJSON.FeatureCollection<GeoJSON.Point> {
   const laneOffsetMeters = laneOffsetMetersForZoom(zoom);
   const collisionCellMeters = 24;
@@ -408,7 +408,9 @@ function vehiclesToGeoJson(
   [...vehicles]
     .sort((a, b) => a.vehicleId.localeCompare(b.vehicleId, undefined, { numeric: true }))
     .forEach((vehicle) => {
-      const position = positions.get(vehicle.vehicleId) ?? vehicle;
+      const rawPosition = positions.get(vehicle.vehicleId) ?? vehicle;
+      const snapped = snapVehicleToRoute(vehicle, rawPosition, displayRoutes);
+      const position = snapped?.point ?? rawPosition;
       const lanePosition = offsetPointMeters(position, vehicle.bearing + 90, laneOffsetMeters);
       const separation = vehicleSeparationMeters(vehicle, zoom);
       let displayPosition = lanePosition;
@@ -439,9 +441,12 @@ function vehiclesToGeoJson(
   return {
     type: 'FeatureCollection',
     features: vehicles.map((vehicle) => {
-      const position = positions.get(vehicle.vehicleId) ?? vehicle;
+      const rawPosition = positions.get(vehicle.vehicleId) ?? vehicle;
+      const snapped = snapVehicleToRoute(vehicle, rawPosition, displayRoutes);
+      const position = snapped?.point ?? rawPosition;
       const displayPosition = displayPositions.get(vehicle.vehicleId) ?? position;
       const selected = vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId;
+      const bearing = snapped?.bearing ?? vehicle.bearing;
       return {
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [displayPosition.lon, displayPosition.lat] },
@@ -453,9 +458,9 @@ function vehiclesToGeoJson(
           color: getLineColor(vehicle.line),
           routeColor: getLineColor(vehicle.line),
           textColor: routeDisplayTextColor(vehicle.line, vehicle.vehicleType),
-          bearing: vehicle.bearing,
-          arrowBearing: vehicle.bearing,
-          spriteBearing: vehicle.bearing - 90,
+          bearing,
+          arrowBearing: bearing,
+          spriteBearing: bearing - 90,
           icon: vehicleIconName(vehicle),
           selected,
           isArticulated: vehicle.vehicleLengthClass === 'articulated-18m',
@@ -464,6 +469,37 @@ function vehiclesToGeoJson(
       };
     }),
   };
+}
+
+function routeMatchesVehicle(route: GtfsRouteVariant, vehicle: Vehicle) {
+  const vehicleRoute = vehicle.routeId.replace(/^gtt-/, '');
+  return (
+    route.id === vehicle.routeVariantId ||
+    route.shapeId === vehicle.shapeId ||
+    route.line === vehicle.line ||
+    route.routeId === vehicleRoute ||
+    route.routeId.replace(/U$/, '') === vehicleRoute.replace(/U$/, '')
+  );
+}
+
+function snapVehicleToRoute(vehicle: Vehicle, position: LatLng, displayRoutes: GtfsRouteVariant[] = []) {
+  const routes = displayRoutes.filter((route) => routeMatchesVehicle(route, vehicle));
+  const fallbackRoute = getGtfsRouteVariant(vehicle.routeVariantId);
+  if (fallbackRoute && !routes.some((route) => route.id === fallbackRoute.id)) routes.push(fallbackRoute);
+
+  let best: { point: LatLng; bearing: number; distanceMeters: number } | undefined;
+  routes.forEach((route) => {
+    const match = routeProgressAtPoint(route.path, position);
+    if (!match) return;
+    if (!best || match.distanceMeters < best.distanceMeters) {
+      best = {
+        point: match.projectedPoint,
+        bearing: match.bearing,
+        distanceMeters: match.distanceMeters,
+      };
+    }
+  });
+  return best;
 }
 
 function createVehicleOverlayElement(vehicleId: string) {
@@ -485,6 +521,7 @@ function syncVehicleOverlay(
   positions: Map<string, LatLng>,
   selectedVehicleId?: string,
   followedVehicleId?: string,
+  displayRoutes: GtfsRouteVariant[] = [],
 ) {
   if (!container) return;
   if (map.getZoom() >= spriteZoomThreshold) {
@@ -501,7 +538,9 @@ function syncVehicleOverlay(
   const margin = 46;
 
   for (const vehicle of vehicles) {
-    const position = positions.get(vehicle.vehicleId) ?? vehicle;
+    const rawPosition = positions.get(vehicle.vehicleId) ?? vehicle;
+    const snapped = snapVehicleToRoute(vehicle, rawPosition, displayRoutes);
+    const position = snapped?.point ?? rawPosition;
     const projected = map.project([position.lon, position.lat]);
     if (
       projected.x < -margin ||
@@ -525,7 +564,7 @@ function syncVehicleOverlay(
     marker.classList.toggle('is-selected', vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId);
     marker.style.setProperty('--line-color', getLineColor(vehicle.line));
     marker.style.setProperty('--line-text-color', routeDisplayTextColor(vehicle.line, vehicle.vehicleType));
-    marker.style.setProperty('--bearing', `${vehicle.bearing}deg`);
+    marker.style.setProperty('--bearing', `${snapped?.bearing ?? vehicle.bearing}deg`);
     marker.style.transform = `translate3d(${projected.x}px, ${projected.y}px, 0) translate(-50%, -50%)`;
     marker.hidden = false;
     visibleIds.add(vehicle.vehicleId);
@@ -1026,6 +1065,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const vehicleOverlayElementsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
   const latestVehiclesRef = useRef<Vehicle[]>(vehicles);
   const visibleVehiclesRef = useRef<Vehicle[]>([]);
+  const highlightedRoutesRef = useRef<GtfsRouteVariant[]>([]);
   const onSelectLineRef = useRef(onSelectLine);
   const stopPopupRef = useRef<maplibregl.Popup | undefined>(undefined);
   const vehicleClickPopupRef = useRef<maplibregl.Popup | undefined>(undefined);
@@ -1055,7 +1095,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const vehiclePopupPoint = (vehicle: Vehicle) => {
     const map = mapRef.current;
     if (!map) return undefined;
-    const position = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
+    const rawPosition = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
+    const position = snapVehicleToRoute(vehicle, rawPosition, highlightedRoutesRef.current)?.point ?? rawPosition;
     const projected = map.project([position.lon, position.lat]);
     const rect = map.getContainer().getBoundingClientRect();
     return {
@@ -1136,7 +1177,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       stopPopupRef.current = undefined;
       vehicleClickPopupRef.current?.remove();
       vehicleClickPopupRef.current = undefined;
-      const position = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
+      const rawPosition = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
+      const position = snapVehicleToRoute(vehicle, rawPosition, highlightedRoutesRef.current)?.point ?? rawPosition;
       const projected = map.project([position.lon, position.lat]);
       setActiveVehiclePopup({
         vehicleId: vehicle.vehicleId,
@@ -1207,6 +1249,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         currentPositionsRef.current,
         selectedVehicleIdRef.current,
         followedVehicleIdRef.current,
+        highlightedRoutesRef.current,
       );
     };
     map.on('render', renderOverlay);
@@ -1219,6 +1262,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     () => routeVariantsForVehicles(visibleVehicles, selectedLine, showRouteForLine),
     [gtfsRevision, visibleVehicles, selectedLine, showRouteForLine],
   );
+  highlightedRoutesRef.current = highlightedRoutes;
 
   const routeStops = useMemo(() => {
     if (!showRouteForLine && !selectedLine) return [];
@@ -1349,8 +1393,9 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       currentPositionsRef.current,
       selectedVehicleIdRef.current,
       followedVehicleIdRef.current,
+      highlightedRoutes,
     );
-  }, [visibleVehicles]);
+  }, [highlightedRoutes, visibleVehicles]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
@@ -1408,6 +1453,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           map.getZoom(),
           selectedVehicleIdRef.current,
           followedVehicleIdRef.current,
+          highlightedRoutesRef.current,
         ),
       );
       if (time - lastVehicleOverlayAtRef.current > 16) {
@@ -1420,6 +1466,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           currentPositionsRef.current,
           selectedVehicleIdRef.current,
           followedVehicleIdRef.current,
+          highlightedRoutesRef.current,
         );
       }
       const activePopup = activeVehiclePopupRef.current;
@@ -1438,7 +1485,11 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         }
       }
       const followedId = followedVehicleIdRef.current;
-      const followedPosition = followedId ? currentPositionsRef.current.get(followedId) : undefined;
+      const followedVehicle = followedId ? latestVehiclesRef.current.find((vehicle) => vehicle.vehicleId === followedId) : undefined;
+      const rawFollowedPosition = followedId ? currentPositionsRef.current.get(followedId) : undefined;
+      const followedPosition = followedVehicle && rawFollowedPosition
+        ? snapVehicleToRoute(followedVehicle, rawFollowedPosition, highlightedRoutesRef.current)?.point ?? rawFollowedPosition
+        : rawFollowedPosition;
       if (followedPosition && time - lastFollowCameraAtRef.current > 250) {
         const target = new maplibregl.LngLat(followedPosition.lon, followedPosition.lat);
         map.jumpTo({ center: target });
