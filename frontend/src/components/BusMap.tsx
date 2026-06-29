@@ -44,13 +44,17 @@ type VehicleFrame = {
   toRouteProgress?: number;
   routeTotalMeters?: number;
   routeSpeedMps?: number;
-  extrapolateUntilMs?: number;
   durationMs: number;
 };
 
 type VehicleRouteMemory = {
   routeVariantId?: string;
   progress: number;
+};
+
+type VehicleFeedMemory = {
+  key: string;
+  receivedAt: number;
 };
 
 type StopFeatureProperties = {
@@ -351,7 +355,8 @@ function laneOffsetMetersForZoom(zoom: number) {
 
 function vehicleSeparationMeters(vehicle: Vehicle, zoom: number) {
   void vehicle;
-  void zoom;
+  if (zoom >= 16.5) return 14;
+  if (zoom >= 14.25) return 9;
   return 0;
 }
 
@@ -373,6 +378,26 @@ function targetVehicleSpeedMps(vehicle: Vehicle, meters: number, secondsSinceUpd
 function vehicleMovementDurationMs(meters: number, speedMps: number) {
   if (meters < 1.5) return 900;
   return clamp((meters / Math.max(0.8, speedMps)) * 1000, 2400, 8500);
+}
+
+function vehicleFeedKey(vehicle: Vehicle) {
+  return [
+    vehicle.routeVariantId ?? '',
+    vehicle.shapeId ?? '',
+    vehicle.feedTimestampMs ?? vehicle.updatedAt,
+    vehicle.lat.toFixed(6),
+    vehicle.lon.toFixed(6),
+  ].join('|');
+}
+
+function vehiclePlaybackDurationMs(vehicle: Vehicle, previousFrame: VehicleFrame | undefined, meters: number, speedMps: number, now: number) {
+  const feedDeltaMs = previousFrame?.vehicle.feedTimestampMs && vehicle.feedTimestampMs
+    ? Math.max(0, vehicle.feedTimestampMs - previousFrame.vehicle.feedTimestampMs)
+    : 0;
+  if (feedDeltaMs >= 4_000) return clamp(feedDeltaMs * 1.08, 5_500, 18_000);
+  if (meters < 1.5) return 1_600;
+  const frameAgeMs = previousFrame ? Math.max(0, now - previousFrame.startedAt) : 0;
+  return Math.max(vehicleMovementDurationMs(meters, speedMps), clamp(frameAgeMs * 0.75, 4_500, 12_000));
 }
 
 function vehiclesToGeoJson(
@@ -411,7 +436,8 @@ function vehiclesToGeoJson(
       const rawPosition = positions.get(vehicle.vehicleId) ?? vehicle;
       const snapped = snapVehicleToRoute(vehicle, rawPosition, displayRoutes);
       const position = snapped?.point ?? rawPosition;
-      const lanePosition = offsetPointMeters(position, vehicle.bearing + 90, laneOffsetMeters);
+      const bearing = snapped?.bearing ?? vehicle.bearing;
+      const lanePosition = offsetPointMeters(position, bearing + 90, laneOffsetMeters);
       const separation = vehicleSeparationMeters(vehicle, zoom);
       let displayPosition = lanePosition;
 
@@ -426,7 +452,7 @@ function vehiclesToGeoJson(
           const direction = attempt % 2 === 0 ? 1 : -1;
           displayPosition = offsetPointMeters(
             lanePosition,
-            vehicle.bearing + (direction > 0 ? 0 : 180),
+            bearing + (direction > 0 ? 0 : 180),
             slot * separation,
           );
         }
@@ -1033,6 +1059,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const vehicleFramesRef = useRef<Map<string, VehicleFrame>>(new Map());
   const currentPositionsRef = useRef<Map<string, LatLng>>(new Map());
   const vehicleRouteProgressRef = useRef<Map<string, VehicleRouteMemory>>(new Map());
+  const vehicleFeedSamplesRef = useRef<Map<string, VehicleFeedMemory>>(new Map());
   const vehicleOverlayElementsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
   const latestVehiclesRef = useRef<Vehicle[]>(vehicles);
   const visibleVehiclesRef = useRef<Vehicle[]>([]);
@@ -1320,11 +1347,22 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         vehicleFramesRef.current.delete(id);
         currentPositionsRef.current.delete(id);
         vehicleRouteProgressRef.current.delete(id);
+        vehicleFeedSamplesRef.current.delete(id);
         vehicleLastSeenAtRef.current.delete(id);
       }
     });
     visibleVehicles.forEach((vehicle) => {
       const previousFrame = vehicleFramesRef.current.get(vehicle.vehicleId);
+      const feedKey = vehicleFeedKey(vehicle);
+      const previousFeedSample = vehicleFeedSamplesRef.current.get(vehicle.vehicleId);
+      if (previousFrame && previousFeedSample?.key === feedKey) {
+        vehicleFramesRef.current.set(vehicle.vehicleId, {
+          ...previousFrame,
+          vehicle,
+        });
+        return;
+      }
+
       const previous = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
       const next = { lat: vehicle.lat, lon: vehicle.lon };
       if (!currentPositionsRef.current.has(vehicle.vehicleId)) {
@@ -1346,7 +1384,10 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         previousFrame?.routeSpeedMps,
         Boolean(motion?.routePath),
       );
-      const durationMs = isPlausibleUpdate ? vehicleMovementDurationMs(Math.max(meters, routeDistanceMeters), routeSpeedMps) : 900;
+      const durationMs = isPlausibleUpdate
+        ? vehiclePlaybackDurationMs(vehicle, previousFrame, Math.max(meters, routeDistanceMeters), routeSpeedMps, now)
+        : 900;
+      vehicleFeedSamplesRef.current.set(vehicle.vehicleId, { key: feedKey, receivedAt: now });
       vehicleFramesRef.current.set(vehicle.vehicleId, {
         from: isPlausibleUpdate ? previous : next,
         to: next,
@@ -1355,7 +1396,6 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         meters: isPlausibleUpdate ? meters : 0,
         durationMs,
         routeSpeedMps,
-        extrapolateUntilMs: now + 12_000,
         ...motion,
       });
     });
@@ -1387,18 +1427,6 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         let routeProgress = frame.fromRouteProgress != null && frame.toRouteProgress != null
           ? frame.fromRouteProgress + (frame.toRouteProgress - frame.fromRouteProgress) * elapsed
           : undefined;
-        if (
-          routeProgress != null
-          && frame.toRouteProgress != null
-          && frame.routeTotalMeters
-          && frame.routeSpeedMps
-          && time > frame.startedAt + frame.durationMs
-          && time <= (frame.extrapolateUntilMs ?? 0)
-        ) {
-          const extraSeconds = (time - frame.startedAt - frame.durationMs) / 1000;
-          const extraProgress = Math.min(75, Math.max(0, frame.routeSpeedMps * extraSeconds)) / frame.routeTotalMeters;
-          routeProgress = frame.toRouteProgress + extraProgress;
-        }
         routeProgress = routeProgress == null ? undefined : Math.min(0.999999, Math.max(0, routeProgress));
         const routeState = frame.routePath && routeProgress != null
           ? interpolatePathState(frame.routePath, routeProgress)
