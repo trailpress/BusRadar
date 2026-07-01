@@ -1416,6 +1416,18 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         ...motion,
       });
     });
+    setSourceData(
+      map,
+      'vehicles',
+      vehiclesToGeoJson(
+        visibleVehicles,
+        currentPositionsRef.current,
+        map.getZoom(),
+        selectedVehicleIdRef.current,
+        followedVehicleIdRef.current,
+        highlightedRoutes,
+      ),
+    );
     syncVehicleOverlay(
       vehicleOverlayRef.current,
       map,
@@ -1463,11 +1475,12 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         animatedVehicles.push(routeState ? { ...frame.vehicle, bearing: routeState.bearing } : frame.vehicle);
       });
       const map = mapRef.current!;
+      const displayedVehicles = animatedVehicles.length > 0 ? animatedVehicles : visibleVehiclesRef.current;
       setSourceData(
         map,
         'vehicles',
         vehiclesToGeoJson(
-          animatedVehicles,
+          displayedVehicles,
           currentPositionsRef.current,
           map.getZoom(),
           selectedVehicleIdRef.current,
@@ -1481,7 +1494,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           vehicleOverlayRef.current,
           map,
           vehicleOverlayElementsRef.current,
-          animatedVehicles,
+          displayedVehicles,
           currentPositionsRef.current,
           selectedVehicleIdRef.current,
           followedVehicleIdRef.current,
