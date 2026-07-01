@@ -31,9 +31,9 @@ export type VehicleHeadwayInfo = {
 function vehicleDetailImage(vehicle: Vehicle) {
   const base = import.meta.env.BASE_URL;
   if (!vehicle.vehicleFleetKey || vehicle.vehicleFleetKey === 'generic-bus') {
-    if (vehicle.vehicleLivery === 'interurban-blue') return `${base}assets/vehicles/detail/iveco-crossway-suburban-gtt-2d.png`;
-    if (vehicle.vehicleLivery === 'electric-compact') return `${base}assets/vehicles/detail/byd-k9-electric-12m-gtt-2d.png`;
-    if (vehicle.vehicleLengthClass === 'articulated-18m') return `${base}assets/vehicles/detail/iveco-urbanway-cng-18m-gtt-2d.png`;
+    if (vehicle.vehicleLivery === 'interurban-blue') return `${base}assets/vehicles/detail/iveco-crossway-suburban-gtt-neutral.png`;
+    if (vehicle.vehicleLivery === 'electric-compact') return `${base}assets/vehicles/detail/byd-k9-electric-12m-gtt-neutral.png`;
+    if (vehicle.vehicleLengthClass === 'articulated-18m') return `${base}assets/vehicles/detail/iveco-urbanway-cng-18m-gtt-neutral.png`;
   }
   return `${base}${vehicleFleetProfile(vehicle.vehicleFleetKey).detailAsset}`;
 }
