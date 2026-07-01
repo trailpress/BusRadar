@@ -788,11 +788,43 @@ button {
   position: absolute;
   z-index: 2;
   right: 14px;
-  bottom: 10px;
+  bottom: 18px;
   color: #9aa4b2;
   font-size: 11px;
   font-style: normal;
   font-weight: 800;
+}
+
+.bus-photo > small {
+  position: absolute;
+  z-index: 2;
+  right: 14px;
+  bottom: 6px;
+  color: rgba(154, 164, 178, 0.7);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.vehicle-operator-mark {
+  position: absolute;
+  z-index: 3;
+  left: 14px;
+  top: 12px;
+  display: inline-grid;
+  place-items: center;
+  min-width: 42px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 8px;
+  color: #ffffff;
+  background:
+    linear-gradient(135deg, #ffffff 0 18%, transparent 18% 100%),
+    linear-gradient(135deg, #0a68b3, #004f9f);
+  box-shadow: 0 8px 18px rgba(0, 79, 159, 0.26);
+  font-size: 13px;
+  font-weight: 950;
+  letter-spacing: -0.02em;
 }
 
 .vehicle-render {

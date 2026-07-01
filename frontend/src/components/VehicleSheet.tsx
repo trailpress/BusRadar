@@ -98,6 +98,7 @@ export function VehicleSheet({ vehicle, onFollow, onToggleFavorite, onRoute, onC
         <span>{routeTrackingText(vehicle)}</span>
       </div>
       <div className="bus-photo">
+        <span className="vehicle-operator-mark" aria-label="Operatore GTT">GTT</span>
         <img className="vehicle-render" src={detailImage} alt={`Rendering ${vehicleKind}`} />
         <div className={`${vehicleModelClass} vehicle-model--fallback`} aria-hidden="true">
           <i />
@@ -106,6 +107,7 @@ export function VehicleSheet({ vehicle, onFollow, onToggleFavorite, onRoute, onC
           <b />
         </div>
         <em>{vehicleKind}</em>
+        <small>visual demo non ufficiale</small>
       </div>
       <div className="metric-grid">
         <div>
