@@ -7,10 +7,25 @@ import { LineBadge } from './LineBadge';
 
 type Props = {
   vehicle: Vehicle;
+  headway?: VehicleHeadwayInfo;
   onFollow: () => void;
   onToggleFavorite: () => void;
   onRoute: () => void;
   onClose: () => void;
+};
+
+export type VehicleHeadwayPeer = {
+  vehicleId: string;
+  label: string;
+  minutes?: number;
+  distanceKm?: number;
+};
+
+export type VehicleHeadwayInfo = {
+  ahead?: VehicleHeadwayPeer;
+  behind?: VehicleHeadwayPeer;
+  peerCount: number;
+  basis: 'eta' | 'position' | 'unavailable';
 };
 
 function vehicleDetailImage(vehicle: Vehicle) {
@@ -37,7 +52,14 @@ function cardinalDirection(bearing: number) {
   return directions[Math.round(((bearing % 360) + 360) % 360 / 45) % directions.length];
 }
 
-export function VehicleSheet({ vehicle, onFollow, onToggleFavorite, onRoute, onClose }: Props) {
+function formatHeadwayPeer(peer?: VehicleHeadwayPeer) {
+  if (!peer) return 'Nessun mezzo rilevato';
+  const minutes = peer.minutes != null ? `${peer.minutes} min` : 'tempo n/d';
+  const distance = peer.distanceKm != null ? ` · ${peer.distanceKm.toFixed(1)} km` : '';
+  return `${peer.label} · ${minutes}${distance}`;
+}
+
+export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onRoute, onClose }: Props) {
   const previousBearingRef = useRef(vehicle.bearing);
   const [displayBearing, setDisplayBearing] = useState(vehicle.bearing);
   useEffect(() => {
@@ -146,6 +168,29 @@ export function VehicleSheet({ vehicle, onFollow, onToggleFavorite, onRoute, onC
           </span>
           <em>{vehicle.routeShortName}</em>
         </div>
+      </div>
+      <div className="headway-panel">
+        <div>
+          <span>Intervallo turno</span>
+          <em>
+            {headway?.basis === 'eta'
+              ? 'stima da ETA'
+              : headway?.basis === 'position'
+                ? 'stima da posizione'
+                : 'non disponibile'}
+          </em>
+        </div>
+        <dl>
+          <div>
+            <dt>Davanti</dt>
+            <dd>{formatHeadwayPeer(headway?.ahead)}</dd>
+          </div>
+          <div>
+            <dt>Dietro</dt>
+            <dd>{formatHeadwayPeer(headway?.behind)}</dd>
+          </div>
+        </dl>
+        <small>{headway?.peerCount ? `${headway.peerCount} mezzi sulla stessa linea/direzione` : 'Serve almeno un altro mezzo sulla stessa linea/direzione'}</small>
       </div>
       <div className="sheet-actions">
         <button

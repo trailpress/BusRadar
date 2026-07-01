@@ -1120,6 +1120,67 @@ button {
   font-style: normal;
 }
 
+.headway-panel {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid rgba(154, 164, 178, 0.16);
+  border-radius: 16px;
+  background: rgba(16, 23, 34, 0.82);
+}
+
+.headway-panel > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.headway-panel > div:first-child span {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.headway-panel > div:first-child em,
+.headway-panel > small {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.headway-panel dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.headway-panel dl div {
+  display: grid;
+  grid-template-columns: 66px 1fr;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.headway-panel dt {
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.headway-panel dd {
+  margin: 0;
+  color: #eef4ff;
+  font-size: 12px;
+  font-weight: 720;
+}
+
 .sheet-actions {
   display: grid;
   grid-template-columns: 1fr;

@@ -1,5 +1,5 @@
 import { Layers3 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { GtfsStop } from '../data/gtfsNetwork';
 import type { GeocodingResult } from '../services/geocoding';
 import type { LatLng, Vehicle } from '../types';
@@ -7,7 +7,7 @@ import { AppHeader } from '../components/AppHeader';
 import type { MapSearchSuggestion } from '../components/AppHeader';
 import { BusMap } from '../components/BusMap';
 import { ServiceCard } from '../components/ServiceCard';
-import { VehicleSheet } from '../components/VehicleSheet';
+import { VehicleSheet, type VehicleHeadwayInfo, type VehicleHeadwayPeer } from '../components/VehicleSheet';
 
 type Props = {
   vehicles: Vehicle[];
@@ -47,6 +47,89 @@ type Props = {
   onResetMap: () => void;
 };
 
+function sameVehicleRunGroup(a: Vehicle, b: Vehicle) {
+  if (a.vehicleId === b.vehicleId) return false;
+  if (a.routeShortName !== b.routeShortName) return false;
+
+  if (a.routeVariantId && b.routeVariantId) return a.routeVariantId === b.routeVariantId;
+  if (a.shapeId && b.shapeId) return a.shapeId === b.shapeId;
+
+  const aDirection = (a.terminalName ?? a.direction).trim().toLowerCase();
+  const bDirection = (b.terminalName ?? b.direction).trim().toLowerCase();
+  return aDirection.length > 0 && aDirection === bDirection;
+}
+
+function routeOrderValue(vehicle: Vehicle) {
+  if (Number.isFinite(vehicle.progress)) return vehicle.progress;
+  if (vehicle.remainingKm != null && Number.isFinite(vehicle.remainingKm)) return -vehicle.remainingKm;
+  return undefined;
+}
+
+function estimatedGap(current: Vehicle, peer: Vehicle, relation: 'ahead' | 'behind') {
+  if (current.etaTerminalMinutes != null && peer.etaTerminalMinutes != null) {
+    const etaGap = relation === 'ahead'
+      ? current.etaTerminalMinutes - peer.etaTerminalMinutes
+      : peer.etaTerminalMinutes - current.etaTerminalMinutes;
+    if (Number.isFinite(etaGap) && etaGap >= 0) {
+      return { minutes: Math.max(0, Math.round(etaGap)), basis: 'eta' as const };
+    }
+  }
+
+  if (current.remainingKm != null && peer.remainingKm != null) {
+    const distanceKm = Math.abs(current.remainingKm - peer.remainingKm);
+    const movingSpeeds = [current.speed, peer.speed].filter((speed) => speed >= 5 && speed <= 65);
+    const speedKmh = movingSpeeds.length
+      ? movingSpeeds.reduce((sum, speed) => sum + speed, 0) / movingSpeeds.length
+      : 18;
+    return {
+      minutes: Math.max(1, Math.round((distanceKm / speedKmh) * 60)),
+      distanceKm: Math.round(distanceKm * 10) / 10,
+      basis: 'position' as const,
+    };
+  }
+
+  return { basis: 'unavailable' as const };
+}
+
+function headwayPeer(vehicle: Vehicle, gap: ReturnType<typeof estimatedGap>): VehicleHeadwayPeer {
+  return {
+    vehicleId: vehicle.vehicleId,
+    label: vehicle.fleetNumber ? `Vettura ${vehicle.fleetNumber}` : `Mezzo ${vehicle.vehicleId}`,
+    minutes: gap.minutes,
+    distanceKm: gap.distanceKm,
+  };
+}
+
+function buildVehicleHeadway(vehicle: Vehicle, vehicles: Vehicle[]): VehicleHeadwayInfo {
+  const currentOrder = routeOrderValue(vehicle);
+  if (currentOrder == null) {
+    return { peerCount: 0, basis: 'unavailable' };
+  }
+
+  const peers = vehicles
+    .filter((candidate) => sameVehicleRunGroup(vehicle, candidate))
+    .map((candidate) => ({ vehicle: candidate, order: routeOrderValue(candidate) }))
+    .filter((candidate): candidate is { vehicle: Vehicle; order: number } => candidate.order != null)
+    .sort((a, b) => a.order - b.order);
+
+  const behindCandidate = [...peers].reverse().find((candidate) => candidate.order < currentOrder);
+  const aheadCandidate = peers.find((candidate) => candidate.order > currentOrder);
+  const aheadGap = aheadCandidate ? estimatedGap(vehicle, aheadCandidate.vehicle, 'ahead') : undefined;
+  const behindGap = behindCandidate ? estimatedGap(vehicle, behindCandidate.vehicle, 'behind') : undefined;
+  const basis = aheadGap?.basis === 'eta' || behindGap?.basis === 'eta'
+    ? 'eta'
+    : aheadGap?.basis === 'position' || behindGap?.basis === 'position'
+      ? 'position'
+      : 'unavailable';
+
+  return {
+    ahead: aheadCandidate && aheadGap ? headwayPeer(aheadCandidate.vehicle, aheadGap) : undefined,
+    behind: behindCandidate && behindGap ? headwayPeer(behindCandidate.vehicle, behindGap) : undefined,
+    peerCount: peers.length + 1,
+    basis,
+  };
+}
+
 export function MapScreen({
   vehicles,
   selectedLine,
@@ -85,6 +168,11 @@ export function MapScreen({
   onResetMap,
 }: Props) {
   const [stopPopupOpen, setStopPopupOpen] = useState(false);
+  const detailVehicle = selectedVehicle ?? selectedVehicleFallback;
+  const vehicleHeadway = useMemo(
+    () => detailVehicle ? buildVehicleHeadway(detailVehicle, vehicles) : undefined,
+    [detailVehicle, vehicles],
+  );
   return (
     <main className="screen map-screen">
       <BusMap
@@ -161,13 +249,14 @@ export function MapScreen({
           <span>La mappa resta centrata sul mezzo realtime</span>
         </div>
       )}
-      {!followedVehicleId && (selectedVehicle ?? selectedVehicleFallback) && (
+      {!followedVehicleId && detailVehicle && (
         <VehicleSheet
-          vehicle={(selectedVehicle ?? selectedVehicleFallback)!}
+          vehicle={detailVehicle}
+          headway={vehicleHeadway}
           onClose={onClearVehicle}
-          onFollow={() => onFollowVehicle((selectedVehicle ?? selectedVehicleFallback)!)}
-          onToggleFavorite={() => onToggleVehicleFavorite((selectedVehicle ?? selectedVehicleFallback)!)}
-          onRoute={() => onShowRoute((selectedVehicle ?? selectedVehicleFallback)!)}
+          onFollow={() => onFollowVehicle(detailVehicle)}
+          onToggleFavorite={() => onToggleVehicleFavorite(detailVehicle)}
+          onRoute={() => onShowRoute(detailVehicle)}
         />
       )}
     </main>
