@@ -29,18 +29,18 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'iveco-citelis-12m': {
     label: 'Irisbus/Iveco Citelis 12m',
-    detailAsset: 'assets/vehicles/detail/iveco-citelis-12m-gtt-2d-clean.png',
-    referenceNotes: 'Serie 3000-3380: asset 2D dedicato Citelis/Iveco 12m con livrea GTT, senza numero fisso.',
+    detailAsset: 'assets/vehicles/detail/iia-citymood-cng-12m-gtt-neutral.png',
+    referenceNotes: 'Serie 3000-3380: render urbano 12m GTT neutralizzato, senza numero fisso, finche non viene validato un Citelis dedicato.',
   },
   'iveco-eway-electric-12m': {
     label: 'Iveco E-Way 12m elettrico',
-    detailAsset: 'assets/vehicles/detail/iveco-eway-electric-12m-gtt-2d-clean.png',
-    referenceNotes: 'Serie 9400-9535: asset 2D elettrico 12m GTT, senza numero fisso.',
+    detailAsset: 'assets/vehicles/detail/byd-k9-electric-12m-gtt-neutral.png',
+    referenceNotes: 'Serie 9400-9535: render elettrico urbano 12m GTT neutralizzato, senza numero fisso, finche non viene validato un E-Way dedicato.',
   },
   'iveco-eway-electric-18m': {
     label: 'Iveco E-Way 18m elettrico',
-    detailAsset: 'assets/vehicles/detail/iveco-eway-electric-18m-gtt-2d-clean.png',
-    referenceNotes: 'Serie 9600-9727: asset 2D elettrico snodato GTT, senza numero fisso.',
+    detailAsset: 'assets/vehicles/detail/iveco-urbanway-cng-18m-gtt-neutral.png',
+    referenceNotes: 'Serie 9600-9727: render snodato urbano GTT neutralizzato, senza numero fisso, finche non viene validato un E-Way 18m dedicato.',
   },
   'iveco-urbanway-cng-18m': {
     label: 'Iveco Urbanway 18m CNG',
@@ -49,13 +49,13 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'irisbus-citelis-18m': {
     label: 'Irisbus Citelis 18m',
-    detailAsset: 'assets/vehicles/detail/irisbus-citelis-18m-gtt-2d-clean.png',
-    referenceNotes: 'Serie 790-899: asset 2D dedicato Citelis/Ecobus snodato 18m, senza numero fisso.',
+    detailAsset: 'assets/vehicles/detail/iveco-urbanway-cng-18m-gtt-neutral.png',
+    referenceNotes: 'Serie 790-899: render snodato urbano GTT neutralizzato, senza numero fisso, finche non viene validato un Citelis 18m dedicato.',
   },
   'mercedes-conecto-12m': {
     label: 'Mercedes Conecto 12m',
-    detailAsset: 'assets/vehicles/detail/mercedes-conecto-12m-gtt-2d-clean.png',
-    referenceNotes: 'Serie 2400-2499 e 3400-3440: asset 2D dedicato Conecto 12m GTT, senza numero fisso.',
+    detailAsset: 'assets/vehicles/detail/iia-citymood-cng-12m-gtt-neutral.png',
+    referenceNotes: 'Serie 2400-2499 e 3400-3440: render urbano 12m GTT neutralizzato, senza numero fisso, finche non viene validato un Conecto dedicato.',
   },
   'mercedes-conecto-18m': {
     label: 'Mercedes Conecto 18m',
@@ -69,8 +69,8 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'generic-bus': {
     label: 'Bus GTT',
-    detailAsset: 'assets/vehicles/detail/mercedes-conecto-12m-gtt-2d-clean.png',
-    referenceNotes: 'Fallback urbano 12m GTT senza numero fisso usato solo quando il feed non permette di riconoscere la serie.',
+    detailAsset: 'assets/vehicles/detail/iia-citymood-cng-12m-gtt-neutral.png',
+    referenceNotes: 'Fallback urbano 12m GTT neutralizzato, senza numero fisso, usato solo quando il feed non permette di riconoscere la serie.',
   },
 };
 
