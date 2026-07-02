@@ -9,8 +9,8 @@ type VehicleFleetProfile = {
 export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile> = {
   tram: {
     label: 'Tram GTT',
-    detailAsset: 'assets/vehicles/detail/tram-gtt-neutral.png',
-    referenceNotes: 'Tram GTT: render 2D laterale con livrea grigio/blu/gialla e marcatura GTT.',
+    detailAsset: 'assets/vehicles/detail/photo/tram-serie-5000-photo-gtt.png',
+    referenceNotes: 'Tram GTT: asset foto-render da riferimento reale serie 5000, livrea grigio/blu/gialla.',
   },
   'byd-k7-electric-9m': {
     label: 'BYD elettrico 9m',
@@ -19,8 +19,8 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'byd-k9-electric-12m': {
     label: 'BYD elettrico 12m',
-    detailAsset: 'assets/vehicles/detail/byd-k9-electric-12m-gtt-neutral.png',
-    referenceNotes: 'Serie 9000-9099: render 2D laterale urbano elettrico 12m con livrea GTT elettrica blu/gialla.',
+    detailAsset: 'assets/vehicles/detail/photo/byd-electric-12m-photo-gtt.png',
+    referenceNotes: 'Serie 9000-9099: asset foto-render da riferimento reale BYD elettrico 12m con livrea GTT blu/gialla.',
   },
   'iia-citymood-cng-12m': {
     label: 'IIA Citymood CNG 12m',
@@ -29,13 +29,13 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'iveco-citelis-12m': {
     label: 'Irisbus/Iveco Citelis 12m',
-    detailAsset: 'assets/vehicles/detail/iia-citymood-cng-12m-gtt-neutral.png',
-    referenceNotes: 'Serie 3000-3380: render urbano 12m GTT neutralizzato, senza numero fisso, finche non viene validato un Citelis dedicato.',
+    detailAsset: 'assets/vehicles/detail/photo/iveco-citelis-12m-photo-gtt.png',
+    referenceNotes: 'Serie 3000-3380: asset foto-render da riferimento reale Citelis/Ecobus GTT.',
   },
   'iveco-eway-electric-12m': {
-    label: 'Iveco E-Way 12m elettrico',
-    detailAsset: 'assets/vehicles/detail/byd-k9-electric-12m-gtt-neutral.png',
-    referenceNotes: 'Serie 9400-9535: render elettrico urbano 12m GTT neutralizzato, senza numero fisso, finche non viene validato un E-Way dedicato.',
+    label: 'Elettrico GTT 12m',
+    detailAsset: 'assets/vehicles/detail/photo/byd-electric-12m-photo-gtt.png',
+    referenceNotes: 'Serie 9400-9535: asset elettrico GTT provvisorio da riferimento reale, in attesa di foto-render E-Way dedicato validato.',
   },
   'iveco-eway-electric-18m': {
     label: 'Iveco E-Way 18m elettrico',
@@ -49,13 +49,13 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'irisbus-citelis-18m': {
     label: 'Irisbus Citelis 18m',
-    detailAsset: 'assets/vehicles/detail/iveco-urbanway-cng-18m-gtt-neutral.png',
-    referenceNotes: 'Serie 790-899: render snodato urbano GTT neutralizzato, senza numero fisso, finche non viene validato un Citelis 18m dedicato.',
+    detailAsset: 'assets/vehicles/detail/photo/irisbus-citelis-18m-photo-gtt.png',
+    referenceNotes: 'Serie 790-899: asset foto-render da riferimento reale Citelis/Urbanway 18m GTT.',
   },
   'mercedes-conecto-12m': {
     label: 'Mercedes Conecto 12m',
-    detailAsset: 'assets/vehicles/detail/iia-citymood-cng-12m-gtt-neutral.png',
-    referenceNotes: 'Serie 2400-2499 e 3400-3440: render urbano 12m GTT neutralizzato, senza numero fisso, finche non viene validato un Conecto dedicato.',
+    detailAsset: 'assets/vehicles/detail/photo/mercedes-conecto-12m-photo-gtt.png',
+    referenceNotes: 'Serie 2400-2499 e 3400-3440: asset foto-render da riferimento reale Conecto 12m GTT.',
   },
   'mercedes-conecto-18m': {
     label: 'Mercedes Conecto 18m',
