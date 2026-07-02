@@ -9,8 +9,8 @@ type VehicleFleetProfile = {
 export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile> = {
   tram: {
     label: 'Tram GTT',
-    detailAsset: 'assets/vehicles/detail/photo/tram-serie-5000-photo-gtt.png',
-    referenceNotes: 'Tram GTT: asset foto-render da riferimento reale serie 5000, livrea grigio/blu/gialla.',
+    detailAsset: 'assets/vehicles/detail/tram-3d.png',
+    referenceNotes: 'Tram GTT: render 3D dedicato, senza usare direttamente foto di riferimento.',
   },
   'byd-k7-electric-9m': {
     label: 'BYD elettrico 9m',
@@ -19,8 +19,8 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'byd-k9-electric-12m': {
     label: 'BYD elettrico 12m',
-    detailAsset: 'assets/vehicles/detail/photo/byd-electric-12m-photo-gtt.png',
-    referenceNotes: 'Serie 9000-9099: asset foto-render da riferimento reale BYD elettrico 12m con livrea GTT blu/gialla.',
+    detailAsset: 'assets/vehicles/detail/byd-k9-electric-12m-real-3d.png',
+    referenceNotes: 'Serie 9000-9099: render 3D BYD elettrico 12m, senza usare direttamente foto di riferimento.',
   },
   'iia-citymood-cng-12m': {
     label: 'IIA Citymood CNG 12m',
@@ -29,13 +29,13 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'iveco-citelis-12m': {
     label: 'Irisbus/Iveco Citelis 12m',
-    detailAsset: 'assets/vehicles/detail/photo/iveco-citelis-12m-photo-gtt.png',
-    referenceNotes: 'Serie 3000-3380: asset foto-render da riferimento reale Citelis/Ecobus GTT.',
+    detailAsset: 'assets/vehicles/detail/urban-standard-12m-3d.png',
+    referenceNotes: 'Serie 3000-3380: render 3D urbano 12m provvisorio per Citelis, senza usare direttamente foto di riferimento.',
   },
   'iveco-eway-electric-12m': {
     label: 'Elettrico GTT 12m',
-    detailAsset: 'assets/vehicles/detail/photo/byd-electric-12m-photo-gtt.png',
-    referenceNotes: 'Serie 9400-9535: asset elettrico GTT provvisorio da riferimento reale, in attesa di foto-render E-Way dedicato validato.',
+    detailAsset: 'assets/vehicles/detail/byd-electric-12m-3d-v2.png',
+    referenceNotes: 'Serie 9400-9535: render 3D elettrico 12m provvisorio, in attesa di E-Way dedicato validato.',
   },
   'iveco-eway-electric-18m': {
     label: 'Iveco E-Way 18m elettrico',
@@ -49,8 +49,8 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'irisbus-citelis-18m': {
     label: 'Irisbus Citelis 18m',
-    detailAsset: 'assets/vehicles/detail/photo/irisbus-citelis-18m-photo-gtt.png',
-    referenceNotes: 'Serie 790-797 e 875-899: asset foto-render Citelis 18m GTT, separato dalla serie 800 Van Hool.',
+    detailAsset: 'assets/vehicles/detail/urban-articulated-18m-3d-v2.png',
+    referenceNotes: 'Serie 790-797 e 875-899: render 3D snodato urbano provvisorio, separato dalla serie 800 Van Hool.',
   },
   'vanhool-ag300-18m': {
     label: 'Van Hool AG300 18m',
@@ -59,8 +59,8 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'mercedes-conecto-12m': {
     label: 'Mercedes Conecto 12m',
-    detailAsset: 'assets/vehicles/detail/photo/mercedes-conecto-12m-photo-gtt.png',
-    referenceNotes: 'Serie 2400-2499 e 3400-3440: asset foto-render da riferimento reale Conecto 12m GTT.',
+    detailAsset: 'assets/vehicles/detail/urban-standard-12m-3d.png',
+    referenceNotes: 'Serie 2400-2499 e 3400-3440: render 3D urbano 12m provvisorio, senza usare direttamente foto di riferimento.',
   },
   'mercedes-conecto-18m': {
     label: 'Mercedes Conecto 18m',
