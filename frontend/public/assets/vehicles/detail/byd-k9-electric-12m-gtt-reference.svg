@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 720" role="img" aria-label="BYD K9 elettrico GTT serie 9000">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#10151f"/>
+      <stop offset="1" stop-color="#05070a"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffd923"/>
+      <stop offset=".56" stop-color="#f7cf15"/>
+      <stop offset=".57" stop-color="#0045ae"/>
+      <stop offset="1" stop-color="#002d86"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-30%" width="120%" height="180%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000" flood-opacity=".55"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="720" rx="34" fill="url(#bg)"/>
+  <ellipse cx="805" cy="592" rx="610" ry="50" fill="#000" opacity=".26"/>
+  <g filter="url(#shadow)" transform="translate(88 118)">
+    <path d="M92 104c0-46 33-80 78-86 272-34 833-34 1080 0 88 12 144 82 144 171v167c0 75-58 137-133 142H164c-40 0-72-32-72-72z" fill="url(#body)"/>
+    <path d="M86 98c319-33 1024-33 1211 0 51 9 91 52 91 107v28H86z" fill="#0052c9"/>
+    <path d="M235 196h931c38 0 70 31 70 70v68H205V226c0-17 14-30 30-30z" fill="#071017"/>
+    <path d="M260 210h170v105H260zm197 0h146v105H457zm190 0h150v105H647zm180 0h150v105H827zm178 0h142v105h-142z" fill="#1b2732"/>
+    <g fill="#05070a">
+      <rect x="195" y="198" width="50" height="250" rx="9"/>
+      <rect x="596" y="198" width="55" height="250" rx="9"/>
+      <rect x="1188" y="198" width="58" height="250" rx="9"/>
+    </g>
+    <g stroke="#f5c400" stroke-width="9" opacity=".85">
+      <path d="M205 248l35 44M240 248l-35 44M606 248l35 44M641 248l-35 44M1199 248l37 45M1236 248l-37 45"/>
+    </g>
+    <path d="M770 404c124-7 234-49 314-126h134c-107 116-249 172-448 172z" fill="#0045ae" opacity=".96"/>
+    <path d="M1068 118h260c32 0 58 26 58 58v75h-318z" fill="#061018"/>
+    <text x="913" y="171" font-family="Arial Black, Arial, sans-serif" font-size="54" fill="#003a94" transform="skewX(-10)">GTT</text>
+    <text x="912" y="405" font-family="Arial Black, Arial, sans-serif" font-size="38" fill="#ffd923">9000</text>
+    <text x="1135" y="171" font-family="Arial, sans-serif" font-size="21" fill="#082a5e">BYD elettrico</text>
+    <g>
+      <circle cx="374" cy="468" r="78" fill="#070b12"/>
+      <circle cx="374" cy="468" r="48" fill="#dfe6ec"/>
+      <circle cx="374" cy="468" r="22" fill="#111722"/>
+      <circle cx="1134" cy="468" r="78" fill="#070b12"/>
+      <circle cx="1134" cy="468" r="48" fill="#dfe6ec"/>
+      <circle cx="1134" cy="468" r="22" fill="#111722"/>
+    </g>
+    <path d="M80 414h1328v20H80z" fill="#f79b00"/>
+    <path d="M80 436h1328v7H80z" fill="#f5d133"/>
+    <path d="M1350 249h40v101h-40z" fill="#0b121c"/>
+    <path d="M101 248h80v104h-80z" fill="#101820"/>
+  </g>
+</svg>

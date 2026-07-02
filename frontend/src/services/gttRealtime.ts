@@ -167,10 +167,8 @@ function vehicleFleetKey(vehicleId: string | null, vehicleType: Vehicle['vehicle
   if (isVehicleNumberInRange(vehicleId, 1300, 1399)) return 'mercedes-conecto-18m';
   if (isVehicleNumberInRange(vehicleId, 9600, 9727)) return 'iveco-eway-electric-18m';
   if (isVehicleNumberInRange(vehicleId, 9300, 9399)) return 'iveco-urbanway-cng-18m';
-  if (
-    isVehicleNumberInRange(vehicleId, 800, 899) ||
-    isVehicleNumberInRange(vehicleId, 790, 797)
-  ) return 'irisbus-citelis-18m';
+  if (isVehicleNumberInRange(vehicleId, 800, 874)) return 'vanhool-ag300-18m';
+  if (isVehicleNumberInRange(vehicleId, 790, 797) || isVehicleNumberInRange(vehicleId, 875, 899)) return 'irisbus-citelis-18m';
   return 'generic-bus';
 }
 
@@ -197,7 +195,8 @@ function vehicleFleetLabel(vehicleId: string | null, vehicleType: Vehicle['vehic
   if (isBydElectric12m(vehicleId)) return 'BYD elettrico 12m';
   if (isMethane12m(vehicleId)) return 'IIA Citymood CNG 12m';
   if (isIveco12m(vehicleId)) return 'Irisbus/Iveco Citelis 12m';
-  if (isVehicleNumberInRange(vehicleId, 800, 899) || isVehicleNumberInRange(vehicleId, 790, 797)) return 'Irisbus Citelis 18m';
+  if (isVehicleNumberInRange(vehicleId, 800, 874)) return 'Van Hool AG300 18m';
+  if (isVehicleNumberInRange(vehicleId, 790, 797) || isVehicleNumberInRange(vehicleId, 875, 899)) return 'Irisbus Citelis 18m';
   if (isVehicleNumberInRange(vehicleId, 1300, 1399)) return 'Mercedes Conecto 18m';
   if (isMercedes12m(vehicleId) || isVehicleNumberInRange(vehicleId, 3400, 3440)) return 'Mercedes Conecto 12m';
   if (isVehicleNumberInRange(vehicleId, 1150, 1168)) return 'Iveco Crossway suburbano';
