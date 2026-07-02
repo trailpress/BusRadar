@@ -50,7 +50,12 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   'irisbus-citelis-18m': {
     label: 'Irisbus Citelis 18m',
     detailAsset: 'assets/vehicles/detail/photo/irisbus-citelis-18m-photo-gtt.png',
-    referenceNotes: 'Serie 790-899: asset foto-render da riferimento reale Citelis/Urbanway 18m GTT.',
+    referenceNotes: 'Serie 790-797 e 875-899: asset foto-render Citelis 18m GTT, separato dalla serie 800 Van Hool.',
+  },
+  'vanhool-ag300-18m': {
+    label: 'Van Hool AG300 18m',
+    detailAsset: 'assets/vehicles/detail/urban-articulated-18m-3d-v2.png',
+    referenceNotes: 'Serie 800-874: classificazione Van Hool AG300; asset 3D provvisorio finche non viene validato un render dedicato.',
   },
   'mercedes-conecto-12m': {
     label: 'Mercedes Conecto 12m',
