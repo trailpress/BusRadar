@@ -13,7 +13,6 @@ export type VehicleFleetKey =
   | 'iveco-eway-electric-18m'
   | 'iveco-urbanway-cng-18m'
   | 'irisbus-citelis-18m'
-  | 'vanhool-ag300-18m'
   | 'mercedes-conecto-12m'
   | 'mercedes-conecto-18m'
   | 'iveco-crossway-suburban'

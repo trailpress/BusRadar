@@ -14,13 +14,13 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'byd-k7-electric-9m': {
     label: 'BYD elettrico 9m',
-    detailAsset: 'assets/vehicles/detail/byd-k9-electric-12m-gtt-reference.svg',
+    detailAsset: 'assets/vehicles/detail/byd-k9-electric-12m-gtt-neutral.png',
     referenceNotes: 'Serie compatta elettrica: usa la livrea elettrica GTT blu/gialla finche non viene validato il render 9m dedicato.',
   },
   'byd-k9-electric-12m': {
     label: 'BYD elettrico 12m',
-    detailAsset: 'assets/vehicles/detail/byd-k9-electric-12m-gtt-reference.svg',
-    referenceNotes: 'Serie 9000-9099: render laterale dedicato BYD elettrico 12m con livrea GTT blu/gialla.',
+    detailAsset: 'assets/vehicles/detail/photo/byd-electric-12m-photo-gtt.png',
+    referenceNotes: 'Serie 9000-9099: asset foto-render da riferimento reale BYD elettrico 12m con livrea GTT blu/gialla.',
   },
   'iia-citymood-cng-12m': {
     label: 'IIA Citymood CNG 12m',
@@ -29,8 +29,8 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'iveco-citelis-12m': {
     label: 'Irisbus/Iveco Citelis 12m',
-    detailAsset: 'assets/vehicles/detail/irisbus-citelis-12m-3000-gtt-reference.svg',
-    referenceNotes: 'Serie 3000-3380: render laterale dedicato Irisbus/Iveco Citelis 12m con livrea GTT storica.',
+    detailAsset: 'assets/vehicles/detail/photo/iveco-citelis-12m-photo-gtt.png',
+    referenceNotes: 'Serie 3000-3380: asset foto-render da riferimento reale Citelis/Ecobus GTT.',
   },
   'iveco-eway-electric-12m': {
     label: 'Elettrico GTT 12m',
@@ -50,12 +50,7 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   'irisbus-citelis-18m': {
     label: 'Irisbus Citelis 18m',
     detailAsset: 'assets/vehicles/detail/photo/irisbus-citelis-18m-photo-gtt.png',
-    referenceNotes: 'Serie 790-797 e 875-899: asset foto-render Citelis 18m GTT, separato dalla serie 800 Van Hool.',
-  },
-  'vanhool-ag300-18m': {
-    label: 'Van Hool AG300 18m',
-    detailAsset: 'assets/vehicles/detail/vanhool-ag300-18m-800-gtt-reference.svg',
-    referenceNotes: 'Serie 800-874: render laterale dedicato Van Hool AG300 snodato GTT.',
+    referenceNotes: 'Serie 790-899: asset foto-render da riferimento reale Citelis/Urbanway 18m GTT.',
   },
   'mercedes-conecto-12m': {
     label: 'Mercedes Conecto 12m',
