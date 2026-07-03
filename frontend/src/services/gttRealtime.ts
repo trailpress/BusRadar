@@ -130,11 +130,11 @@ function isVehicleNumberInRange(vehicleId: string | null, min: number, max: numb
 }
 
 function isBydElectric12m(vehicleId: string | null) {
-  return isVehicleNumberInRange(vehicleId, 30, 81) || isVehicleNumberInRange(vehicleId, 9000, 9099);
+  return isVehicleNumberInRange(vehicleId, 30, 49) || isVehicleNumberInRange(vehicleId, 9000, 9121);
 }
 
 function isMethane12m(vehicleId: string | null) {
-  return isVehicleNumberInRange(vehicleId, 9200, 9299);
+  return isVehicleNumberInRange(vehicleId, 9200, 9261);
 }
 
 function isIveco12m(vehicleId: string | null) {
@@ -147,16 +147,27 @@ function isMercedes12m(vehicleId: string | null) {
 
 function isArticulated18m(vehicleId: string | null) {
   return (
-    isVehicleNumberInRange(vehicleId, 790, 899) ||
-    isVehicleNumberInRange(vehicleId, 1310, 1399) ||
-    isVehicleNumberInRange(vehicleId, 9300, 9399) ||
+    isVehicleNumberInRange(vehicleId, 790, 797) ||
+    isVehicleNumberInRange(vehicleId, 800, 874) ||
+    isVehicleNumberInRange(vehicleId, 1310, 1313) ||
+    isVehicleNumberInRange(vehicleId, 1350, 1396) ||
+    isVehicleNumberInRange(vehicleId, 1400, 1404) ||
+    isVehicleNumberInRange(vehicleId, 9300, 9356) ||
     isVehicleNumberInRange(vehicleId, 9600, 9727)
   );
 }
 
 function vehicleFleetKey(vehicleId: string | null, vehicleType: Vehicle['vehicleType']): Vehicle['vehicleFleetKey'] {
-  if (vehicleType === 'tram') return 'tram';
+  if (vehicleType === 'tram') {
+    if (isVehicleNumberInRange(vehicleId, 2800, 2902)) return 'tram-serie-2800';
+    if (isVehicleNumberInRange(vehicleId, 5000, 5053)) return 'tram-serie-5000';
+    if (isVehicleNumberInRange(vehicleId, 6000, 6054)) return 'tram-serie-6000';
+    if (isVehicleNumberInRange(vehicleId, 8001, 8070)) return 'tram-serie-8000';
+    return 'tram-serie-5000';
+  }
   if (isVehicleNumberInRange(vehicleId, 50, 57)) return 'byd-k7-electric-9m';
+  if (isVehicleNumberInRange(vehicleId, 60, 81)) return 'indcar-eb6-electric-6m';
+  if (isVehicleNumberInRange(vehicleId, 110, 115)) return 'bmc-neocity-9m';
   if (isBydElectric12m(vehicleId)) return 'byd-k9-electric-12m';
   if (isMethane12m(vehicleId)) return 'iia-citymood-cng-12m';
   if (isVehicleNumberInRange(vehicleId, 3000, 3380)) return 'iveco-citelis-12m';
@@ -164,11 +175,18 @@ function vehicleFleetKey(vehicleId: string | null, vehicleType: Vehicle['vehicle
   if (isMercedes12m(vehicleId)) return 'mercedes-conecto-12m';
   if (isVehicleNumberInRange(vehicleId, 9400, 9535)) return 'iveco-eway-electric-12m';
   if (isVehicleNumberInRange(vehicleId, 1150, 1168)) return 'iveco-crossway-suburban';
-  if (isVehicleNumberInRange(vehicleId, 1300, 1399)) return 'mercedes-conecto-18m';
+  if (isVehicleNumberInRange(vehicleId, 1310, 1313)) return 'irisbus-citelis-18m';
+  if (isVehicleNumberInRange(vehicleId, 1350, 1396)) return 'mercedes-conecto-18m';
+  if (isVehicleNumberInRange(vehicleId, 1400, 1404)) return 'man-lions-city-19c-cng';
   if (isVehicleNumberInRange(vehicleId, 9600, 9727)) return 'iveco-eway-electric-18m';
-  if (isVehicleNumberInRange(vehicleId, 9300, 9399)) return 'iveco-urbanway-cng-18m';
-  if (isVehicleNumberInRange(vehicleId, 800, 874)) return 'vanhool-ag300-18m';
-  if (isVehicleNumberInRange(vehicleId, 790, 797) || isVehicleNumberInRange(vehicleId, 875, 899)) return 'irisbus-citelis-18m';
+  if (isVehicleNumberInRange(vehicleId, 9300, 9356)) return 'iveco-urbanway-cng-18m';
+  if (isVehicleNumberInRange(vehicleId, 790, 797) || isVehicleNumberInRange(vehicleId, 800, 874)) return 'irisbus-citelis-18m';
+  if (isVehicleNumberInRange(vehicleId, 230, 241)) return 'irisbus-crossway-11m';
+  if (isVehicleNumberInRange(vehicleId, 320, 365)) return 'irisbus-crossway-12m';
+  if (isVehicleNumberInRange(vehicleId, 366, 406) || isVehicleNumberInRange(vehicleId, 601, 650)) return 'iveco-crossway-line-12m';
+  if (isVehicleNumberInRange(vehicleId, 651, 692)) return 'iveco-crossway-line-cng-12m';
+  if (isVehicleNumberInRange(vehicleId, 500, 502)) return 'irisbus-arway-15m';
+  if (isVehicleNumberInRange(vehicleId, 19, 20)) return 'iveco-mago-granturismo-9m';
   return 'generic-bus';
 }
 
@@ -188,18 +206,34 @@ function vehicleLiveryForVehicle(routeId: string, line: string, vehicleId: strin
 }
 
 function vehicleFleetLabel(vehicleId: string | null, vehicleType: Vehicle['vehicleType'], livery?: Vehicle['vehicleLivery'], lengthClass?: Vehicle['vehicleLengthClass']) {
-  if (vehicleType === 'tram') return 'Tram';
-  if (isVehicleNumberInRange(vehicleId, 9300, 9399)) return 'Iveco Urbanway 18m CNG';
+  if (vehicleType === 'tram') {
+    if (isVehicleNumberInRange(vehicleId, 2800, 2902)) return 'Tram serie 2800';
+    if (isVehicleNumberInRange(vehicleId, 5000, 5053)) return 'Tram serie 5000';
+    if (isVehicleNumberInRange(vehicleId, 6000, 6054)) return 'Tram serie 6000 Cityway';
+    if (isVehicleNumberInRange(vehicleId, 8001, 8070)) return 'Tram serie 8000 Hitachi';
+    return 'Tram';
+  }
+  if (isVehicleNumberInRange(vehicleId, 9300, 9356)) return 'Iveco Urbanway 18m CNG';
   if (isVehicleNumberInRange(vehicleId, 9600, 9727)) return 'Iveco E-Way 18m elettrico';
   if (isVehicleNumberInRange(vehicleId, 9400, 9535)) return 'Iveco E-Way 12m elettrico';
   if (isBydElectric12m(vehicleId)) return 'BYD elettrico 12m';
+  if (isVehicleNumberInRange(vehicleId, 50, 57)) return 'BYD K7 elettrico 9m';
+  if (isVehicleNumberInRange(vehicleId, 60, 81)) return 'INDCAR e-B6 elettrico 6m';
+  if (isVehicleNumberInRange(vehicleId, 110, 115)) return 'BMC Neocity 9m';
   if (isMethane12m(vehicleId)) return 'IIA Citymood CNG 12m';
   if (isIveco12m(vehicleId)) return 'Irisbus/Iveco Citelis 12m';
-  if (isVehicleNumberInRange(vehicleId, 800, 874)) return 'Van Hool AG300 18m';
-  if (isVehicleNumberInRange(vehicleId, 790, 797) || isVehicleNumberInRange(vehicleId, 875, 899)) return 'Irisbus Citelis 18m';
-  if (isVehicleNumberInRange(vehicleId, 1300, 1399)) return 'Mercedes Conecto 18m';
+  if (isVehicleNumberInRange(vehicleId, 790, 797) || isVehicleNumberInRange(vehicleId, 800, 874)) return 'Irisbus Citelis 18m';
+  if (isVehicleNumberInRange(vehicleId, 1310, 1313)) return 'Irisbus Citelis 18m CNG';
+  if (isVehicleNumberInRange(vehicleId, 1350, 1396)) return 'Mercedes Conecto 18m';
+  if (isVehicleNumberInRange(vehicleId, 1400, 1404)) return "MAN Lion's City 19C CNG";
   if (isMercedes12m(vehicleId) || isVehicleNumberInRange(vehicleId, 3400, 3440)) return 'Mercedes Conecto 12m';
   if (isVehicleNumberInRange(vehicleId, 1150, 1168)) return 'Iveco Crossway suburbano';
+  if (isVehicleNumberInRange(vehicleId, 230, 241)) return 'Irisbus Crossway 10,6m';
+  if (isVehicleNumberInRange(vehicleId, 320, 365)) return 'Irisbus Crossway 12m';
+  if (isVehicleNumberInRange(vehicleId, 366, 406) || isVehicleNumberInRange(vehicleId, 601, 650)) return 'Iveco Crossway Line 12m';
+  if (isVehicleNumberInRange(vehicleId, 651, 692)) return 'Iveco Crossway Line CNG 12m';
+  if (isVehicleNumberInRange(vehicleId, 500, 502)) return 'Irisbus Arway 15m';
+  if (isVehicleNumberInRange(vehicleId, 19, 20)) return 'Iveco Mago 2 granturismo';
   if (livery === 'electric-compact') return 'Bus elettrico';
   if (livery === 'interurban-blue') return lengthClass === 'articulated-18m' ? 'Bus suburbano blu 18m' : 'Bus suburbano blu';
   return lengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus';

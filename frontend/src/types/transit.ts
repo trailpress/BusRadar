@@ -4,19 +4,30 @@ export type VehicleLivery = 'urban' | 'interurban-blue' | 'electric-compact';
 export type VehicleSource = 'simulation' | 'gtfs-rt';
 export type VehicleStatus = 'moving' | 'stopped' | 'unknown';
 export type VehicleFleetKey =
-  | 'tram'
+  | 'tram-serie-2800'
+  | 'tram-serie-5000'
+  | 'tram-serie-6000'
+  | 'tram-serie-8000'
   | 'byd-k7-electric-9m'
   | 'byd-k9-electric-12m'
+  | 'indcar-eb6-electric-6m'
+  | 'bmc-neocity-9m'
   | 'iia-citymood-cng-12m'
   | 'iveco-citelis-12m'
   | 'iveco-eway-electric-12m'
   | 'iveco-eway-electric-18m'
   | 'iveco-urbanway-cng-18m'
   | 'irisbus-citelis-18m'
-  | 'vanhool-ag300-18m'
   | 'mercedes-conecto-12m'
   | 'mercedes-conecto-18m'
+  | 'man-lions-city-19c-cng'
   | 'iveco-crossway-suburban'
+  | 'irisbus-crossway-11m'
+  | 'irisbus-crossway-12m'
+  | 'iveco-crossway-line-12m'
+  | 'iveco-crossway-line-cng-12m'
+  | 'irisbus-arway-15m'
+  | 'iveco-mago-granturismo-9m'
   | 'generic-bus';
 
 export type TransitVehicle = {

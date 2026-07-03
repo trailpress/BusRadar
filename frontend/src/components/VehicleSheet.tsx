@@ -38,6 +38,12 @@ function vehicleDetailImage(vehicle: Vehicle) {
   return `${base}${vehicleFleetProfile(vehicle.vehicleFleetKey).detailAsset}`;
 }
 
+function renderStatusLabel(status: ReturnType<typeof vehicleFleetProfile>['assetStatus']) {
+  if (status === 'validated-render') return 'render validato';
+  if (status === 'placeholder-render') return 'render provvisorio';
+  return 'render da validare';
+}
+
 function routeTrackingText(vehicle: Vehicle) {
   if (vehicle.routeMatchStatus === 'on-route') return 'Tracciamento GTT: posizione agganciata al percorso';
   if (vehicle.routeMatchStatus === 'gps-only') {
@@ -72,6 +78,7 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
   const speedSource = vehicle.speedSource === 'feed' ? 'Feed realtime' : vehicle.speedSource === 'observed' ? 'Calcolata da GPS' : 'Non disponibile';
   const rawVehicleLabel = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? vehicle.realtimeVehicleLabel : undefined;
   const identifierLabel = vehicleIdentifierLabel(vehicle);
+  const fleetProfile = vehicleFleetProfile(vehicle.vehicleFleetKey);
   const detailImage = vehicleDetailImage(vehicle);
   const isInterurbanBlue = vehicle.vehicleLivery === 'interurban-blue';
   const isElectricCompact = vehicle.vehicleLivery === 'electric-compact';
@@ -129,7 +136,7 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
           <b />
         </div>
         <em>{vehicleKind}</em>
-        <small>visual demo non ufficiale</small>
+        <small>{renderStatusLabel(fleetProfile.assetStatus)}</small>
       </div>
       <div className="metric-grid">
         <div>
