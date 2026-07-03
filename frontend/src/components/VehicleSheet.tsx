@@ -139,6 +139,7 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
   const detailImage = vehicleDetailImage(vehicle);
   const officialSpec = officialSpecForVehicle(vehicle);
   const showValidatedRender = fleetProfile.assetStatus === 'validated-render';
+  const hasProjectRender = fleetProfile.assetStatus !== 'needs-reference-render';
   const fleetCardClass = ['official-fleet-card', officialSpec ? `official-fleet-card--${officialSpec.traction}` : ''].filter(Boolean).join(' ');
 
   return (
@@ -177,54 +178,54 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
       </div>
       <div className="bus-photo">
         <span className="vehicle-operator-mark" aria-label="Operatore GTT">GTT</span>
-        {showValidatedRender ? (
+        {hasProjectRender ? (
           <img className="vehicle-render" src={detailImage} alt={`Rendering ${vehicleKind}`} />
         ) : (
-          <div className={fleetCardClass} aria-label="Specifiche ufficiali del mezzo">
-            <div className="official-fleet-visual" aria-hidden="true">
-              <i />
-              <b />
-              <span />
-            </div>
-            <div className="official-fleet-copy">
-              <div className="official-fleet-kicker">
-                <span>{serviceClassLabel(officialSpec)}</span>
-                <em>{renderAvailabilityText(fleetProfile.assetStatus)}</em>
-              </div>
-              <strong>{officialSpec?.officialName ?? fleetProfile.label}</strong>
-              <p>Serie {officialSpec?.series ?? 'n/d'} · Scheda {officialSpec?.sheet ?? 'n/d'} · PDF p.{officialSpec?.pdfPage ?? 'n/d'}</p>
-            </div>
-            <dl>
-              <div>
-                <dt>Lunghezza</dt>
-                <dd>{formatMillimeters(officialSpec?.body.lengthMm)}</dd>
-              </div>
-              <div>
-                <dt>Porte</dt>
-                <dd>{officialSpec?.body.doors ?? 'n/d'}</dd>
-              </div>
-              <div>
-                <dt>Trazione</dt>
-                <dd>{tractionLabel(officialSpec)}</dd>
-              </div>
-              <div>
-                <dt>Anno</dt>
-                <dd>{officialSpec?.year ?? 'n/d'}</dd>
-              </div>
-              <div>
-                <dt>Vel. max</dt>
-                <dd>{officialSpec?.maxSpeedKmh ? `${officialSpec.maxSpeedKmh} km/h` : 'n/d'}</dd>
-              </div>
-              <div>
-                <dt>Assi</dt>
-                <dd>{officialSpec?.body.axles ?? 'n/d'}</dd>
-              </div>
-            </dl>
-            <small>{officialSpec?.chassis ?? fleetProfile.label}{officialSpec?.motor ? ` · ${officialSpec.motor}` : ''}</small>
+          <div className="missing-render-panel" aria-label="Render 3D non ancora validato">
+            <div className="official-fleet-visual" aria-hidden="true"><i /><b /><span /></div>
+            <strong>{renderAvailabilityText(fleetProfile.assetStatus)}</strong>
+            <span>{officialSpec?.officialName ?? fleetProfile.label}</span>
           </div>
         )}
         <em>{vehicleKind}</em>
         <small>{renderStatusLabel(fleetProfile.assetStatus)}</small>
+      </div>
+      <div className={fleetCardClass} aria-label="Specifiche ufficiali del mezzo">
+        <div className="official-fleet-copy">
+          <div className="official-fleet-kicker">
+            <span>{serviceClassLabel(officialSpec)}</span>
+            <em>{showValidatedRender ? 'Render verificato' : 'Fonte PDF ufficiale'}</em>
+          </div>
+          <strong>{officialSpec?.officialName ?? fleetProfile.label}</strong>
+          <p>Serie {officialSpec?.series ?? 'n/d'} · Scheda {officialSpec?.sheet ?? 'n/d'} · PDF p.{officialSpec?.pdfPage ?? 'n/d'}</p>
+        </div>
+        <dl>
+          <div>
+            <dt>Lunghezza</dt>
+            <dd>{formatMillimeters(officialSpec?.body.lengthMm)}</dd>
+          </div>
+          <div>
+            <dt>Porte</dt>
+            <dd>{officialSpec?.body.doors ?? 'n/d'}</dd>
+          </div>
+          <div>
+            <dt>Trazione</dt>
+            <dd>{tractionLabel(officialSpec)}</dd>
+          </div>
+          <div>
+            <dt>Anno</dt>
+            <dd>{officialSpec?.year ?? 'n/d'}</dd>
+          </div>
+          <div>
+            <dt>Vel. max</dt>
+            <dd>{officialSpec?.maxSpeedKmh ? `${officialSpec.maxSpeedKmh} km/h` : 'n/d'}</dd>
+          </div>
+          <div>
+            <dt>Assi</dt>
+            <dd>{officialSpec?.body.axles ?? 'n/d'}</dd>
+          </div>
+        </dl>
+        <small>{officialSpec?.chassis ?? fleetProfile.label}{officialSpec?.motor ? ` · ${officialSpec.motor}` : ''}</small>
       </div>
       <div className="metric-grid">
         <div>
