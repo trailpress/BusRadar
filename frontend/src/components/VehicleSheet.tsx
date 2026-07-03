@@ -55,7 +55,7 @@ function specSeriesMatchesVehicle(series: string, vehicleNumber?: number) {
   if (!vehicleNumber) return false;
   const normalized = series.replace(/\s/g, '');
   return normalized.split(/[/,]/).some((part) => {
-    const clean = part.replace(/[ES]$/i, '');
+    const clean = part.replace(/[A-Z]/gi, '');
     const range = clean.match(/^(\d+)-(\d+)$/);
     if (range) {
       const min = Number(range[1]);
@@ -83,6 +83,22 @@ function tractionLabel(spec?: OfficialGttVehicleSpec) {
   if (spec.traction === 'electric') return spec.batteryKwh ? `elettrico · ${spec.batteryKwh} kWh` : 'elettrico';
   if (spec.traction === 'cng') return 'metano CNG';
   return 'diesel';
+}
+
+function serviceClassLabel(spec?: OfficialGttVehicleSpec) {
+  if (!spec) return 'classe n/d';
+  if (spec.serviceClass === 'urban') return 'urbano';
+  if (spec.serviceClass === 'suburban') return 'suburbano';
+  if (spec.serviceClass === 'interurban') return 'extraurbano';
+  if (spec.serviceClass === 'granturismo') return 'granturismo';
+  if (spec.serviceClass === 'tram-line') return 'tram linea';
+  return 'tram speciale';
+}
+
+function renderAvailabilityText(status: ReturnType<typeof vehicleFleetProfile>['assetStatus']) {
+  if (status === 'validated-render') return 'Render 3D validato';
+  if (status === 'placeholder-render') return 'Render 3D provvisorio';
+  return 'Render 3D da produrre';
 }
 
 function routeTrackingText(vehicle: Vehicle) {
@@ -123,6 +139,7 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
   const detailImage = vehicleDetailImage(vehicle);
   const officialSpec = officialSpecForVehicle(vehicle);
   const showValidatedRender = fleetProfile.assetStatus === 'validated-render';
+  const fleetCardClass = ['official-fleet-card', officialSpec ? `official-fleet-card--${officialSpec.traction}` : ''].filter(Boolean).join(' ');
 
   return (
     <section className="vehicle-sheet" aria-label={`Dettaglio mezzo ${vehicle.vehicleId}`}>
@@ -163,9 +180,20 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
         {showValidatedRender ? (
           <img className="vehicle-render" src={detailImage} alt={`Rendering ${vehicleKind}`} />
         ) : (
-          <div className="official-fleet-card" aria-label="Specifiche ufficiali del mezzo">
-            <strong>{officialSpec?.officialName ?? fleetProfile.label}</strong>
-            <span>Serie {officialSpec?.series ?? 'n/d'} · Scheda {officialSpec?.sheet ?? 'n/d'} · PDF p.{officialSpec?.pdfPage ?? 'n/d'}</span>
+          <div className={fleetCardClass} aria-label="Specifiche ufficiali del mezzo">
+            <div className="official-fleet-visual" aria-hidden="true">
+              <i />
+              <b />
+              <span />
+            </div>
+            <div className="official-fleet-copy">
+              <div className="official-fleet-kicker">
+                <span>{serviceClassLabel(officialSpec)}</span>
+                <em>{renderAvailabilityText(fleetProfile.assetStatus)}</em>
+              </div>
+              <strong>{officialSpec?.officialName ?? fleetProfile.label}</strong>
+              <p>Serie {officialSpec?.series ?? 'n/d'} · Scheda {officialSpec?.sheet ?? 'n/d'} · PDF p.{officialSpec?.pdfPage ?? 'n/d'}</p>
+            </div>
             <dl>
               <div>
                 <dt>Lunghezza</dt>
@@ -179,8 +207,20 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
                 <dt>Trazione</dt>
                 <dd>{tractionLabel(officialSpec)}</dd>
               </div>
+              <div>
+                <dt>Anno</dt>
+                <dd>{officialSpec?.year ?? 'n/d'}</dd>
+              </div>
+              <div>
+                <dt>Vel. max</dt>
+                <dd>{officialSpec?.maxSpeedKmh ? `${officialSpec.maxSpeedKmh} km/h` : 'n/d'}</dd>
+              </div>
+              <div>
+                <dt>Assi</dt>
+                <dd>{officialSpec?.body.axles ?? 'n/d'}</dd>
+              </div>
             </dl>
-            <small>{officialSpec?.chassis ?? fleetProfile.label}</small>
+            <small>{officialSpec?.chassis ?? fleetProfile.label}{officialSpec?.motor ? ` · ${officialSpec.motor}` : ''}</small>
           </div>
         )}
         <em>{vehicleKind}</em>
