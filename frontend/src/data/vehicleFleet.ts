@@ -64,8 +64,8 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'mercedes-conecto-18m': {
     label: 'Mercedes Conecto 18m',
-    detailAsset: 'assets/vehicles/detail/mercedes-conecto-18m-gtt-neutral.png',
-    referenceNotes: 'Serie 1300-1399: render 2D laterale snodato urbano Mercedes con livrea GTT.',
+    detailAsset: 'assets/vehicles/detail/mercedes-conecto-18m-3d.png',
+    referenceNotes: 'Serie 1300-1399: render 3D snodato urbano Mercedes, senza overlay livrea appiccicati.',
   },
   'iveco-crossway-suburban': {
     label: 'Iveco Crossway suburbano',
