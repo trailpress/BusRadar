@@ -837,6 +837,71 @@ button {
   object-position: center;
 }
 
+.official-fleet-card {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  width: min(92%, 520px);
+  gap: 9px;
+  padding: 18px 18px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(47, 125, 255, 0.16), transparent 38%),
+    linear-gradient(180deg, rgba(16, 23, 34, 0.98), rgba(7, 11, 17, 0.96));
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.32);
+}
+
+.official-fleet-card strong {
+  max-width: calc(100% - 70px);
+  color: #ffffff;
+  font-size: clamp(17px, 4.5vw, 24px);
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.official-fleet-card > span,
+.official-fleet-card > small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.official-fleet-card dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin: 2px 0 0;
+}
+
+.official-fleet-card dl div {
+  min-width: 0;
+  padding: 9px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(5, 7, 10, 0.38);
+}
+
+.official-fleet-card dt,
+.official-fleet-card dd {
+  margin: 0;
+}
+
+.official-fleet-card dt {
+  color: rgba(154, 164, 178, 0.86);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.official-fleet-card dd {
+  margin-top: 3px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
 .vehicle-model {
   --vehicle-body: #f7fafc;
   --vehicle-accent: #2f7dff;

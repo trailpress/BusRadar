@@ -1,5 +1,6 @@
 import { Clock3, Gauge, LocateFixed, Route as RouteIcon, Star, X } from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { officialSpecsForFleetKey, type OfficialGttVehicleSpec } from '../data/gttOfficialFleetSpecs';
 import { vehicleFleetProfile } from '../data/vehicleFleet';
 import type { Vehicle } from '../types';
 import { vehicleIdentifierKind, vehicleIdentifierLabel } from '../utils/vehicleIdentity';
@@ -41,7 +42,47 @@ function vehicleDetailImage(vehicle: Vehicle) {
 function renderStatusLabel(status: ReturnType<typeof vehicleFleetProfile>['assetStatus']) {
   if (status === 'validated-render') return 'render validato';
   if (status === 'placeholder-render') return 'render provvisorio';
-  return 'render da validare';
+  return 'specifiche PDF ufficiale';
+}
+
+function numericFleetNumber(vehicle: Vehicle) {
+  const value = vehicle.fleetNumber ?? vehicle.vehicleId;
+  const match = value.match(/\d+/);
+  return match ? Number(match[0]) : undefined;
+}
+
+function specSeriesMatchesVehicle(series: string, vehicleNumber?: number) {
+  if (!vehicleNumber) return false;
+  const normalized = series.replace(/\s/g, '');
+  return normalized.split(/[/,]/).some((part) => {
+    const clean = part.replace(/[ES]$/i, '');
+    const range = clean.match(/^(\d+)-(\d+)$/);
+    if (range) {
+      const min = Number(range[1]);
+      const max = Number(range[2]);
+      return vehicleNumber >= min && vehicleNumber <= max;
+    }
+    const exact = clean.match(/^\d+$/);
+    return exact ? Number(clean) === vehicleNumber : false;
+  });
+}
+
+function officialSpecForVehicle(vehicle: Vehicle) {
+  const specs = vehicle.vehicleFleetKey ? officialSpecsForFleetKey(vehicle.vehicleFleetKey) : [];
+  const vehicleNumber = numericFleetNumber(vehicle);
+  return specs.find((spec) => specSeriesMatchesVehicle(spec.series, vehicleNumber)) ?? specs[0];
+}
+
+function formatMillimeters(value?: number) {
+  if (!value) return 'n/d';
+  return `${(value / 1000).toLocaleString('it-IT', { maximumFractionDigits: 2 })} m`;
+}
+
+function tractionLabel(spec?: OfficialGttVehicleSpec) {
+  if (!spec) return 'n/d';
+  if (spec.traction === 'electric') return spec.batteryKwh ? `elettrico · ${spec.batteryKwh} kWh` : 'elettrico';
+  if (spec.traction === 'cng') return 'metano CNG';
+  return 'diesel';
 }
 
 function routeTrackingText(vehicle: Vehicle) {
@@ -80,17 +121,8 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
   const identifierLabel = vehicleIdentifierLabel(vehicle);
   const fleetProfile = vehicleFleetProfile(vehicle.vehicleFleetKey);
   const detailImage = vehicleDetailImage(vehicle);
-  const isInterurbanBlue = vehicle.vehicleLivery === 'interurban-blue';
-  const isElectricCompact = vehicle.vehicleLivery === 'electric-compact';
-  const isArticulated = vehicle.vehicleLengthClass === 'articulated-18m';
-  const vehicleModelClass = [
-    'vehicle-model',
-    vehicle.vehicleType === 'tram' ? 'vehicle-model--tram' : 'vehicle-model--bus',
-    isArticulated ? 'vehicle-model--articulated' : 'vehicle-model--standard',
-    isElectricCompact ? 'vehicle-model--electric' : '',
-    isInterurbanBlue ? 'vehicle-model--interurban' : '',
-    vehicleKind.toLowerCase().includes('metano') ? 'vehicle-model--methane' : '',
-  ].filter(Boolean).join(' ');
+  const officialSpec = officialSpecForVehicle(vehicle);
+  const showValidatedRender = fleetProfile.assetStatus === 'validated-render';
 
   return (
     <section className="vehicle-sheet" aria-label={`Dettaglio mezzo ${vehicle.vehicleId}`}>
@@ -128,13 +160,29 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
       </div>
       <div className="bus-photo">
         <span className="vehicle-operator-mark" aria-label="Operatore GTT">GTT</span>
-        <img className="vehicle-render" src={detailImage} alt={`Rendering ${vehicleKind}`} />
-        <div className={`${vehicleModelClass} vehicle-model--fallback`} aria-hidden="true">
-          <i />
-          <small />
-          <span />
-          <b />
-        </div>
+        {showValidatedRender ? (
+          <img className="vehicle-render" src={detailImage} alt={`Rendering ${vehicleKind}`} />
+        ) : (
+          <div className="official-fleet-card" aria-label="Specifiche ufficiali del mezzo">
+            <strong>{officialSpec?.officialName ?? fleetProfile.label}</strong>
+            <span>Serie {officialSpec?.series ?? 'n/d'} · Scheda {officialSpec?.sheet ?? 'n/d'} · PDF p.{officialSpec?.pdfPage ?? 'n/d'}</span>
+            <dl>
+              <div>
+                <dt>Lunghezza</dt>
+                <dd>{formatMillimeters(officialSpec?.body.lengthMm)}</dd>
+              </div>
+              <div>
+                <dt>Porte</dt>
+                <dd>{officialSpec?.body.doors ?? 'n/d'}</dd>
+              </div>
+              <div>
+                <dt>Trazione</dt>
+                <dd>{tractionLabel(officialSpec)}</dd>
+              </div>
+            </dl>
+            <small>{officialSpec?.chassis ?? fleetProfile.label}</small>
+          </div>
+        )}
         <em>{vehicleKind}</em>
         <small>{renderStatusLabel(fleetProfile.assetStatus)}</small>
       </div>
