@@ -41,7 +41,7 @@ function vehicleDetailImage(vehicle: Vehicle) {
 
 function renderStatusLabel(status: ReturnType<typeof vehicleFleetProfile>['assetStatus']) {
   if (status === 'validated-render') return 'render validato';
-  if (status === 'placeholder-render') return 'render provvisorio';
+  if (status === 'placeholder-render') return 'render non validato';
   return 'specifiche PDF ufficiale';
 }
 
@@ -97,7 +97,7 @@ function serviceClassLabel(spec?: OfficialGttVehicleSpec) {
 
 function renderAvailabilityText(status: ReturnType<typeof vehicleFleetProfile>['assetStatus']) {
   if (status === 'validated-render') return 'Render 3D validato';
-  if (status === 'placeholder-render') return 'Render 3D provvisorio';
+  if (status === 'placeholder-render') return 'Render 3D non validato';
   return 'Render 3D da produrre';
 }
 
@@ -139,7 +139,6 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
   const detailImage = vehicleDetailImage(vehicle);
   const officialSpec = officialSpecForVehicle(vehicle);
   const showValidatedRender = fleetProfile.assetStatus === 'validated-render';
-  const hasProjectRender = fleetProfile.assetStatus !== 'needs-reference-render';
   const fleetCardClass = ['official-fleet-card', officialSpec ? `official-fleet-card--${officialSpec.traction}` : ''].filter(Boolean).join(' ');
 
   return (
@@ -178,7 +177,7 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
       </div>
       <div className="bus-photo">
         <span className="vehicle-operator-mark" aria-label="Operatore GTT">GTT</span>
-        {hasProjectRender ? (
+        {showValidatedRender ? (
           <img className="vehicle-render" src={detailImage} alt={`Rendering ${vehicleKind}`} />
         ) : (
           <div className="missing-render-panel" aria-label="Render 3D non ancora validato">
