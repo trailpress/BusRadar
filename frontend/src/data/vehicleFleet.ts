@@ -81,12 +81,12 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'mercedes-conecto-12m': {
     label: 'Mercedes Conecto 12m',
-    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-gtt-render-v2.png',
+    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-gtt-render-v3.png',
     referenceNotes: 'Schede ufficiali UL04-UL05: serie 2400-2447 e 3400-3440, lunghezza 12.134 mm.',
   },
   'mercedes-conecto-18m': {
     label: 'Mercedes Conecto G 18m',
-    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-18m-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-18m-gtt-render-v2.png',
     referenceNotes: 'Scheda ufficiale USN05: serie 1350-1396, lunghezza 18.124 mm.',
   },
   'man-lions-city-19c-cng': {
