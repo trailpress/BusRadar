@@ -36,7 +36,7 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'byd-k9-electric-12m': {
     label: 'BYD K9 elettrico 12m',
-    detailAsset: 'assets/vehicles/detail/generated/byd-k9-electric-12m-gtt-render-v2.png',
+    detailAsset: 'assets/vehicles/detail/generated/byd-k9-electric-12m-gtt-render-v3.png',
     referenceNotes: 'Schede ufficiali UL03/UL06/UL07/UL08: serie 30E-49E e 9000-9121, 12.050-12.200 mm.',
   },
   'indcar-eb6-electric-6m': {
