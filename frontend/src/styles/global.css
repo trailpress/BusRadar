@@ -760,6 +760,104 @@ button {
   font-size: 12px;
 }
 
+.vehicle-destination-display {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(58px, 0.34fr) minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 12px;
+  min-height: 76px;
+  margin: 0 0 12px;
+  padding: 11px 13px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.08), transparent 24%),
+    repeating-radial-gradient(circle at center, rgba(255, 255, 255, 0.12) 0 0.9px, transparent 1px 3px),
+    linear-gradient(180deg, #111820 0%, #070b0f 58%, #020305 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+    inset 0 -18px 34px rgba(0, 0, 0, 0.44),
+    0 16px 28px rgba(0, 0, 0, 0.26);
+}
+
+.vehicle-destination-display::before {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.11), transparent 34%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 5px);
+  pointer-events: none;
+  opacity: 0.72;
+  content: "";
+}
+
+.vehicle-destination-display strong,
+.vehicle-destination-display span,
+.vehicle-destination-display em,
+.vehicle-destination-display i {
+  position: relative;
+  z-index: 1;
+}
+
+.vehicle-destination-display strong {
+  justify-self: center;
+  color: rgba(248, 250, 252, 0.96);
+  font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: clamp(30px, 8vw, 48px);
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: 0;
+  text-shadow:
+    0 0 7px rgba(255, 255, 255, 0.24),
+    0 0 16px rgba(255, 255, 255, 0.16);
+}
+
+.vehicle-destination-display div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.vehicle-destination-display span,
+.vehicle-destination-display em {
+  overflow: hidden;
+  color: rgba(248, 250, 252, 0.94);
+  font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  font-style: normal;
+  font-weight: 850;
+  letter-spacing: 0;
+  line-height: 1.04;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 6px rgba(255, 255, 255, 0.2),
+    0 0 14px rgba(255, 255, 255, 0.14);
+  white-space: nowrap;
+}
+
+.vehicle-destination-display span {
+  font-size: clamp(16px, 4.7vw, 24px);
+}
+
+.vehicle-destination-display em {
+  font-size: clamp(13px, 3.9vw, 20px);
+  opacity: 0.82;
+}
+
+.vehicle-destination-display i {
+  justify-self: center;
+  width: 22px;
+  height: 20px;
+  opacity: 0.8;
+  background:
+    linear-gradient(90deg, transparent 0 24%, rgba(248, 250, 252, 0.82) 24% 33%, transparent 33% 67%, rgba(248, 250, 252, 0.82) 67% 76%, transparent 76%),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.88) 0 20%, transparent 20% 78%, rgba(248, 250, 252, 0.88) 78% 100%);
+  clip-path: polygon(8% 18%, 82% 18%, 94% 48%, 82% 82%, 8% 82%, 18% 50%);
+  filter: drop-shadow(0 0 7px rgba(255, 255, 255, 0.2));
+}
+
 .bus-photo {
   position: relative;
   display: grid;

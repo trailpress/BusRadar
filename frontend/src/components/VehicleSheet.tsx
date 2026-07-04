@@ -122,6 +122,51 @@ function formatHeadwayPeer(peer?: VehicleHeadwayPeer) {
   return `${peer.label} · ${minutes}${distance}`;
 }
 
+function splitDestinationLabel(value: string) {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (!normalized) return { primary: 'DIREZIONE', secondary: 'NON DISPONIBILE' };
+  const commaParts = normalized.split(',').map((part) => part.trim()).filter(Boolean);
+  if (commaParts.length > 1) {
+    return {
+      primary: commaParts[0],
+      secondary: commaParts.slice(1).join(' '),
+    };
+  }
+  const dashParts = normalized.split(/\s[-–]\s/).map((part) => part.trim()).filter(Boolean);
+  if (dashParts.length > 1) {
+    return {
+      primary: dashParts[0],
+      secondary: dashParts.slice(1).join(' '),
+    };
+  }
+  const words = normalized.split(' ');
+  if (words.length > 3) {
+    const midpoint = Math.ceil(words.length / 2);
+    return {
+      primary: words.slice(0, midpoint).join(' '),
+      secondary: words.slice(midpoint).join(' '),
+    };
+  }
+  return { primary: normalized, secondary: '' };
+}
+
+function VehicleDestinationDisplay({ vehicle }: { vehicle: Vehicle }) {
+  const route = vehicle.routeShortName || vehicle.line;
+  const destination = splitDestinationLabel(vehicle.terminalName ?? vehicle.direction);
+  const serviceType = vehicle.vehicleType === 'tram' ? 'TRAM' : 'BUS';
+
+  return (
+    <div className="vehicle-destination-display" aria-label={`Linea ${route}, direzione ${vehicle.terminalName ?? vehicle.direction}`}>
+      <strong>{route}</strong>
+      <div>
+        <span>{destination.primary}</span>
+        {destination.secondary ? <em>{destination.secondary}</em> : <em>{serviceType} GTT</em>}
+      </div>
+      <i aria-hidden="true" />
+    </div>
+  );
+}
+
 export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onRoute, onClose }: Props) {
   const previousBearingRef = useRef(vehicle.bearing);
   const [displayBearing, setDisplayBearing] = useState(vehicle.bearing);
@@ -175,6 +220,7 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
         </span>
         <span>{routeTrackingText(vehicle)}</span>
       </div>
+      <VehicleDestinationDisplay vehicle={vehicle} />
       <div className="bus-photo">
         <span className="vehicle-operator-mark" aria-label="Operatore GTT">GTT</span>
         {showValidatedRender ? (
