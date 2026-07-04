@@ -51,12 +51,12 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'iia-citymood-cng-12m': {
     label: 'Menarini Citymood CNG 12m',
-    detailAsset: 'assets/vehicles/detail/generated/iia-citymood-cng-12m-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/iia-citymood-cng-12m-gtt-render-v2.png',
     referenceNotes: 'Schede ufficiali UL09-UL10: serie 9200-9261, lunghezza 12.100 mm, CNG.',
   },
   'iveco-citelis-12m': {
     label: 'Irisbus/Iveco Citelis 12m',
-    detailAsset: 'assets/vehicles/detail/generated/iveco-citelis-12m-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/iveco-citelis-12m-gtt-render-v2.png',
     referenceNotes: 'Schede ufficiali UL01-UL02: serie 3000-3099 e 3300-3380, lunghezza 11.990 mm.',
   },
   'iveco-eway-electric-12m': {
@@ -76,12 +76,12 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'irisbus-citelis-18m': {
     label: 'Irisbus Citelis 18m',
-    detailAsset: 'assets/vehicles/detail/generated/irisbus-citelis-18m-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/irisbus-citelis-18m-gtt-render-v2.png',
     referenceNotes: 'Schede ufficiali USN01-USN04: serie 790-797, 800-874 e 1310-1313, lunghezza 17.900 mm.',
   },
   'mercedes-conecto-12m': {
     label: 'Mercedes Conecto 12m',
-    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-gtt-render-v2.png',
     referenceNotes: 'Schede ufficiali UL04-UL05: serie 2400-2447 e 3400-3440, lunghezza 12.134 mm.',
   },
   'mercedes-conecto-18m': {
