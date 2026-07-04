@@ -61,7 +61,7 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'iveco-eway-electric-12m': {
     label: 'Iveco E-Way elettrico 12m',
-    detailAsset: 'assets/vehicles/detail/generated/iveco-eway-electric-12m-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/iveco-eway-electric-12m-gtt-render-v2.png',
     referenceNotes: 'Scheda ufficiale UL11: serie 9400-9535, lunghezza 12.050 mm, elettrico.',
   },
   'iveco-eway-electric-18m': {
