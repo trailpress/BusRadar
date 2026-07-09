@@ -19,6 +19,8 @@ export type VehicleFleetKey =
   | 'iveco-urbanway-cng-18m'
   | 'irisbus-citelis-18m'
   | 'mercedes-conecto-12m'
+  | 'mercedes-conecto-12m-cng'
+  | 'mercedes-conecto-12m-diesel'
   | 'mercedes-conecto-18m'
   | 'man-lions-city-19c-cng'
   | 'iveco-crossway-suburban'

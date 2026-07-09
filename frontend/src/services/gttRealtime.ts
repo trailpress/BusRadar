@@ -167,8 +167,8 @@ function vehicleFleetKey(vehicleId: string | null, vehicleType: Vehicle['vehicle
   if (isBydElectric12m(vehicleId)) return 'byd-k9-electric-12m';
   if (isMethane12m(vehicleId)) return 'iia-citymood-cng-12m';
   if (isVehicleNumberInRange(vehicleId, 3000, 3380)) return 'iveco-citelis-12m';
-  if (isVehicleNumberInRange(vehicleId, 3400, 3440)) return 'mercedes-conecto-12m';
-  if (isMercedes12m(vehicleId)) return 'mercedes-conecto-12m';
+  if (isVehicleNumberInRange(vehicleId, 3400, 3440)) return 'mercedes-conecto-12m-diesel';
+  if (isMercedes12m(vehicleId)) return 'mercedes-conecto-12m-cng';
   if (isVehicleNumberInRange(vehicleId, 9400, 9535)) return 'iveco-eway-electric-12m';
   if (isVehicleNumberInRange(vehicleId, 1150, 1168)) return 'iveco-crossway-suburban';
   if (isVehicleNumberInRange(vehicleId, 1310, 1313)) return 'irisbus-citelis-18m';
@@ -228,7 +228,8 @@ function vehicleFleetLabel(vehicleId: string | null, vehicleType: Vehicle['vehic
   if (isVehicleNumberInRange(vehicleId, 1310, 1313)) return 'Irisbus Citelis 18m CNG';
   if (isVehicleNumberInRange(vehicleId, 1350, 1396)) return 'Mercedes Conecto 18m';
   if (isVehicleNumberInRange(vehicleId, 1400, 1404)) return "MAN Lion's City 19C CNG";
-  if (isMercedes12m(vehicleId) || isVehicleNumberInRange(vehicleId, 3400, 3440)) return 'Mercedes Conecto 12m';
+  if (isMercedes12m(vehicleId)) return 'Mercedes Conecto 12m CNG';
+  if (isVehicleNumberInRange(vehicleId, 3400, 3440)) return 'Mercedes Conecto 12m diesel';
   if (isVehicleNumberInRange(vehicleId, 1150, 1168)) return 'Iveco Crossway suburbano';
   if (isVehicleNumberInRange(vehicleId, 230, 241)) return 'Irisbus Crossway 10,6m';
   if (isVehicleNumberInRange(vehicleId, 320, 365)) return 'Irisbus Crossway 12m';

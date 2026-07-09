@@ -81,8 +81,18 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'mercedes-conecto-12m': {
     label: 'Mercedes Conecto 12m',
-    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-gtt-render-v5.png',
-    referenceNotes: 'Schede ufficiali UL04-UL05: serie 2400-2447 e 3400-3440, lunghezza 12.134 mm.',
+    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-diesel-gtt-render.png',
+    referenceNotes: 'Compatibilita storica: usare mercedes-conecto-12m-cng per serie 2400 e mercedes-conecto-12m-diesel per serie 3400.',
+  },
+  'mercedes-conecto-12m-cng': {
+    label: 'Mercedes Conecto 12m CNG',
+    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-cng-gtt-render.png',
+    referenceNotes: 'Scheda ufficiale UL05: serie 2400-2447, Conecto CNG con allestimento metano e dettagli a tetto dedicati.',
+  },
+  'mercedes-conecto-12m-diesel': {
+    label: 'Mercedes Conecto 12m diesel',
+    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-diesel-gtt-render.png',
+    referenceNotes: 'Scheda ufficiale UL04: serie 3400-3440, Conecto E6 diesel con profilo tetto standard.',
   },
   'mercedes-conecto-18m': {
     label: 'Mercedes Conecto G 18m',

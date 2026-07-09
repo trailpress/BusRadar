@@ -128,7 +128,7 @@ export const OFFICIAL_GTT_FLEET_SPECS: OfficialGttVehicleSpec[] = [
     source: 'parco_veicoli_tpl.pdf',
   },
   {
-    key: 'mercedes-conecto-12m',
+    key: 'mercedes-conecto-12m-diesel',
     officialName: 'MERCEDES BENZ CONECTO E6 DIESEL',
     series: '3400-3440',
     sheet: 'UL04',
@@ -144,7 +144,7 @@ export const OFFICIAL_GTT_FLEET_SPECS: OfficialGttVehicleSpec[] = [
     source: 'parco_veicoli_tpl.pdf',
   },
   {
-    key: 'mercedes-conecto-12m',
+    key: 'mercedes-conecto-12m-cng',
     officialName: 'MERCEDES BENZ CONECTO CNG',
     series: '2400-2447',
     sheet: 'UL05',
