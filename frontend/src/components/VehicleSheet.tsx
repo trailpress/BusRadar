@@ -155,13 +155,13 @@ function splitDestinationLabel(value: string) {
   return { primary: normalized, secondary: '' };
 }
 
-function VehicleDestinationDisplay({ vehicle }: { vehicle: Vehicle }) {
+function VehicleDestinationDisplay({ vehicle, placement = 'standalone' }: { vehicle: Vehicle; placement?: 'standalone' | 'front' }) {
   const route = vehicle.routeShortName || vehicle.line;
   const destination = splitDestinationLabel(vehicle.terminalName ?? vehicle.direction);
   const serviceType = vehicle.vehicleType === 'tram' ? 'TRAM' : 'BUS';
 
   return (
-    <div className="vehicle-destination-display" aria-label={`Linea ${route}, direzione ${vehicle.terminalName ?? vehicle.direction}`}>
+    <div className={`vehicle-destination-display vehicle-destination-display--${placement}`} aria-label={`Linea ${route}, direzione ${vehicle.terminalName ?? vehicle.direction}`}>
       <strong>{route}</strong>
       <div>
         <span>{destination.primary}</span>
@@ -226,7 +226,6 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
         </span>
         <span>{routeTrackingText(vehicle)}</span>
       </div>
-      <VehicleDestinationDisplay vehicle={vehicle} />
       <div className="bus-photo">
         <span className="vehicle-operator-mark" aria-label="Operatore GTT">GTT</span>
         {showDetailImage ? (
@@ -238,6 +237,7 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
             <span>{officialSpec?.officialName ?? fleetProfile.label}</span>
           </div>
         )}
+        <VehicleDestinationDisplay vehicle={vehicle} placement="front" />
         <em>{vehicleKind}</em>
         <small>{vehicleRenderStatusLabel(vehicle, fleetProfile.assetStatus)}</small>
       </div>

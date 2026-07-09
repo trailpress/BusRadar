@@ -782,6 +782,28 @@ button {
     0 16px 28px rgba(0, 0, 0, 0.26);
 }
 
+.vehicle-destination-display--front {
+  position: absolute;
+  z-index: 4;
+  top: 17px;
+  right: 16px;
+  grid-template-columns: minmax(28px, auto) minmax(92px, 1fr);
+  gap: 7px;
+  width: min(46%, 260px);
+  min-height: 34px;
+  margin: 0;
+  padding: 5px 8px;
+  border-color: rgba(255, 255, 255, 0.2);
+  border-radius: 7px;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(255, 255, 255, 0.1), transparent 28%),
+    repeating-radial-gradient(circle at center, rgba(255, 255, 255, 0.18) 0 0.7px, transparent 0.9px 2.8px),
+    linear-gradient(180deg, rgba(6, 9, 12, 0.96), rgba(0, 0, 0, 0.96));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 10px 20px rgba(0, 0, 0, 0.36);
+}
+
 .vehicle-destination-display::before {
   position: absolute;
   inset: 0;
@@ -791,6 +813,10 @@ button {
   pointer-events: none;
   opacity: 0.72;
   content: "";
+}
+
+.vehicle-destination-display--front::before {
+  opacity: 0.42;
 }
 
 .vehicle-destination-display strong,
@@ -814,10 +840,19 @@ button {
     0 0 16px rgba(255, 255, 255, 0.16);
 }
 
+.vehicle-destination-display--front strong {
+  font-size: clamp(14px, 3.7vw, 24px);
+  line-height: 1;
+}
+
 .vehicle-destination-display div {
   display: grid;
   min-width: 0;
   gap: 3px;
+}
+
+.vehicle-destination-display--front div {
+  gap: 1px;
 }
 
 .vehicle-destination-display span,
@@ -846,6 +881,16 @@ button {
   opacity: 0.82;
 }
 
+.vehicle-destination-display--front span {
+  font-size: clamp(8px, 2.35vw, 13px);
+  line-height: 1.02;
+}
+
+.vehicle-destination-display--front em {
+  font-size: clamp(7px, 2vw, 11px);
+  line-height: 1.02;
+}
+
 .vehicle-destination-display i {
   justify-self: center;
   width: 22px;
@@ -856,6 +901,10 @@ button {
     linear-gradient(180deg, rgba(248, 250, 252, 0.88) 0 20%, transparent 20% 78%, rgba(248, 250, 252, 0.88) 78% 100%);
   clip-path: polygon(8% 18%, 82% 18%, 94% 48%, 82% 82%, 8% 82%, 18% 50%);
   filter: drop-shadow(0 0 7px rgba(255, 255, 255, 0.2));
+}
+
+.vehicle-destination-display--front i {
+  display: none;
 }
 
 .bus-photo {
