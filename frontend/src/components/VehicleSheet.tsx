@@ -45,6 +45,11 @@ function renderStatusLabel(status: ReturnType<typeof vehicleFleetProfile>['asset
   return 'specifiche PDF ufficiale';
 }
 
+function vehicleRenderStatusLabel(vehicle: Vehicle, status: ReturnType<typeof vehicleFleetProfile>['assetStatus']) {
+  if (vehicle.vehicleFleetKey === 'generic-bus') return 'modello non identificato';
+  return renderStatusLabel(status);
+}
+
 function numericFleetNumber(vehicle: Vehicle) {
   const value = vehicle.fleetNumber ?? vehicle.vehicleId;
   const match = value.match(/\d+/);
@@ -184,6 +189,7 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
   const detailImage = vehicleDetailImage(vehicle);
   const officialSpec = officialSpecForVehicle(vehicle);
   const showValidatedRender = fleetProfile.assetStatus === 'validated-render';
+  const showDetailImage = showValidatedRender || vehicle.vehicleFleetKey === 'generic-bus';
   const fleetCardClass = ['official-fleet-card', officialSpec ? `official-fleet-card--${officialSpec.traction}` : ''].filter(Boolean).join(' ');
 
   return (
@@ -223,7 +229,7 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
       <VehicleDestinationDisplay vehicle={vehicle} />
       <div className="bus-photo">
         <span className="vehicle-operator-mark" aria-label="Operatore GTT">GTT</span>
-        {showValidatedRender ? (
+        {showDetailImage ? (
           <img className="vehicle-render" src={detailImage} alt={`Rendering ${vehicleKind}`} />
         ) : (
           <div className="missing-render-panel" aria-label="Render 3D non ancora validato">
@@ -233,7 +239,7 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
           </div>
         )}
         <em>{vehicleKind}</em>
-        <small>{renderStatusLabel(fleetProfile.assetStatus)}</small>
+        <small>{vehicleRenderStatusLabel(vehicle, fleetProfile.assetStatus)}</small>
       </div>
       <div className={fleetCardClass} aria-label="Specifiche ufficiali del mezzo">
         <div className="official-fleet-copy">

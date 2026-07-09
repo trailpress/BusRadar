@@ -110,10 +110,6 @@ function normalizeOptionalVehicleId(vehicleId?: string | null) {
   return normalized || undefined;
 }
 
-function publicFleetNumber(vehicleId: string) {
-  return /^\d{1,4}$/.test(vehicleId) ? vehicleId : undefined;
-}
-
 function vehicleTypeForRoute(routeId: string): Vehicle['vehicleType'] {
   const routeName = normalizeRouteName(routeId).replace(/\D/g, '');
   return getGtfsLine(normalizeRouteName(routeId))?.vehicleType ?? (tramRoutes.has(routeName) ? 'tram' : 'bus');
@@ -188,6 +184,12 @@ function vehicleFleetKey(vehicleId: string | null, vehicleType: Vehicle['vehicle
   if (isVehicleNumberInRange(vehicleId, 500, 502)) return 'irisbus-arway-15m';
   if (isVehicleNumberInRange(vehicleId, 19, 20)) return 'iveco-mago-granturismo-9m';
   return 'generic-bus';
+}
+
+function recognizedFleetNumber(vehicleId: string, vehicleType: Vehicle['vehicleType']) {
+  if (!/^\d{1,4}$/.test(vehicleId)) return undefined;
+  const key = vehicleFleetKey(vehicleId, vehicleType);
+  return key === 'generic-bus' ? undefined : vehicleId;
 }
 
 function vehicleLengthClass(vehicleId: string | null, vehicleType: Vehicle['vehicleType']): Vehicle['vehicleLengthClass'] {
@@ -629,7 +631,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const gtfsLine = getGtfsLine(line);
   const vehicleType = vehicleTypeForRoute(routeId);
   const vehicleId = normalizeVehicleId(vehicle.vehicleId) || normalizeVehicleId(vehicle.vehicleLabel ?? null);
-  const fleetNumber = publicFleetNumber(vehicleId);
+  const fleetNumber = recognizedFleetNumber(vehicleId, vehicleType);
   const fleetIdentifier = fleetNumber ?? null;
   const vehicleLivery = vehicleLiveryForVehicle(routeId, line, fleetIdentifier);
   const lengthClass = vehicleLengthClass(fleetIdentifier, vehicleType);
