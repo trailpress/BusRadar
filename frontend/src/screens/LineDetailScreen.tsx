@@ -1,9 +1,10 @@
 import { ArrowLeft, BusFront, Clock3, MapPinned, Route as RouteIcon, Star, Timer, TramFront } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BusMap } from '../components/BusMap';
 import { LineBadge } from '../components/LineBadge';
 import { getGtfsRoutesForLine, getGtfsStopsForRoute, gtfsNetwork, type GtfsStop } from '../data/gtfsNetwork';
 import { useGtfsNetwork } from '../data/useGtfsNetwork';
+import { fetchGttStopArrivalsInfo } from '../services/gttRealtime';
 import type { LatLng, TransitLine, Vehicle } from '../types';
 import { isLineFavorite, setLineFavorite } from '../utils/lineFavorites';
 import { notify } from '../utils/notify';
@@ -18,24 +19,108 @@ type Props = {
   onSelectStop: (stop: GtfsStop) => void;
 };
 
+type PlannedLinePassage = {
+  id: string;
+  stop: GtfsStop;
+  line: string;
+  timeLabel: string;
+  minutes: number;
+  source: 'realtime' | 'scheduled';
+};
+
 export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelectVehicle, onSelectStop }: Props) {
-  useGtfsNetwork();
+  const { revision: gtfsRevision } = useGtfsNetwork();
   const [tab, setTab] = useState<'details' | 'route' | 'stops'>('route');
   const [favorite, setFavorite] = useState(() => isLineFavorite(line.id, Boolean(line.favorite)));
-  const routeVariants = getGtfsRoutesForLine(line.id);
-  const routeStops = routeVariants.flatMap(getGtfsStopsForRoute);
-  const fallbackStops = gtfsNetwork.stops.filter((stop) => stop.lines.includes(line.id));
-  const lineStops = (routeStops.length > 0 ? routeStops : fallbackStops)
-    .filter((stop, index, list) => list.findIndex((item) => item.id === stop.id) === index);
+  const [plannedPassages, setPlannedPassages] = useState<PlannedLinePassage[]>([]);
+  const [plannedPassagesLoading, setPlannedPassagesLoading] = useState(false);
+  const routeVariants = useMemo(() => getGtfsRoutesForLine(line.id), [gtfsRevision, line.id]);
+  const lineStops = useMemo(() => {
+    const routeStops = routeVariants.flatMap(getGtfsStopsForRoute);
+    const fallbackStops = gtfsNetwork.stops.filter((stop) => stop.lines.includes(line.id));
+    return (routeStops.length > 0 ? routeStops : fallbackStops)
+      .filter((stop, index, list) => list.findIndex((item) => item.id === stop.id) === index);
+  }, [gtfsRevision, line.id, routeVariants]);
   const liveVehicles = vehicles
     .filter((vehicle) => vehicle.line === line.id)
     .sort((a, b) => (a.etaTerminalMinutes ?? 999) - (b.etaTerminalMinutes ?? 999));
+  const routeIds = useMemo(
+    () => [...new Set(routeVariants.flatMap((route) => [route.routeId, route.line]).filter(Boolean))],
+    [routeVariants],
+  );
+  const stopSequencesByRoute = useMemo(() => {
+    const sequences: Record<string, number[]> = {};
+    routeVariants.forEach((route) => {
+      const routeSequences = route.stopEntries.map((entry) => entry.sequence);
+      sequences[route.routeId] = routeSequences;
+      sequences[route.line] = [...(sequences[route.line] ?? []), ...routeSequences];
+    });
+    return sequences;
+  }, [routeVariants]);
 
   const trackingText = (vehicle: Vehicle) => {
     if (vehicle.routeMatchStatus === 'on-route') return 'su percorso';
     if (vehicle.routeMatchStatus === 'gps-only') return 'GPS reale';
     return 'solo feed';
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (tab !== 'route' || liveVehicles.length > 0 || lineStops.length === 0) {
+      setPlannedPassages([]);
+      setPlannedPassagesLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const sampledStops = lineStops
+      .filter((stop, index, stops) => {
+        if (stops.length <= 8) return true;
+        const step = Math.max(1, Math.floor(stops.length / 6));
+        return index === 0 || index === stops.length - 1 || index % step === 0;
+      })
+      .slice(0, 8);
+
+    setPlannedPassagesLoading(true);
+    Promise.allSettled(
+      sampledStops.map((stop) =>
+        fetchGttStopArrivalsInfo(stop.id, routeIds, stopSequencesByRoute)
+          .then((result) => ({ stop, arrivals: result.arrivals })),
+      ),
+    )
+      .then((results) => {
+        if (cancelled) return;
+
+        const nextPassages = results
+          .flatMap((result) => {
+            if (result.status !== 'fulfilled') return [];
+            return result.value.arrivals
+              .filter((arrival) => arrival.line === line.id)
+              .map((arrival) => ({
+                id: `${result.value.stop.id}-${arrival.tripId}-${arrival.timeLabel}-${arrival.source}`,
+                stop: result.value.stop,
+                line: arrival.line,
+                timeLabel: arrival.timeLabel,
+                minutes: arrival.minutes,
+                source: arrival.source,
+              }));
+          })
+          .sort((a, b) => a.minutes - b.minutes)
+          .filter((passage, index, list) => list.findIndex((item) => item.id === passage.id) === index)
+          .slice(0, 8);
+
+        setPlannedPassages(nextPassages);
+      })
+      .finally(() => {
+        if (!cancelled) setPlannedPassagesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [line.id, lineStops, liveVehicles.length, routeIds, stopSequencesByRoute, tab]);
 
   const toggleFavorite = () => {
     const nextFavorite = !favorite;
@@ -107,10 +192,34 @@ export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelec
                 <small>{trackingText(vehicle)}</small>
               </button>
             )) : (
-              <div className="line-live-empty">
-                <strong>Nessun mezzo pubblicato ora dal feed GTFS-RT</strong>
-                <span>Il percorso e le fermate restano disponibili dal GTFS statico GTT.</span>
-              </div>
+              <>
+                <div className="line-live-empty">
+                  <strong>Nessun mezzo pubblicato ora dal feed GTFS-RT</strong>
+                  <span>{plannedPassages.length > 0 ? 'Mostro i prossimi passaggi programmati dal GTFS statico GTT.' : 'Il percorso e le fermate restano disponibili dal GTFS statico GTT.'}</span>
+                </div>
+                <div className="line-scheduled-passages" aria-live="polite">
+                  <div className="section-heading compact-heading">
+                    <h2>Orari programmati</h2>
+                    <span>{plannedPassagesLoading ? 'carico...' : `${plannedPassages.length} passaggi`}</span>
+                  </div>
+                  {plannedPassages.map((passage) => (
+                    <button className="line-scheduled-passage" key={passage.id} type="button" onClick={() => onSelectStop(passage.stop)}>
+                      <LineBadge line={passage.line} />
+                      <div>
+                        <strong>{passage.stop.name}</strong>
+                        <span>Palina {passage.stop.code}</span>
+                      </div>
+                      <em>{passage.timeLabel}</em>
+                      <small>{passage.source === 'scheduled' ? 'prog.' : passage.minutes === 0 ? 'ora' : `${passage.minutes} min`}</small>
+                    </button>
+                  ))}
+                  {!plannedPassagesLoading && plannedPassages.length === 0 && (
+                    <div className="line-live-empty is-quiet">
+                      <span>Nessun passaggio programmato trovato nelle prossime ore per il calendario GTFS caricato.</span>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </section>
         </>

@@ -2100,6 +2100,78 @@ button {
   text-align: left;
 }
 
+.line-scheduled-passages {
+  display: grid;
+  gap: 8px;
+}
+
+.compact-heading {
+  margin-top: 2px;
+}
+
+.compact-heading h2 {
+  font-size: 13px;
+}
+
+.line-scheduled-passage {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "badge main time"
+    "badge main source";
+  align-items: center;
+  gap: 5px 10px;
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid rgba(47, 125, 255, 0.18);
+  border-radius: 13px;
+  background: rgba(11, 18, 30, 0.72);
+  text-align: left;
+}
+
+.line-scheduled-passage .line-badge {
+  grid-area: badge;
+}
+
+.line-scheduled-passage div {
+  grid-area: main;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.line-scheduled-passage strong {
+  overflow: hidden;
+  color: #fff;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-scheduled-passage span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-scheduled-passage em {
+  grid-area: time;
+  color: #fff;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.line-scheduled-passage small {
+  grid-area: source;
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 900;
+  text-align: right;
+}
+
 .line-live-vehicle .line-badge {
   grid-area: badge;
 }
@@ -2148,6 +2220,11 @@ button {
   border: 1px dashed var(--border);
   border-radius: 14px;
   background: rgba(15, 23, 42, 0.52);
+}
+
+.line-live-empty.is-quiet {
+  border-style: solid;
+  background: rgba(15, 23, 42, 0.32);
 }
 
 .stop-lines {
