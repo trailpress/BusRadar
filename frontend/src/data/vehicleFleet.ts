@@ -86,8 +86,8 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'mercedes-conecto-12m-cng': {
     label: 'Mercedes Conecto 12m CNG',
-    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-cng-gtt-render.png',
-    referenceNotes: 'Scheda ufficiale UL05: serie 2400-2447, Conecto CNG con allestimento metano e dettagli a tetto dedicati.',
+    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-cng-gtt-render-v2.png',
+    referenceNotes: 'Scheda ufficiale UL05: serie 2400-2447, Conecto CNG con allestimento metano, tetto CNG e livrea gas naturale.',
   },
   'mercedes-conecto-12m-diesel': {
     label: 'Mercedes Conecto 12m diesel',

@@ -105,10 +105,10 @@ export const GTT_FLEET_CATALOG: GttFleetCluster[] = [
     fleetNumbers: ['2400-2447'],
     length: '12 m',
     traction: 'cng',
-    livery: 'Urbana GTT blu/giallo con frontale giallo, fascia alta gialla, campo laterale giallo e allestimento metano a tetto.',
-    asset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-cng-gtt-render.png',
+    livery: 'Urbana GTT blu/giallo con frontale giallo, fascia alta gialla, campo laterale giallo, porta entrata verde e allestimento metano a tetto.',
+    asset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-cng-gtt-render-v2.png',
     assetStatus: 'validated-render',
-    sourceNotes: 'Serie UL05 2400-2447: Conecto CNG. Asset separato dalla serie diesel per rispettare profilo tetto e dettagli specifici.',
+    sourceNotes: 'Serie UL05 2400-2447: Conecto CNG. Asset v2 generato da reference 2404/2406 con tetto CNG, porta entrata verde e livrea gas naturale.',
     renderPrompt: `${sharedRenderPrompt} Exact subject: Mercedes-Benz Conecto CNG 12m GTT Torino series 2400-2447, CNG roof equipment, three urban doors, blue and bright lemon-yellow official GTT livery integrated into body panels, fleet number 2404.`,
   },
   {
