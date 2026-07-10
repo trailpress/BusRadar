@@ -557,6 +557,9 @@ function terminalEstimate(
     etaTerminalMinutes: etaMinutes,
     etaTerminalTimeLabel: etaTime,
     remainingKm: Math.round((best.progress.remainingMeters / 1000) * 10) / 10,
+    progress: best.progress.traveledMeters + best.progress.remainingMeters > 0
+      ? best.progress.traveledMeters / (best.progress.traveledMeters + best.progress.remainingMeters)
+      : 0,
     bearing: best.progress.bearing,
     snappedPoint: best.progress.projectedPoint,
     offRouteMeters: Math.round(best.progress.distanceMeters),
@@ -579,8 +582,8 @@ function compensateFeedLatency(
 
   const totalMeters = progress.traveledMeters + progress.remainingMeters;
   if (totalMeters <= 0) return undefined;
-  const compensationSeconds = Math.min(ageSeconds, 28);
-  const advanceMeters = Math.min(260, (speedKmhValue / 3.6) * compensationSeconds);
+  const compensationSeconds = Math.min(ageSeconds, 45);
+  const advanceMeters = Math.min(420, (speedKmhValue / 3.6) * compensationSeconds);
   if (advanceMeters < 8) return undefined;
   const compensated = interpolatePathState(
     routeVariant.path,
@@ -659,7 +662,17 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
   const snapLimitMeters = vehicleLivery === 'interurban-blue' ? 70 : 55;
   const isSnappedToRoute = Boolean(estimate.snappedPoint && estimate.offRouteMeters != null && estimate.offRouteMeters <= snapLimitMeters);
   const displayPoint = isSnappedToRoute ? estimate.snappedPoint! : rawPoint;
-  const finalPoint = displayPoint;
+  const latencyCompensation = isSnappedToRoute
+    ? compensateFeedLatency(estimate.routeVariantId, displayPoint, speed, ageSeconds)
+    : undefined;
+  const finalPoint = latencyCompensation?.point ?? displayPoint;
+  const finalProgress = (() => {
+    if (!isSnappedToRoute || !estimate.routeVariantId) return estimate.progress ?? 0;
+    const routeVariant = getGtfsRouteVariant(estimate.routeVariantId);
+    const routeProgress = routeVariant ? routeProgressAtPoint(routeVariant.path, finalPoint) : undefined;
+    const totalMeters = routeProgress ? routeProgress.traveledMeters + routeProgress.remainingMeters : 0;
+    return routeProgress && totalMeters > 0 ? routeProgress.traveledMeters / totalMeters : estimate.progress ?? 0;
+  })();
   const routeMatchStatus: Vehicle['routeMatchStatus'] = estimate.offRouteMeters == null
     ? 'unmatched'
     : isSnappedToRoute
@@ -696,7 +709,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     lat: finalPoint.lat,
     lon: finalPoint.lon,
     bearing: isSnappedToRoute
-      ? estimate.bearing ?? 0
+      ? latencyCompensation?.bearing ?? estimate.bearing ?? 0
       : preferredBearing ?? estimate.bearing ?? 0,
     speed,
     speedSource,
@@ -709,7 +722,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     lineId: line,
     direction: gtfsLine?.direction ?? `Linea ${line}`,
     reliability: 100,
-    progress: 0,
+    progress: finalProgress,
     nextStop: estimate.terminalName ?? (vehicle.tripId ? `Trip ${vehicle.tripId}` : undefined),
     terminalName: estimate.terminalName,
     etaTerminalMinutes: estimate.etaTerminalMinutes,
