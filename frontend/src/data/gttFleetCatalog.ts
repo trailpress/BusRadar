@@ -361,15 +361,15 @@ export const GTT_FLEET_CATALOG: GttFleetCluster[] = [
   {
     key: 'generic-bus',
     family: 'bus-urban',
-    label: 'Bus GTT',
+    label: 'Bus GTT non identificato',
     fleetNumbers: ['non identificato'],
     length: 'n/d',
     traction: 'diesel',
-    livery: 'Fallback visuale urbano GTT.',
-    asset: 'assets/vehicles/detail/iia-citymood-cng-12m-gtt-neutral.png',
-    assetStatus: 'needs-reference-render',
-    sourceNotes: 'Fallback usato solo quando il feed non permette di riconoscere la serie vettura.',
-    renderPrompt: `${sharedRenderPrompt} Exact subject: generic GTT Torino urban bus, neutral fallback only, do not present as a specific fleet model.`,
+    livery: 'Fallback visuale GTT per ID tecnici senza matricola ufficiale.',
+    asset: 'assets/vehicles/detail/generated/generic-gtt-urban-bus-render.png',
+    assetStatus: 'validated-render',
+    sourceNotes: 'Fallback renderizzato usato solo quando il feed non permette di riconoscere la serie vettura; non rappresenta una famiglia specifica.',
+    renderPrompt: `${sharedRenderPrompt} Exact subject: generic modern GTT Torino urban bus, blue and bright lemon-yellow operator livery, no route number, no fleet number, do not present as a specific manufacturer model.`,
   },
 ];
 

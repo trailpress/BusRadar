@@ -140,9 +140,9 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
     referenceNotes: 'Schede ufficiali GC01-GC02: serie 19/20, lunghezza 8.850 mm.',
   },
   'generic-bus': {
-    label: 'Bus GTT',
-    detailAsset: 'assets/vehicles/detail/iia-citymood-cng-12m-gtt-neutral.png',
-    referenceNotes: 'Fallback urbano GTT usato solo quando la matricola non permette riconoscimento ufficiale.',
+    label: 'Bus GTT non identificato',
+    detailAsset: 'assets/vehicles/detail/generated/generic-gtt-urban-bus-render.png',
+    referenceNotes: 'Render GTT generico usato solo quando il feed non espone una matricola ufficiale riconducibile al PDF.',
   },
 };
 

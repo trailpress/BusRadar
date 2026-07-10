@@ -32,9 +32,7 @@ export type VehicleHeadwayInfo = {
 function vehicleDetailImage(vehicle: Vehicle) {
   const base = import.meta.env.BASE_URL;
   if (!vehicle.vehicleFleetKey || vehicle.vehicleFleetKey === 'generic-bus') {
-    if (vehicle.vehicleLivery === 'interurban-blue') return `${base}assets/vehicles/detail/iveco-crossway-suburban-gtt-neutral.png`;
-    if (vehicle.vehicleLivery === 'electric-compact') return `${base}assets/vehicles/detail/byd-k9-electric-12m-gtt-neutral.png`;
-    if (vehicle.vehicleLengthClass === 'articulated-18m') return `${base}assets/vehicles/detail/iveco-urbanway-cng-18m-gtt-neutral.png`;
+    return `${base}${vehicleFleetProfile('generic-bus').detailAsset}`;
   }
   return `${base}${vehicleFleetProfile(vehicle.vehicleFleetKey).detailAsset}`;
 }
@@ -155,13 +153,18 @@ function splitDestinationLabel(value: string) {
   return { primary: normalized, secondary: '' };
 }
 
+function frontDisplaySide(vehicle: Vehicle) {
+  return vehicle.vehicleFleetKey === 'generic-bus' ? 'left' : 'right';
+}
+
 function VehicleDestinationDisplay({ vehicle, placement = 'standalone' }: { vehicle: Vehicle; placement?: 'standalone' | 'front' }) {
   const route = vehicle.routeShortName || vehicle.line;
   const destination = splitDestinationLabel(vehicle.terminalName ?? vehicle.direction);
   const serviceType = vehicle.vehicleType === 'tram' ? 'TRAM' : 'BUS';
+  const sideClass = placement === 'front' ? ` vehicle-destination-display--front-${frontDisplaySide(vehicle)}` : '';
 
   return (
-    <div className={`vehicle-destination-display vehicle-destination-display--${placement}`} aria-label={`Linea ${route}, direzione ${vehicle.terminalName ?? vehicle.direction}`}>
+    <div className={`vehicle-destination-display vehicle-destination-display--${placement}${sideClass}`} aria-label={`Linea ${route}, direzione ${vehicle.terminalName ?? vehicle.direction}`}>
       <strong>{route}</strong>
       <div>
         <span>{destination.primary}</span>
