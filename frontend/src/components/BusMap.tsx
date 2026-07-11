@@ -1025,6 +1025,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const suppressVehicleClicksUntilRef = useRef(0);
   const userCenterRefinementUntilRef = useRef(0);
   const hadFocusedViewRef = useRef(false);
+  const lastAutoFitRouteKeyRef = useRef<string | undefined>(undefined);
   const [mapReady, setMapReady] = useState(false);
   const [zoom, setZoom] = useState(13);
   const [locatingUser, setLocatingUser] = useState(false);
@@ -1377,11 +1378,18 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   }, [mapReady]);
 
   useEffect(() => {
-    if (!mapReady || !mapRef.current || !showRouteForLine || followedVehicleId) return;
+    const routeKey = showRouteForLine || selectedLine;
+    if (!routeKey) {
+      lastAutoFitRouteKeyRef.current = undefined;
+      return;
+    }
+    if (!mapReady || !mapRef.current || followedVehicleId) return;
+    if (lastAutoFitRouteKeyRef.current === routeKey) return;
     const bounds = boundsFromRoutes(highlightedRoutes);
     if (!bounds) return;
+    lastAutoFitRouteKeyRef.current = routeKey;
     mapRef.current.fitBounds(bounds, { padding: { top: 120, bottom: 220, left: 40, right: 40 }, maxZoom: 15, duration: 550 });
-  }, [followedVehicleId, highlightedRoutes, mapReady, showRouteForLine]);
+  }, [followedVehicleId, highlightedRoutes, mapReady, selectedLine, showRouteForLine]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current || !focusPoint) return;
