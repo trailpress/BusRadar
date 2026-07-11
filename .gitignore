@@ -6,6 +6,8 @@ dist/
 .env.*
 !.env.example
 !frontend/.env.example
+tmp/
+parco_veicoli_tpl/
 supabase/.temp/
 frontend/public/assets/vehicles/*-source.png
 frontend/public/assets/vehicles/source/

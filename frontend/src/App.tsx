@@ -1,21 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import type { MapSearchSuggestion } from './components/AppHeader';
 import { gtfsNetwork, type GtfsStop } from './data/gtfsNetwork';
 import { useGtfsNetwork } from './data/useGtfsNetwork';
 import { geocodeTransitArea, geocodeTransitSuggestions, type GeocodingResult } from './services/geocoding';
 import { fetchGttRealtimeVehicles } from './services/gttRealtime';
-import { LineDetailScreen } from './screens/LineDetailScreen';
-import { LinesScreen } from './screens/LinesScreen';
-import { MapScreen } from './screens/MapScreen';
-import { MoreScreen } from './screens/MoreScreen';
-import { RadarScreen } from './screens/RadarScreen';
-import { StopsScreen } from './screens/StopsScreen';
-import { VehiclesScreen } from './screens/VehiclesScreen';
 import type { LatLng, Stop, TabKey, TransitLine, Vehicle } from './types';
 import { distanceMeters } from './utils/geo';
 import { notify } from './utils/notify';
 import { isVehicleFavorite, setVehicleFavorite } from './utils/vehicleFavorites';
+
+const LineDetailScreen = lazy(() => import('./screens/LineDetailScreen').then((module) => ({ default: module.LineDetailScreen })));
+const LinesScreen = lazy(() => import('./screens/LinesScreen').then((module) => ({ default: module.LinesScreen })));
+const MapScreen = lazy(() => import('./screens/MapScreen').then((module) => ({ default: module.MapScreen })));
+const RadarScreen = lazy(() => import('./screens/RadarScreen').then((module) => ({ default: module.RadarScreen })));
+const StopsScreen = lazy(() => import('./screens/StopsScreen').then((module) => ({ default: module.StopsScreen })));
+const VehiclesScreen = lazy(() => import('./screens/VehiclesScreen').then((module) => ({ default: module.VehiclesScreen })));
 
 function isIosLikeDevice() {
   const ua = navigator.userAgent;
@@ -582,7 +582,9 @@ function App() {
   if (selectedLine) {
     return (
       <div className="app-shell">
-        <LineDetailScreen line={selectedLine} vehicles={vehicles} userLocation={userLocation} onBack={() => setSelectedLine(undefined)} onSelectVehicle={openVehicle} onSelectStop={openStop} />
+        <Suspense fallback={null}>
+          <LineDetailScreen line={selectedLine} vehicles={vehicles} userLocation={userLocation} onBack={() => setSelectedLine(undefined)} onSelectVehicle={openVehicle} onSelectStop={openStop} />
+        </Suspense>
         {toast && <div className="toast">{toast}</div>}
         <BottomNav active="lines" onChange={handleTabChange} />
       </div>
@@ -591,123 +593,125 @@ function App() {
 
   return (
     <div className="app-shell">
-      {activeTab === 'map' && (
-        <MapScreen
-          vehicles={searchedVehicles}
-          selectedLine={lineFilter}
-          selectedVehicle={selectedVehicle}
-          selectedVehicleFallback={selectedVehicleFallback}
-          followedVehicleId={followedVehicleId}
-          focusPoint={mapFocus}
-          userLocation={userLocation}
-          userLocationAccuracy={userLocationAccuracy}
-          hasUserLocation={hasUserLocation}
-          onLocateUser={requestUserLocation}
-          showRouteForLine={showRouteForLine}
-          search={search}
-          onSearch={(value) => {
-            setSearch(value);
-            setSearchMode('filter');
-            setAddressSuggestions([]);
-            setSearchedArea(undefined);
-            setSelectedStop(undefined);
-          }}
-          onSearchSubmit={() => void submitMapSearch()}
-          searchLoading={searchLoading}
-          searchSuggestions={searchSuggestions}
-          suggestionsLoading={suggestionsLoading}
-          onSelectSearchSuggestion={selectSearchSuggestion}
-          searchedArea={searchedArea}
-          nearbyStopCount={nearbyAreaStops.length}
-          nearbyStops={nearbyAreaStops}
-          nearbyLines={nearbyAreaLines}
-          nearbyVehicleCount={nearbyAreaVehicles.length}
-          onClearSearchedArea={() => {
-            setSearchedArea(undefined);
-            setSelectedStop(undefined);
-            setSearchMode('filter');
-            setSearch('');
-          }}
-          onSelectAreaLine={(line) => {
-            const realtimeCount = vehicles.filter((vehicle) => vehicle.line === line).length;
-            setSelectedStop(undefined);
-            setSelectedVehicleId(undefined);
-            setSelectedVehicleFallback(undefined);
-            setFollowedVehicleId(undefined);
-            setLineFilter(line);
-            setShowRouteForLine(line);
-            setActiveTab('map');
-            notify(
-              realtimeCount > 0
-                ? `Linea ${line}: ${realtimeCount} mezzi realtime sul percorso`
-                : `Linea ${line}: percorso programmato, nessun mezzo realtime ora`,
-            );
-          }}
-          selectedStop={selectedStop}
-          selectedStopRequest={selectedStopRequest}
-          onSelectAreaStop={(stop) => {
-            setSelectedStop(stop);
-            setSelectedStopRequest((request) => request + 1);
-            setMapFocus({ lat: stop.lat, lon: stop.lon });
-            notify(`Palina ${stop.code}: carico i passaggi`);
-          }}
-          onRadar={() => setActiveTab('more')}
-          onSelectVehicle={openVehicle}
-          onClearVehicle={() => {
-            setSelectedVehicleId(undefined);
-            setSelectedVehicleFallback(undefined);
-          }}
-          onFollowVehicle={(vehicle) => {
-            setSelectedVehicleId(undefined);
-            setSelectedVehicleFallback(undefined);
-            setFollowedVehicleId(vehicle.vehicleId);
-            setMapFocus({ lat: vehicle.lat, lon: vehicle.lon });
-            setLineFilter(vehicle.line);
-            setShowRouteForLine(vehicle.routeId.replace(/^gtt-/, ''));
-          }}
-          onToggleVehicleFavorite={toggleVehicleFavorite}
-          onShowRoute={(vehicle) => {
-            const routeKey = vehicle.routeVariantId || vehicle.routeId.replace(/^gtt-/, '') || vehicle.line;
-            setSelectedLine(undefined);
-            setSelectedStop(undefined);
-            setSelectedVehicleId(undefined);
-            setSelectedVehicleFallback(undefined);
-            setFollowedVehicleId(undefined);
-            setLineFilter(vehicle.line);
-            setShowRouteForLine(routeKey);
-            setMapFocus(undefined);
-            setActiveTab('map');
-            notify(`Percorso linea ${vehicle.line} mostrato sulla mappa`);
-          }}
-          onResetMap={() => {
-            setSelectedVehicleId(undefined);
-            setSelectedVehicleFallback(undefined);
-            setFollowedVehicleId(undefined);
-            setLineFilter(undefined);
-            setShowRouteForLine(undefined);
-            setSelectedLine(undefined);
-            setMapFocus(undefined);
-            setSearch('');
-            setSearchMode('filter');
-            setSearchedArea(undefined);
-            setSelectedStop(undefined);
-            notify('Vista generale: tutte le linee');
-          }}
-        />
-      )}
-      {activeTab === 'lines' && <LinesScreen vehicles={vehicles} onSelectLine={openLine} />}
-      {activeTab === 'stops' && <StopsScreen onSelectStop={openStop} />}
-      {activeTab === 'vehicles' && <VehiclesScreen vehicles={vehicles} onSelectVehicle={openVehicle} />}
-      {activeTab === 'more' && (
-        <RadarScreen
-          vehicles={vehicles}
-          userLocation={userLocation}
-          hasUserLocation={hasUserLocation}
-          onLocateUser={requestUserLocation}
-          onSelectVehicle={trackVehicleFromRadar}
-          onBack={() => setActiveTab('map')}
-        />
-      )}
+      <Suspense fallback={null}>
+        {activeTab === 'map' && (
+          <MapScreen
+            vehicles={searchedVehicles}
+            selectedLine={lineFilter}
+            selectedVehicle={selectedVehicle}
+            selectedVehicleFallback={selectedVehicleFallback}
+            followedVehicleId={followedVehicleId}
+            focusPoint={mapFocus}
+            userLocation={userLocation}
+            userLocationAccuracy={userLocationAccuracy}
+            hasUserLocation={hasUserLocation}
+            onLocateUser={requestUserLocation}
+            showRouteForLine={showRouteForLine}
+            search={search}
+            onSearch={(value) => {
+              setSearch(value);
+              setSearchMode('filter');
+              setAddressSuggestions([]);
+              setSearchedArea(undefined);
+              setSelectedStop(undefined);
+            }}
+            onSearchSubmit={() => void submitMapSearch()}
+            searchLoading={searchLoading}
+            searchSuggestions={searchSuggestions}
+            suggestionsLoading={suggestionsLoading}
+            onSelectSearchSuggestion={selectSearchSuggestion}
+            searchedArea={searchedArea}
+            nearbyStopCount={nearbyAreaStops.length}
+            nearbyStops={nearbyAreaStops}
+            nearbyLines={nearbyAreaLines}
+            nearbyVehicleCount={nearbyAreaVehicles.length}
+            onClearSearchedArea={() => {
+              setSearchedArea(undefined);
+              setSelectedStop(undefined);
+              setSearchMode('filter');
+              setSearch('');
+            }}
+            onSelectAreaLine={(line) => {
+              const realtimeCount = vehicles.filter((vehicle) => vehicle.line === line).length;
+              setSelectedStop(undefined);
+              setSelectedVehicleId(undefined);
+              setSelectedVehicleFallback(undefined);
+              setFollowedVehicleId(undefined);
+              setLineFilter(line);
+              setShowRouteForLine(line);
+              setActiveTab('map');
+              notify(
+                realtimeCount > 0
+                  ? `Linea ${line}: ${realtimeCount} mezzi realtime sul percorso`
+                  : `Linea ${line}: percorso programmato, nessun mezzo realtime ora`,
+              );
+            }}
+            selectedStop={selectedStop}
+            selectedStopRequest={selectedStopRequest}
+            onSelectAreaStop={(stop) => {
+              setSelectedStop(stop);
+              setSelectedStopRequest((request) => request + 1);
+              setMapFocus({ lat: stop.lat, lon: stop.lon });
+              notify(`Palina ${stop.code}: carico i passaggi`);
+            }}
+            onRadar={() => setActiveTab('more')}
+            onSelectVehicle={openVehicle}
+            onClearVehicle={() => {
+              setSelectedVehicleId(undefined);
+              setSelectedVehicleFallback(undefined);
+            }}
+            onFollowVehicle={(vehicle) => {
+              setSelectedVehicleId(undefined);
+              setSelectedVehicleFallback(undefined);
+              setFollowedVehicleId(vehicle.vehicleId);
+              setMapFocus({ lat: vehicle.lat, lon: vehicle.lon });
+              setLineFilter(vehicle.line);
+              setShowRouteForLine(vehicle.routeId.replace(/^gtt-/, ''));
+            }}
+            onToggleVehicleFavorite={toggleVehicleFavorite}
+            onShowRoute={(vehicle) => {
+              const routeKey = vehicle.routeVariantId || vehicle.routeId.replace(/^gtt-/, '') || vehicle.line;
+              setSelectedLine(undefined);
+              setSelectedStop(undefined);
+              setSelectedVehicleId(undefined);
+              setSelectedVehicleFallback(undefined);
+              setFollowedVehicleId(undefined);
+              setLineFilter(vehicle.line);
+              setShowRouteForLine(routeKey);
+              setMapFocus(undefined);
+              setActiveTab('map');
+              notify(`Percorso linea ${vehicle.line} mostrato sulla mappa`);
+            }}
+            onResetMap={() => {
+              setSelectedVehicleId(undefined);
+              setSelectedVehicleFallback(undefined);
+              setFollowedVehicleId(undefined);
+              setLineFilter(undefined);
+              setShowRouteForLine(undefined);
+              setSelectedLine(undefined);
+              setMapFocus(undefined);
+              setSearch('');
+              setSearchMode('filter');
+              setSearchedArea(undefined);
+              setSelectedStop(undefined);
+              notify('Vista generale: tutte le linee');
+            }}
+          />
+        )}
+        {activeTab === 'lines' && <LinesScreen vehicles={vehicles} onSelectLine={openLine} />}
+        {activeTab === 'stops' && <StopsScreen onSelectStop={openStop} />}
+        {activeTab === 'vehicles' && <VehiclesScreen vehicles={vehicles} onSelectVehicle={openVehicle} />}
+        {activeTab === 'more' && (
+          <RadarScreen
+            vehicles={vehicles}
+            userLocation={userLocation}
+            hasUserLocation={hasUserLocation}
+            onLocateUser={requestUserLocation}
+            onSelectVehicle={trackVehicleFromRadar}
+            onBack={() => setActiveTab('map')}
+          />
+        )}
+      </Suspense>
       {showLocationHelp && (
         <div className="location-help" role="dialog" aria-label="Abilita posizione">
           <div>

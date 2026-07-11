@@ -4,7 +4,7 @@ BusRadar è una webapp standalone, mobile-first, che mostra mezzi GTT su mappa i
 
 ## Stato del progetto
 
-- Stack: React, Vite, TypeScript, Leaflet, CSS custom.
+- Stack: React, Vite, TypeScript, MapLibre GL, CSS custom.
 - Dati: Vehicle Positions GTFS-RT tramite proxy tecnico Supabase; GTFS statico locale generato da zip GTT per linee, shapes e fermate.
 - Backend: Supabase Edge Function solo per proxy realtime pubblico.
 - Feed realtime: GTT GTFS-RT via proxy.
@@ -48,6 +48,15 @@ npm run dev
 cd frontend
 npm run build
 ```
+
+## Verifiche locali
+
+```bash
+cd frontend
+npm run verify:assets
+```
+
+La verifica controlla che i cataloghi dati non puntino ad asset mancanti in `public/assets`.
 
 ## Deploy GitHub Pages
 
