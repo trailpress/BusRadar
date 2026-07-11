@@ -68,13 +68,6 @@ type StopFeatureProperties = {
   stopSequencesByRoute: string;
 };
 
-type ActiveVehiclePopup = {
-  vehicleId: string;
-  vehicle: Vehicle;
-  x: number;
-  y: number;
-};
-
 const spriteZoomThreshold = 14.25;
 const vehicleAssetBase = import.meta.env.BASE_URL;
 const priorityScheduledLines = ['1510', '1511', '1432', '1085'];
@@ -633,57 +626,8 @@ function renderStopArrivals(result: GttStopArrivalsResult) {
   return '<div class="stop-popup-source">Orario GTFS statico consultato</div><div class="arrival-list"><small>Nessuna corsa programmata nelle prossime 30 ore per questa palina e per il calendario di servizio attivo.</small></div>';
 }
 
-function renderVehiclePopup(vehicle: Vehicle, withAction = false) {
-  const vehicleId = escapeHtml(vehicle.vehicleId);
-  const action = withAction
-    ? `<button type="button" class="vehicle-tooltip-action" data-open-vehicle="${vehicleId}">Apri dettaglio vettura</button>`
-    : '';
-  const close = withAction
-    ? '<button type="button" class="vehicle-tooltip-close" data-close-vehicle-popup aria-label="Chiudi popup vettura">×</button>'
-    : '';
-  return `<div class="vehicle-tooltip">${close}<strong>${escapeHtml(vehicleIdentifierLabel(vehicle))}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small>${action}</div>`;
-}
-
-function bindVehiclePopupActions(popup: maplibregl.Popup, vehicle: Vehicle, onSelectVehicle: (vehicle: Vehicle) => void) {
-  const popupElement = popup.getElement();
-  let opened = false;
-  const listeners: Array<{ target: EventTarget; eventName: string; handler: EventListener; options?: AddEventListenerOptions | boolean }> = [];
-  const addListener = (target: EventTarget, eventName: string, handler: EventListener, options?: AddEventListenerOptions | boolean) => {
-    target.addEventListener(eventName, handler, options);
-    listeners.push({ target, eventName, handler, options });
-  };
-  const contain = (event: Event) => {
-    event.stopPropagation();
-  };
-  const closePopup = (event: Event) => {
-    const target = event.target as HTMLElement | null;
-    if (!target?.closest('[data-close-vehicle-popup]')) return;
-    event.preventDefault();
-    event.stopPropagation();
-    popup.remove();
-  };
-  const openDetails = (event: Event) => {
-    const target = event.target as HTMLElement | null;
-    if (!target?.closest('[data-open-vehicle]')) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (opened) return;
-    opened = true;
-    popup.remove();
-    onSelectVehicle(vehicle);
-  };
-
-  ['pointerdown', 'mousedown', 'touchstart', 'dblclick'].forEach((eventName) => {
-    addListener(popupElement, eventName, contain, true);
-  });
-  addListener(popupElement, 'click', closePopup);
-  addListener(popupElement, 'click', openDetails);
-
-  popup.on('close', () => {
-    listeners.forEach(({ target, eventName, handler, options }) => {
-      target.removeEventListener(eventName, handler, options);
-    });
-  });
+function renderVehiclePopup(vehicle: Vehicle) {
+  return `<div class="vehicle-tooltip"><strong>${escapeHtml(vehicleIdentifierLabel(vehicle))}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small></div>`;
 }
 
 function showStopPopup(
@@ -1078,15 +1022,12 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const lastFollowCameraAtRef = useRef(0);
   const lastVehicleRenderAtRef = useRef(0);
   const lastVehicleOverlayAtRef = useRef(0);
-  const lastVehiclePopupRenderAtRef = useRef(0);
   const suppressVehicleClicksUntilRef = useRef(0);
   const userCenterRefinementUntilRef = useRef(0);
   const hadFocusedViewRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [zoom, setZoom] = useState(13);
   const [locatingUser, setLocatingUser] = useState(false);
-  const [activeVehiclePopup, setActiveVehiclePopup] = useState<ActiveVehiclePopup | undefined>();
-  const activeVehiclePopupRef = useRef<ActiveVehiclePopup | undefined>(undefined);
 
   latestVehiclesRef.current = vehicles;
   onSelectLineRef.current = onSelectLine;
@@ -1094,27 +1035,11 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   followedVehicleIdRef.current = followedVehicleId;
   followCameraLockedRef.current = followCameraLocked;
   onFollowCameraLockChangeRef.current = onFollowCameraLockChange;
-  activeVehiclePopupRef.current = activeVehiclePopup;
-
-  const vehiclePopupPoint = (vehicle: Vehicle) => {
-    const map = mapRef.current;
-    if (!map) return undefined;
-    const rawPosition = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
-    const position = snapVehicleToRoute(vehicle, rawPosition, highlightedRoutesRef.current)?.point ?? rawPosition;
-    const projected = map.project([position.lon, position.lat]);
-    const rect = map.getContainer().getBoundingClientRect();
-    return {
-      x: Math.min(Math.max(projected.x, 148), Math.max(148, rect.width - 148)),
-      y: Math.min(Math.max(projected.y - 118, 92), Math.max(92, rect.height - 180)),
-    };
-  };
-
   const openVehicleDetail = (vehicleId?: string, fallbackVehicle?: Vehicle) => {
     const vehicle = latestVehiclesRef.current.find((item) => item.vehicleId === vehicleId) ?? fallbackVehicle;
     if (!vehicle) return false;
     vehicleClickPopupRef.current?.remove();
     vehicleClickPopupRef.current = undefined;
-    setActiveVehiclePopup(undefined);
     onSelectVehicle(vehicle);
     return true;
   };
@@ -1136,15 +1061,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       stopPopupRef.current = undefined;
       vehicleClickPopupRef.current?.remove();
       vehicleClickPopupRef.current = undefined;
-      const rawPosition = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
-      const position = snapVehicleToRoute(vehicle, rawPosition, highlightedRoutesRef.current)?.point ?? rawPosition;
-      const projected = map.project([position.lon, position.lat]);
-      setActiveVehiclePopup({
-        vehicleId: vehicle.vehicleId,
-        vehicle,
-        x: Math.min(Math.max(projected.x, 148), Math.max(148, map.getCanvas().clientWidth - 148)),
-        y: Math.max(92, projected.y - 98),
-      });
+      openVehicleDetail(vehicle.vehicleId, vehicle);
     };
 
     overlay.addEventListener('click', openOverlayVehicle);
@@ -1442,21 +1359,6 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           highlightedRoutesRef.current,
         );
       }
-      const activePopup = activeVehiclePopupRef.current;
-      if (activePopup && time - lastVehiclePopupRenderAtRef.current > 120) {
-        const liveVehicle = latestVehiclesRef.current.find((item) => item.vehicleId === activePopup.vehicleId);
-        if (liveVehicle) {
-          const point = vehiclePopupPoint(liveVehicle);
-          if (point) {
-            lastVehiclePopupRenderAtRef.current = time;
-            setActiveVehiclePopup((current) => (
-              current?.vehicleId === activePopup.vehicleId
-                ? { vehicleId: liveVehicle.vehicleId, vehicle: liveVehicle, x: point.x, y: point.y }
-                : current
-            ));
-          }
-        }
-      }
       const followedId = followedVehicleIdRef.current;
       const followedVehicle = followedId ? latestVehiclesRef.current.find((vehicle) => vehicle.vehicleId === followedId) : undefined;
       const rawFollowedPosition = followedId ? currentPositionsRef.current.get(followedId) : undefined;
@@ -1612,13 +1514,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       hoverPopup.remove();
       vehicleClickPopupRef.current?.remove();
       vehicleClickPopupRef.current = undefined;
-      const point = vehiclePopupPoint(vehicle);
-      setActiveVehiclePopup({
-        vehicleId: vehicle.vehicleId,
-        vehicle,
-        x: point?.x ?? event.point.x,
-        y: point?.y ?? event.point.y,
-      });
+      openVehicleDetail(vehicle.vehicleId, vehicle);
     };
     const handleStopClick = (event: MapMouseEvent) => {
       if (vehicleAtPoint(event)) return;
@@ -1686,40 +1582,6 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       )}
       <div ref={containerRef} className="bus-map" />
       <div ref={vehicleOverlayRef} className="vehicle-html-overlay" aria-hidden="true" />
-      {activeVehiclePopup && (
-        <aside
-          className="vehicle-react-popup"
-          style={{ left: activeVehiclePopup.x, top: activeVehiclePopup.y }}
-          onClick={(event) => event.stopPropagation()}
-          onPointerDown={(event) => event.stopPropagation()}
-          onTouchStart={(event) => event.stopPropagation()}
-          aria-label={`Popup vettura ${activeVehiclePopup.vehicle.vehicleId}`}
-        >
-          <button
-            type="button"
-            className="vehicle-react-popup-close"
-            aria-label="Chiudi popup vettura"
-            onClick={() => setActiveVehiclePopup(undefined)}
-          >
-            ×
-          </button>
-          <strong>{vehicleIdentifierLabel(activeVehiclePopup.vehicle)}</strong>
-          <span>Linea {activeVehiclePopup.vehicle.line} · {trackingLabel(activeVehiclePopup.vehicle)}</span>
-          <small>{activeVehiclePopup.vehicle.direction}</small>
-          <button
-            type="button"
-            className="vehicle-tooltip-action"
-            data-open-vehicle={activeVehiclePopup.vehicleId}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              openVehicleDetail(activeVehiclePopup.vehicleId, activeVehiclePopup.vehicle);
-            }}
-          >
-            Apri dettaglio vettura
-          </button>
-        </aside>
-      )}
       <div className="map-floating-controls">
         <IconButton label="Zoom avanti" onClick={() => {
           onFollowCameraLockChangeRef.current?.(false);

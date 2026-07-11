@@ -800,15 +800,17 @@ button {
 .vehicle-destination-display {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(58px, 0.34fr) minmax(0, 1fr) 28px;
+  grid-template-columns: minmax(0, 0.29fr) minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
-  min-height: 76px;
-  margin: 0 0 12px;
-  padding: 11px 13px;
+  gap: 3px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 2px 4px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 14px;
+  border: 0;
+  border-radius: 2px;
   background:
     radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.08), transparent 24%),
     repeating-radial-gradient(circle at center, rgba(255, 255, 255, 0.12) 0 0.9px, transparent 1px 3px),
@@ -816,7 +818,7 @@ button {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.035),
     inset 0 -18px 34px rgba(0, 0, 0, 0.44),
-    0 16px 28px rgba(0, 0, 0, 0.26);
+    0 3px 8px rgba(0, 0, 0, 0.32);
 }
 
 .vehicle-destination-display::before {
@@ -842,7 +844,7 @@ button {
   justify-self: center;
   color: rgba(248, 250, 252, 0.96);
   font-family: "SF Mono", "Menlo", "Consolas", monospace;
-  font-size: clamp(30px, 8vw, 48px);
+  font-size: clamp(7px, 3.1cqw, 13px);
   font-weight: 900;
   line-height: 0.95;
   letter-spacing: 0;
@@ -854,7 +856,7 @@ button {
 .vehicle-destination-display div {
   display: grid;
   min-width: 0;
-  gap: 3px;
+  gap: 1px;
 }
 
 .vehicle-destination-display span,
@@ -875,24 +877,16 @@ button {
 }
 
 .vehicle-destination-display span {
-  font-size: clamp(16px, 4.7vw, 24px);
+  font-size: clamp(4px, 1.65cqw, 7px);
 }
 
 .vehicle-destination-display em {
-  font-size: clamp(13px, 3.9vw, 20px);
+  font-size: clamp(3.5px, 1.4cqw, 6px);
   opacity: 0.82;
 }
 
 .vehicle-destination-display i {
-  justify-self: center;
-  width: 22px;
-  height: 20px;
-  opacity: 0.8;
-  background:
-    linear-gradient(90deg, transparent 0 24%, rgba(248, 250, 252, 0.82) 24% 33%, transparent 33% 67%, rgba(248, 250, 252, 0.82) 67% 76%, transparent 76%),
-    linear-gradient(180deg, rgba(248, 250, 252, 0.88) 0 20%, transparent 20% 78%, rgba(248, 250, 252, 0.88) 78% 100%);
-  clip-path: polygon(8% 18%, 82% 18%, 94% 48%, 82% 82%, 8% 82%, 18% 50%);
-  filter: drop-shadow(0 0 7px rgba(255, 255, 255, 0.2));
+  display: none;
 }
 
 .bus-photo {
@@ -970,13 +964,31 @@ button {
 }
 
 .vehicle-render {
-  position: relative;
-  z-index: 1;
   display: block;
-  width: calc(100% - 28px);
-  height: calc(100% - 28px);
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   object-position: center;
+}
+
+.vehicle-render-stage {
+  position: relative;
+  z-index: 1;
+  width: calc(100% - 28px);
+  height: calc(100% - 28px);
+  container-type: inline-size;
+}
+
+.vehicle-front-display {
+  position: absolute;
+  z-index: 4;
+  left: var(--display-left);
+  top: var(--display-top);
+  width: var(--display-width);
+  height: var(--display-height);
+  overflow: hidden;
+  clip-path: polygon(2% 4%, 98% 7%, 99% 94%, 1% 96%);
+  pointer-events: none;
 }
 
 .missing-render-panel {

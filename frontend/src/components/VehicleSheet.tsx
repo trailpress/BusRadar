@@ -170,6 +170,24 @@ function VehicleDestinationDisplay({ vehicle }: { vehicle: Vehicle }) {
   );
 }
 
+function frontDisplayStyle(vehicle: Vehicle): CSSProperties {
+  const placement = vehicle.vehicleFleetKey === 'iia-citymood-cng-12m'
+    ? [65.5, 19.1, 25.6, 13]
+    : vehicle.vehicleFleetKey === 'tram-serie-8000'
+      ? [70.4, 23.8, 20.5, 10.2]
+      : vehicle.vehicleType === 'tram'
+        ? [69.2, 21.5, 21.5, 10.5]
+        : vehicle.vehicleFleetKey === 'indcar-eb6-electric-6m' || vehicle.vehicleFleetKey === 'iveco-mago-granturismo-9m'
+          ? [68.5, 21.5, 21.5, 10]
+          : [66.4, 20.8, 23.4, 10.5];
+  return {
+    '--display-left': `${placement[0]}%`,
+    '--display-top': `${placement[1]}%`,
+    '--display-width': `${placement[2]}%`,
+    '--display-height': `${placement[3]}%`,
+  } as CSSProperties;
+}
+
 export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onRoute, onClose }: Props) {
   const previousBearingRef = useRef(vehicle.bearing);
   const [displayBearing, setDisplayBearing] = useState(vehicle.bearing);
@@ -224,11 +242,15 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
         </span>
         <span>{routeTrackingText(vehicle)}</span>
       </div>
-      <VehicleDestinationDisplay vehicle={vehicle} />
       <div className="bus-photo">
         <span className="vehicle-operator-mark" aria-label="Operatore GTT">GTT</span>
         {showDetailImage ? (
-          <img className="vehicle-render" src={detailImage} alt={`Rendering ${vehicleKind}`} />
+          <div className="vehicle-render-stage">
+            <img className="vehicle-render" src={detailImage} alt={`Rendering ${vehicleKind}`} />
+            <div className="vehicle-front-display" style={frontDisplayStyle(vehicle)}>
+              <VehicleDestinationDisplay vehicle={vehicle} />
+            </div>
+          </div>
         ) : (
           <div className="missing-render-panel" aria-label="Render 3D non ancora validato">
             <div className="official-fleet-visual" aria-hidden="true"><i /><b /><span /></div>
