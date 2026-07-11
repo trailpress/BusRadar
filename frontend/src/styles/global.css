@@ -811,24 +811,16 @@ button {
   overflow: hidden;
   border: 0;
   border-radius: 2px;
-  background:
-    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.08), transparent 24%),
-    repeating-radial-gradient(circle at center, rgba(255, 255, 255, 0.12) 0 0.9px, transparent 1px 3px),
-    linear-gradient(180deg, #111820 0%, #070b0f 58%, #020305 100%);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
-    inset 0 -18px 34px rgba(0, 0, 0, 0.44),
-    0 3px 8px rgba(0, 0, 0, 0.32);
+  background: transparent;
+  box-shadow: none;
 }
 
 .vehicle-destination-display::before {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.11), transparent 34%),
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 5px);
+  background: repeating-radial-gradient(circle at center, rgba(255, 255, 255, 0.055) 0 0.55px, transparent 0.7px 2.5px);
   pointer-events: none;
-  opacity: 0.72;
+  opacity: 0.34;
   content: "";
 }
 
@@ -974,8 +966,10 @@ button {
 .vehicle-render-stage {
   position: relative;
   z-index: 1;
-  width: calc(100% - 28px);
+  width: auto;
   height: calc(100% - 28px);
+  max-width: calc(100% - 28px);
+  aspect-ratio: 16 / 9;
   container-type: inline-size;
 }
 
@@ -1636,6 +1630,7 @@ button {
   border-radius: 10px;
   background: rgba(15, 21, 30, 0.92);
   text-align: left;
+  touch-action: manipulation;
 }
 
 .line-row > div:nth-child(2),

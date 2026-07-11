@@ -55,6 +55,7 @@ function App() {
   const latestLocationRef = useRef<{ point: LatLng; timestamp: number; accuracy: number } | undefined>(undefined);
   const pendingLocationRequestRef = useRef<Promise<LatLng | undefined> | undefined>(undefined);
   const locationSamplesRef = useRef<Array<{ point: LatLng; timestamp: number; accuracy: number }>>([]);
+  const lineDetailOpenedAtRef = useRef(0);
 
   const applyUserPosition = useCallback((position: GeolocationPosition) => {
     const timestamp = position.timestamp || Date.now();
@@ -520,6 +521,7 @@ function App() {
 
   function openVehicle(vehicle: Vehicle) {
     setSelectedStop(undefined);
+    setSelectedLine(undefined);
     setFollowedVehicleId(undefined);
     setSelectedVehicleId(vehicle.vehicleId);
     setSelectedVehicleFallback(vehicle);
@@ -552,6 +554,7 @@ function App() {
   }
 
   function openLine(line: TransitLine) {
+    lineDetailOpenedAtRef.current = performance.now();
     setSelectedStop(undefined);
     setSelectedLine(line);
     setSelectedVehicleFallback(undefined);
@@ -590,7 +593,13 @@ function App() {
           <LineDetailScreen line={selectedLine} vehicles={vehicles} userLocation={userLocation} onBack={() => setSelectedLine(undefined)} onSelectVehicle={openVehicle} onSelectStop={openStop} />
         </Suspense>
         {toast && <div className="toast">{toast}</div>}
-        <BottomNav active="lines" onChange={handleTabChange} />
+        <BottomNav
+          active="lines"
+          onChange={(tab) => {
+            if (performance.now() - lineDetailOpenedAtRef.current < 700) return;
+            handleTabChange(tab);
+          }}
+        />
       </div>
     );
   }

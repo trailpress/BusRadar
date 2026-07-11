@@ -172,14 +172,18 @@ function VehicleDestinationDisplay({ vehicle }: { vehicle: Vehicle }) {
 
 function frontDisplayStyle(vehicle: Vehicle): CSSProperties {
   const placement = vehicle.vehicleFleetKey === 'iia-citymood-cng-12m'
-    ? [65.5, 19.1, 25.6, 13]
-    : vehicle.vehicleFleetKey === 'tram-serie-8000'
-      ? [70.4, 23.8, 20.5, 10.2]
-      : vehicle.vehicleType === 'tram'
-        ? [69.2, 21.5, 21.5, 10.5]
-        : vehicle.vehicleFleetKey === 'indcar-eb6-electric-6m' || vehicle.vehicleFleetKey === 'iveco-mago-granturismo-9m'
-          ? [68.5, 21.5, 21.5, 10]
-          : [66.4, 20.8, 23.4, 10.5];
+    ? [67.55, 21.7, 21.55, 9.6]
+    : vehicle.vehicleFleetKey === 'irisbus-citelis-18m'
+      ? [70.8, 14.15, 19.6, 6.25]
+      : vehicle.vehicleFleetKey === 'iveco-citelis-12m'
+        ? [65.8, 21.75, 19.8, 9.7]
+        : vehicle.vehicleFleetKey === 'tram-serie-8000'
+          ? [70.4, 23.8, 20.5, 10.2]
+          : vehicle.vehicleType === 'tram'
+            ? [69.2, 21.5, 21.5, 10.5]
+            : vehicle.vehicleFleetKey === 'indcar-eb6-electric-6m' || vehicle.vehicleFleetKey === 'iveco-mago-granturismo-9m'
+              ? [68.5, 21.5, 21.5, 10]
+              : [66.4, 20.8, 23.4, 10.5];
   return {
     '--display-left': `${placement[0]}%`,
     '--display-top': `${placement[1]}%`,
