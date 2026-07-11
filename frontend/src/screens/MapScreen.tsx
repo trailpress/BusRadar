@@ -1,5 +1,5 @@
-import { Layers3 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Layers3, LocateFixed, MapPinned } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import type { GtfsStop } from '../data/gtfsNetwork';
 import type { GeocodingResult } from '../services/geocoding';
 import type { LatLng, Vehicle } from '../types';
@@ -213,6 +213,10 @@ export function MapScreen({
   onResetMap,
 }: Props) {
   const [stopPopupOpen, setStopPopupOpen] = useState(false);
+  const [followCameraLocked, setFollowCameraLocked] = useState(Boolean(followedVehicleId));
+  useEffect(() => {
+    setFollowCameraLocked(Boolean(followedVehicleId));
+  }, [followedVehicleId]);
   const detailVehicle = selectedVehicle ?? selectedVehicleFallback;
   const vehicleHeadway = useMemo(
     () => detailVehicle ? buildVehicleHeadway(detailVehicle, vehicles) : undefined,
@@ -225,6 +229,8 @@ export function MapScreen({
         selectedLine={selectedLine}
         selectedVehicleId={(selectedVehicle ?? selectedVehicleFallback)?.vehicleId}
         followedVehicleId={followedVehicleId}
+        followCameraLocked={followCameraLocked}
+        onFollowCameraLockChange={setFollowCameraLocked}
         focusPoint={focusPoint}
         userLocation={userLocation}
         userLocationAccuracy={userLocationAccuracy}
@@ -290,8 +296,14 @@ export function MapScreen({
       )}
       {followedVehicleId && (
         <div className="follow-banner">
-          <strong>Seguendo vettura {followedVehicleId}</strong>
-          <span>La mappa resta centrata sul mezzo realtime</span>
+          <div>
+            <strong>Vettura {followedVehicleId}</strong>
+            <span>{followCameraLocked ? 'Posizione agganciata' : 'Mappa libera · inseguimento attivo'}</span>
+          </div>
+          <button type="button" onClick={() => setFollowCameraLocked((locked) => !locked)}>
+            {followCameraLocked ? <MapPinned size={17} /> : <LocateFixed size={17} />}
+            {followCameraLocked ? 'Libera mappa' : 'Riaggancia'}
+          </button>
         </div>
       )}
       {!followedVehicleId && detailVehicle && (

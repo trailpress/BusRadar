@@ -620,13 +620,21 @@ button {
   right: 14px;
   bottom: 174px;
   display: grid;
-  gap: 3px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
   padding: 12px 14px;
   border: 1px solid rgba(47, 125, 255, 0.28);
   border-radius: 15px;
   background: rgba(8, 12, 18, 0.9);
   box-shadow: 0 16px 32px rgba(0, 0, 0, 0.32);
   backdrop-filter: blur(18px);
+}
+
+.follow-banner > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
 }
 
 .follow-banner strong {
@@ -636,6 +644,22 @@ button {
 .follow-banner span {
   color: var(--muted);
   font-size: 11px;
+}
+
+.follow-banner button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid rgba(47, 125, 255, 0.38);
+  border-radius: 10px;
+  background: rgba(47, 125, 255, 0.16);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 850;
+  white-space: nowrap;
 }
 
 .map-reset-button {

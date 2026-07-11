@@ -1,5 +1,5 @@
 import maplibregl, { type GeoJSONSource, type LngLatBoundsLike, type MapMouseEvent } from 'maplibre-gl';
-import { LocateFixed } from 'lucide-react';
+import { LocateFixed, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, gtfsNetwork, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
 import { useGtfsNetwork } from '../data/useGtfsNetwork';
@@ -17,6 +17,8 @@ type Props = {
   selectedLine?: string;
   selectedVehicleId?: string;
   followedVehicleId?: string;
+  followCameraLocked?: boolean;
+  onFollowCameraLockChange?: (locked: boolean) => void;
   focusPoint?: LatLng;
   userLocation: LatLng;
   userLocationAccuracy?: number;
@@ -1051,7 +1053,7 @@ function installTransitLayers(map: maplibregl.Map) {
   });
 }
 
-export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, focusPoint, userLocation, userLocationAccuracy, hasUserLocation, onLocateUser, showRouteForLine, searchedArea, selectedStop, selectedStopRequest, onSelectVehicle, onSelectLine, onStopPopupOpenChange, onResetMap }: Props) {
+export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, followCameraLocked = false, onFollowCameraLockChange, focusPoint, userLocation, userLocationAccuracy, hasUserLocation, onLocateUser, showRouteForLine, searchedArea, selectedStop, selectedStopRequest, onSelectVehicle, onSelectLine, onStopPopupOpenChange, onResetMap }: Props) {
   const { revision: gtfsRevision } = useGtfsNetwork();
   const containerRef = useRef<HTMLDivElement>(null);
   const vehicleOverlayRef = useRef<HTMLDivElement>(null);
@@ -1069,6 +1071,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const vehicleClickPopupRef = useRef<maplibregl.Popup | undefined>(undefined);
   const selectedVehicleIdRef = useRef<string | undefined>(selectedVehicleId);
   const followedVehicleIdRef = useRef<string | undefined>(followedVehicleId);
+  const followCameraLockedRef = useRef(followCameraLocked);
+  const onFollowCameraLockChangeRef = useRef(onFollowCameraLockChange);
   const followedVehicleStartedRef = useRef<string | undefined>(undefined);
   const vehicleLastSeenAtRef = useRef<Map<string, number>>(new Map());
   const lastFollowCameraAtRef = useRef(0);
@@ -1088,6 +1092,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   onSelectLineRef.current = onSelectLine;
   selectedVehicleIdRef.current = selectedVehicleId;
   followedVehicleIdRef.current = followedVehicleId;
+  followCameraLockedRef.current = followCameraLocked;
+  onFollowCameraLockChangeRef.current = onFollowCameraLockChange;
   activeVehiclePopupRef.current = activeVehiclePopup;
 
   const vehiclePopupPoint = (vehicle: Vehicle) => {
@@ -1457,7 +1463,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       const followedPosition = followedVehicle && rawFollowedPosition
         ? snapVehicleToRoute(followedVehicle, rawFollowedPosition, highlightedRoutesRef.current)?.point ?? rawFollowedPosition
         : rawFollowedPosition;
-      if (followedPosition && time - lastFollowCameraAtRef.current > 250) {
+      if (followCameraLockedRef.current && followedPosition && time - lastFollowCameraAtRef.current > 250) {
         const target = new maplibregl.LngLat(followedPosition.lon, followedPosition.lat);
         map.jumpTo({ center: target });
         lastFollowCameraAtRef.current = time;
@@ -1509,7 +1515,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   }, [mapReady, onStopPopupOpenChange, selectedStop, selectedStopRequest]);
 
   useEffect(() => {
-    if (!mapReady || !mapRef.current || !followedVehicleId) return;
+    if (!mapReady || !mapRef.current || !followedVehicleId || !followCameraLocked) return;
     if (followedVehicleStartedRef.current === followedVehicleId) return;
     const vehicle = vehicles.find((item) => item.vehicleId === followedVehicleId);
     const position = currentPositionsRef.current.get(followedVehicleId) ?? vehicle;
@@ -1520,15 +1526,37 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       center: [position.lon, position.lat],
       zoom: Math.max(mapRef.current.getZoom(), 16.2),
     });
-  }, [followedVehicleId, mapReady, vehicles]);
+  }, [followCameraLocked, followedVehicleId, mapReady, vehicles]);
 
   useEffect(() => {
-    if (followedVehicleId) {
+    if (followedVehicleId && followCameraLocked) {
       suppressVehicleClicksUntilRef.current = performance.now() + 900;
     } else {
       followedVehicleStartedRef.current = undefined;
     }
-  }, [followedVehicleId]);
+  }, [followCameraLocked, followedVehicleId]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const map = mapRef.current;
+    const releaseFollow = () => {
+      if (!followedVehicleIdRef.current || !followCameraLockedRef.current) return;
+      onFollowCameraLockChangeRef.current?.(false);
+    };
+    const releaseFollowOnUserZoom = (event: { originalEvent?: unknown }) => {
+      if (event.originalEvent) releaseFollow();
+    };
+    map.on('dragstart', releaseFollow);
+    map.on('rotatestart', releaseFollowOnUserZoom);
+    map.on('pitchstart', releaseFollowOnUserZoom);
+    map.on('zoomstart', releaseFollowOnUserZoom);
+    return () => {
+      map.off('dragstart', releaseFollow);
+      map.off('rotatestart', releaseFollowOnUserZoom);
+      map.off('pitchstart', releaseFollowOnUserZoom);
+      map.off('zoomstart', releaseFollowOnUserZoom);
+    };
+  }, [mapReady]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
@@ -1693,6 +1721,18 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         </aside>
       )}
       <div className="map-floating-controls">
+        <IconButton label="Zoom avanti" onClick={() => {
+          onFollowCameraLockChangeRef.current?.(false);
+          mapRef.current?.zoomIn({ duration: 220 });
+        }}>
+          <ZoomIn size={20} />
+        </IconButton>
+        <IconButton label="Zoom indietro" onClick={() => {
+          onFollowCameraLockChangeRef.current?.(false);
+          mapRef.current?.zoomOut({ duration: 220 });
+        }}>
+          <ZoomOut size={20} />
+        </IconButton>
         <IconButton label={locatingUser ? 'Ricerca posizione precisa in corso' : userLocationAccuracy ? `Centra posizione · precisione ${Math.round(userLocationAccuracy)} m` : 'Centra posizione'} active={hasUserLocation || locatingUser} onClick={() => void centerOnUser()}>
           <LocateFixed size={20} className={locatingUser ? 'is-locating' : undefined} />
         </IconButton>
