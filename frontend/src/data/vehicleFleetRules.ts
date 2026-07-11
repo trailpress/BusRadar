@@ -49,7 +49,9 @@ export function vehicleFleetKey(vehicleId: string | null, vehicleType: Vehicle['
   if (isVehicleNumberInRange(vehicleId, 50, 57)) return 'byd-k7-electric-9m';
   if (isVehicleNumberInRange(vehicleId, 60, 81)) return 'indcar-eb6-electric-6m';
   if (isVehicleNumberInRange(vehicleId, 110, 115)) return 'bmc-neocity-9m';
-  if (isBydElectric12m(vehicleId)) return 'byd-k9-electric-12m';
+  if (isVehicleNumberInRange(vehicleId, 30, 49)) return 'byd-k9ub-2017-12m';
+  if (isVehicleNumberInRange(vehicleId, 9000, 9059)) return 'byd-k9-electric-12m';
+  if (isVehicleNumberInRange(vehicleId, 9060, 9121)) return 'byd-k9ud-2023-12m';
   if (isMethane12m(vehicleId)) return 'iia-citymood-cng-12m';
   if (isVehicleNumberInRange(vehicleId, 3000, 3380)) return 'iveco-citelis-12m';
   if (isVehicleNumberInRange(vehicleId, 3400, 3440)) return 'mercedes-conecto-12m-diesel';
@@ -59,12 +61,14 @@ export function vehicleFleetKey(vehicleId: string | null, vehicleType: Vehicle['
   if (isVehicleNumberInRange(vehicleId, 1310, 1313)) return 'irisbus-citelis-18m';
   if (isVehicleNumberInRange(vehicleId, 1350, 1396)) return 'mercedes-conecto-18m';
   if (isVehicleNumberInRange(vehicleId, 1400, 1404)) return 'man-lions-city-19c-cng';
-  if (isVehicleNumberInRange(vehicleId, 9600, 9727)) return 'iveco-eway-electric-18m';
+  if (isVehicleNumberInRange(vehicleId, 9600, 9661)) return 'iveco-eway-electric-18m';
+  if (isVehicleNumberInRange(vehicleId, 9700, 9727)) return 'iveco-eway-electric-18m-brt';
   if (isVehicleNumberInRange(vehicleId, 9300, 9356)) return 'iveco-urbanway-cng-18m';
   if (isVehicleNumberInRange(vehicleId, 790, 797) || isVehicleNumberInRange(vehicleId, 800, 874)) return 'irisbus-citelis-18m';
   if (isVehicleNumberInRange(vehicleId, 230, 241)) return 'irisbus-crossway-11m';
   if (isVehicleNumberInRange(vehicleId, 320, 365)) return 'irisbus-crossway-12m';
-  if (isVehicleNumberInRange(vehicleId, 366, 406) || isVehicleNumberInRange(vehicleId, 601, 650)) return 'iveco-crossway-line-12m';
+  if (isVehicleNumberInRange(vehicleId, 366, 406)) return 'iveco-crossway-line-12m';
+  if (isVehicleNumberInRange(vehicleId, 601, 650)) return 'iveco-crossway-line-2022-12m';
   if (isVehicleNumberInRange(vehicleId, 651, 692)) return 'iveco-crossway-line-cng-12m';
   if (isVehicleNumberInRange(vehicleId, 500, 502)) return 'irisbus-arway-15m';
   if (isVehicleNumberInRange(vehicleId, 19, 20)) return 'iveco-mago-granturismo-9m';
@@ -106,9 +110,12 @@ export function vehicleFleetLabel(
     return 'Tram';
   }
   if (isVehicleNumberInRange(vehicleId, 9300, 9356)) return 'Iveco Urbanway 18m CNG';
-  if (isVehicleNumberInRange(vehicleId, 9600, 9727)) return 'Iveco E-Way 18m elettrico';
+  if (isVehicleNumberInRange(vehicleId, 9600, 9661)) return 'Iveco E-Way 18m elettrico';
+  if (isVehicleNumberInRange(vehicleId, 9700, 9727)) return 'Iveco E-Way 18m elettrico BRT';
   if (isVehicleNumberInRange(vehicleId, 9400, 9535)) return 'Iveco E-Way 12m elettrico';
-  if (isBydElectric12m(vehicleId)) return 'BYD elettrico 12m';
+  if (isVehicleNumberInRange(vehicleId, 30, 49)) return 'BYD K9UB elettrico 12m (2017)';
+  if (isVehicleNumberInRange(vehicleId, 9000, 9059)) return 'BYD K9UB-DW elettrico 12m';
+  if (isVehicleNumberInRange(vehicleId, 9060, 9121)) return 'BYD K9UD elettrico 12m';
   if (isVehicleNumberInRange(vehicleId, 50, 57)) return 'BYD K7 elettrico 9m';
   if (isVehicleNumberInRange(vehicleId, 60, 81)) return 'INDCAR e-B6 elettrico 6m';
   if (isVehicleNumberInRange(vehicleId, 110, 115)) return 'BMC Neocity 9m';
@@ -123,7 +130,8 @@ export function vehicleFleetLabel(
   if (isVehicleNumberInRange(vehicleId, 1150, 1168)) return 'Iveco Crossway suburbano';
   if (isVehicleNumberInRange(vehicleId, 230, 241)) return 'Irisbus Crossway 10,6m';
   if (isVehicleNumberInRange(vehicleId, 320, 365)) return 'Irisbus Crossway 12m';
-  if (isVehicleNumberInRange(vehicleId, 366, 406) || isVehicleNumberInRange(vehicleId, 601, 650)) return 'Iveco Crossway Line 12m';
+  if (isVehicleNumberInRange(vehicleId, 366, 406)) return 'Iveco Crossway LE 12m (2019)';
+  if (isVehicleNumberInRange(vehicleId, 601, 650)) return 'Iveco Crossway 12m (2022)';
   if (isVehicleNumberInRange(vehicleId, 651, 692)) return 'Iveco Crossway Line CNG 12m';
   if (isVehicleNumberInRange(vehicleId, 500, 502)) return 'Irisbus Arway 15m';
   if (isVehicleNumberInRange(vehicleId, 19, 20)) return 'Iveco Mago 2 granturismo';

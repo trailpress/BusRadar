@@ -26,7 +26,7 @@ export type VehicleHeadwayInfo = {
   ahead?: VehicleHeadwayPeer;
   behind?: VehicleHeadwayPeer;
   peerCount: number;
-  basis: 'eta' | 'position' | 'unavailable';
+  basis: 'realtime' | 'position' | 'unavailable';
 };
 
 function vehicleDetailImage(vehicle: Vehicle) {
@@ -323,10 +323,10 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
         <div>
           <span>Intervallo turno</span>
           <em>
-            {headway?.basis === 'eta'
-              ? 'stima da ETA'
+            {headway?.basis === 'realtime'
+              ? 'orari GTT live'
               : headway?.basis === 'position'
-                ? 'stima da posizione'
+                ? 'stima stabile da posizione'
                 : 'non disponibile'}
           </em>
         </div>

@@ -55,6 +55,19 @@ button {
   overflow: hidden;
 }
 
+.screen-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #05070a;
+  color: #f8fafc;
+  font-size: 15px;
+  font-weight: 700;
+}
+
 .app-shell::before {
   content: "9:41";
   position: absolute;

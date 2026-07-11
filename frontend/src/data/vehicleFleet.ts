@@ -16,7 +16,7 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'tram-serie-5000': {
     label: 'Tram serie 5000',
-    detailAsset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v3.png',
     referenceNotes: 'Scheda ufficiale M4: TPR a 2 casse e 3 carrelli, 22.200 mm, 4 porte.',
   },
   'tram-serie-6000': {
@@ -26,22 +26,32 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'tram-serie-8000': {
     label: 'Tram serie 8000 Hitachi',
-    detailAsset: 'assets/vehicles/detail/generated/tram-serie-8000-hitachi-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/tram-serie-8000-hitachi-gtt-render-v2.png',
     referenceNotes: 'Scheda ufficiale M7: TPIR monodirezionale a 5 casse e 3 carrelli, 28.000 mm.',
   },
   'byd-k7-electric-9m': {
     label: 'BYD K7 elettrico 8,8m',
-    detailAsset: 'assets/vehicles/detail/generated/byd-k7-electric-9m-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/byd-k7-electric-9m-gtt-render-v2.png',
     referenceNotes: 'Scheda ufficiale UC01: serie 50E-57E, lunghezza 8.750 mm, 2 porte, 165 kWh.',
   },
+  'byd-k9ub-2017-12m': {
+    label: 'BYD K9UB elettrico 12m (2017)',
+    detailAsset: 'assets/vehicles/detail/generated/byd-k9ub-2017-gtt-render.png',
+    referenceNotes: 'Scheda ufficiale UL03: serie 30E-49E, 12.050 mm, livrea artistica bianca-verde-arancio.',
+  },
   'byd-k9-electric-12m': {
-    label: 'BYD K9 elettrico 12m',
-    detailAsset: 'assets/vehicles/detail/generated/byd-k9-electric-12m-gtt-render-v3.png',
-    referenceNotes: 'Schede ufficiali UL03/UL06/UL07/UL08: serie 30E-49E e 9000-9121, 12.050-12.200 mm.',
+    label: 'BYD K9UB-DW elettrico 12m',
+    detailAsset: 'assets/vehicles/detail/generated/byd-k9ub-2021-gtt-render.png',
+    referenceNotes: 'Scheda ufficiale UL06: serie 9000-9059, 12.200 mm, livrea elettrica blu-giallo.',
+  },
+  'byd-k9ud-2023-12m': {
+    label: 'BYD K9UD elettrico 12m',
+    detailAsset: 'assets/vehicles/detail/generated/byd-k9ud-2023-gtt-render.png',
+    referenceNotes: 'Schede ufficiali UL07-UL08: serie 9060-9121, 12.200 mm, livrea elettrica blu-giallo.',
   },
   'indcar-eb6-electric-6m': {
     label: 'INDCAR e-B6 elettrico 5,9m',
-    detailAsset: 'assets/vehicles/detail/generated/indcar-eb6-electric-6m-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/indcar-eb6-electric-6m-gtt-render-v3.png',
     referenceNotes: 'Scheda ufficiale UC03: serie 60E-81E, lunghezza 5.940 mm, 1 porta, 126 kWh.',
   },
   'bmc-neocity-9m': {
@@ -66,8 +76,13 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'iveco-eway-electric-18m': {
     label: 'Iveco E-Way elettrico 18m',
-    detailAsset: 'assets/vehicles/detail/generated/iveco-eway-electric-18m-gtt-render.png',
-    referenceNotes: 'Schede ufficiali USN08-USN09: serie 9600-9727, lunghezza 17.960-18.212 mm.',
+    detailAsset: 'assets/vehicles/detail/generated/iveco-eway-electric-18m-standard-gtt-render-v2.png',
+    referenceNotes: 'Scheda ufficiale USN08: serie 9600-9661, lunghezza 17.960 mm.',
+  },
+  'iveco-eway-electric-18m-brt': {
+    label: 'Iveco E-Way elettrico 18m BRT',
+    detailAsset: 'assets/vehicles/detail/generated/iveco-eway-electric-18m-brt-gtt-render.png',
+    referenceNotes: 'Scheda ufficiale USN09: serie 9700-9727, lunghezza 18.212 mm, allestimento BRT.',
   },
   'iveco-urbanway-cng-18m': {
     label: 'Iveco Urbanway CNG 18m',
@@ -106,37 +121,42 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'iveco-crossway-suburban': {
     label: 'Iveco Crossway LE suburbano',
-    detailAsset: 'assets/vehicles/detail/generated/iveco-crossway-blue-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/iveco-crossway-suburban-gtt-render.png',
     referenceNotes: 'Scheda ufficiale SL01: serie 1150-1168, lunghezza 11.995 mm.',
   },
   'irisbus-crossway-11m': {
     label: 'Iveco Crossway 10,6m',
-    detailAsset: 'assets/vehicles/detail/generated/iveco-crossway-blue-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/irisbus-crossway-11m-gtt-render.png',
     referenceNotes: 'Scheda ufficiale IM01: serie 230-241, lunghezza 10.655 mm.',
   },
   'irisbus-crossway-12m': {
     label: 'Iveco Crossway 12m',
-    detailAsset: 'assets/vehicles/detail/generated/iveco-crossway-blue-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/irisbus-crossway-12m-gtt-render.png',
     referenceNotes: 'Scheda ufficiale IL01: serie 320-365, lunghezza 11.995 mm.',
   },
   'iveco-crossway-line-12m': {
-    label: 'Iveco Crossway 12m / LE',
-    detailAsset: 'assets/vehicles/detail/generated/iveco-crossway-blue-gtt-render.png',
-    referenceNotes: 'Schede ufficiali IL02-IL03: serie 366-406 e 601S-650S, lunghezza 12.050-12.097 mm.',
+    label: 'Iveco Crossway LE 12m (2019)',
+    detailAsset: 'assets/vehicles/detail/generated/iveco-crossway-le-2019-gtt-render.png',
+    referenceNotes: 'Scheda ufficiale IL02: serie 366-406, lunghezza 12.050 mm.',
+  },
+  'iveco-crossway-line-2022-12m': {
+    label: 'Iveco Crossway 12m (2022)',
+    detailAsset: 'assets/vehicles/detail/generated/iveco-crossway-line-2022-gtt-render.png',
+    referenceNotes: 'Scheda ufficiale IL03: serie 601S-650S, lunghezza 12.097 mm.',
   },
   'iveco-crossway-line-cng-12m': {
     label: 'Iveco Crossway 12m CNG',
-    detailAsset: 'assets/vehicles/detail/generated/iveco-crossway-blue-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/iveco-crossway-line-cng-12m-gtt-render-v2.png',
     referenceNotes: 'Scheda ufficiale IL04: serie 651S-692S, lunghezza 12.097 mm, CNG.',
   },
   'irisbus-arway-15m': {
     label: 'Irisbus Arway 15m',
-    detailAsset: 'assets/vehicles/detail/generated/iveco-crossway-blue-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/irisbus-arway-15m-gtt-render-v2.png',
     referenceNotes: 'Scheda ufficiale IL05: serie 500-502, lunghezza 14.995 mm.',
   },
   'iveco-mago-granturismo-9m': {
     label: 'Iveco Mago 2 granturismo',
-    detailAsset: 'assets/vehicles/detail/generated/iveco-mago-granturismo-9m-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/iveco-mago-granturismo-9m-gtt-render-v3.png',
     referenceNotes: 'Schede ufficiali GC01-GC02: serie 19/20, lunghezza 8.850 mm.',
   },
   'generic-bus': {

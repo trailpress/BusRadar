@@ -121,6 +121,78 @@ let rawVehiclesCache: { at: number; vehicles: GttVehiclePosition[] } | undefined
 let stopTimeIndexCache: Promise<StopTimeIndex | undefined> | undefined;
 const previousSamples = new Map<string, { lat: number; lon: number; timestampMs: number; speed: number }>();
 const previousRouteVariants = new Map<string, string>();
+const previousRoutePositions = new Map<string, { routeVariantId: string; meters: number; timestampMs: number }>();
+
+function scheduledPredictionTimeMs(seconds: number, delaySeconds: number, now: number) {
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const candidates = [-1, 0, 1].map((dayOffset) => (
+    startOfToday.getTime() + dayOffset * 86_400_000 + (seconds + delaySeconds) * 1000
+  ));
+  return candidates
+    .filter((time) => time >= now - 60_000 && time <= now + 3 * 60 * 60_000)
+    .sort((a, b) => a - b)[0];
+}
+
+function realtimeStopPredictions(update?: GttTripUpdate, stopTimeIndex?: StopTimeIndex): Vehicle['stopPredictions'] {
+  if (!update) return undefined;
+  const now = Date.now();
+  const staticTrip = update.tripId ? stopTimeIndex?.trips[update.tripId] : undefined;
+  const predictions = update.stopTimeUpdates
+    .map((stop) => {
+      const seconds = Number(stop.arrivalTime ?? stop.departureTime ?? 0);
+      const staticStop = stop.stopSequence == null
+        ? undefined
+        : staticTrip?.stops.find(([sequence]) => sequence === stop.stopSequence);
+      const stopId = stop.stopId || staticStop?.[1] || (stop.stopSequence != null ? `sequence:${stop.stopSequence}` : undefined);
+      const scheduledSeconds = staticStop
+        ? (staticStop[3] != null && staticStop[3] >= 0 ? staticStop[3] : staticStop[2])
+        : undefined;
+      const delaySeconds = stop.arrivalDelay ?? stop.departureDelay ?? 0;
+      const arrivalTimeMs = Number.isFinite(seconds) && seconds > 0
+        ? seconds * 1000
+        : scheduledSeconds != null && scheduledSeconds >= 0
+          ? scheduledPredictionTimeMs(scheduledSeconds, delaySeconds, now)
+          : undefined;
+      if (!stopId || arrivalTimeMs == null) return undefined;
+      return {
+        stopId,
+        stopSequence: stop.stopSequence ?? undefined,
+        arrivalTimeMs,
+      };
+    })
+    .filter((prediction): prediction is NonNullable<typeof prediction> => Boolean(prediction))
+    .filter((prediction) => prediction.arrivalTimeMs >= now - 60_000 && prediction.arrivalTimeMs <= now + 3 * 60 * 60_000)
+    .sort((a, b) => a.arrivalTimeMs - b.arrivalTimeMs);
+  return predictions.length > 0 ? predictions : undefined;
+}
+
+function stableRoutePositionMeters(
+  vehicleId: string,
+  routeVariantId: string | undefined,
+  meters: number | undefined,
+  timestampMsValue: number,
+) {
+  if (!routeVariantId || meters == null || !Number.isFinite(meters)) return meters;
+  const previous = previousRoutePositions.get(vehicleId);
+  if (!previous || previous.routeVariantId !== routeVariantId || timestampMsValue - previous.timestampMs > 180_000) {
+    previousRoutePositions.set(vehicleId, { routeVariantId, meters, timestampMs: timestampMsValue });
+    return meters;
+  }
+
+  const jumpMeters = Math.abs(meters - previous.meters);
+  if (jumpMeters > 1_200) {
+    previousRoutePositions.set(vehicleId, { routeVariantId, meters, timestampMs: timestampMsValue });
+    return meters;
+  }
+
+  const withoutBackwardGpsJitter = meters < previous.meters && previous.meters - meters < 180
+    ? previous.meters
+    : meters;
+  const smoothedMeters = previous.meters * 0.55 + withoutBackwardGpsJitter * 0.45;
+  previousRoutePositions.set(vehicleId, { routeVariantId, meters: smoothedMeters, timestampMs: timestampMsValue });
+  return smoothedMeters;
+}
 
 async function fetchRawVehicles() {
   if (rawVehiclesCache && Date.now() - rawVehiclesCache.at < 6000) return rawVehiclesCache.vehicles;
@@ -489,9 +561,9 @@ function isValidGttCoverageCoordinate(vehicle: GttVehiclePosition) {
   );
 }
 
-function toVehicleSafely(vehicle: GttVehiclePosition, index: number) {
+function toVehicleSafely(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttTripUpdate, stopTimeIndex?: StopTimeIndex) {
   try {
-    return toVehicle(vehicle, index);
+    return toVehicle(vehicle, index, tripUpdate, stopTimeIndex);
   } catch (error) {
     console.warn('[BusRadar] Veicolo GTFS-RT ignorato durante la trasformazione', {
       vehicleId: vehicle.vehicleId,
@@ -503,7 +575,7 @@ function toVehicleSafely(vehicle: GttVehiclePosition, index: number) {
   }
 }
 
-function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
+function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttTripUpdate, stopTimeIndex?: StopTimeIndex): Vehicle {
   const routeId = vehicle.routeId || 'GTT';
   const line = normalizeRouteName(routeId);
   const gtfsLine = getGtfsLine(line);
@@ -540,13 +612,23 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     ? compensateFeedLatency(estimate.routeVariantId, displayPoint, speed, ageSeconds)
     : undefined;
   const finalPoint = latencyCompensation?.point ?? displayPoint;
-  const finalProgress = (() => {
-    if (!isSnappedToRoute || !estimate.routeVariantId) return estimate.progress ?? 0;
+  const finalRouteProgress = (() => {
+    if (!isSnappedToRoute || !estimate.routeVariantId) return undefined;
     const routeVariant = getGtfsRouteVariant(estimate.routeVariantId);
-    const routeProgress = routeVariant ? routeProgressAtPoint(routeVariant.path, finalPoint) : undefined;
-    const totalMeters = routeProgress ? routeProgress.traveledMeters + routeProgress.remainingMeters : 0;
-    return routeProgress && totalMeters > 0 ? routeProgress.traveledMeters / totalMeters : estimate.progress ?? 0;
+    return routeVariant ? routeProgressAtPoint(routeVariant.path, finalPoint) : undefined;
   })();
+  const routeLengthMeters = finalRouteProgress
+    ? finalRouteProgress.traveledMeters + finalRouteProgress.remainingMeters
+    : undefined;
+  const finalProgress = finalRouteProgress && routeLengthMeters && routeLengthMeters > 0
+    ? finalRouteProgress.traveledMeters / routeLengthMeters
+    : estimate.progress ?? 0;
+  const stablePositionMeters = stableRoutePositionMeters(
+    vehicleId,
+    estimate.routeVariantId,
+    finalRouteProgress?.traveledMeters,
+    sampleTimestampMs,
+  );
   const routeMatchStatus: Vehicle['routeMatchStatus'] = estimate.offRouteMeters == null
     ? 'unmatched'
     : isSnappedToRoute
@@ -580,6 +662,9 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     routeVariantId: estimate.routeVariantId,
     shapeId: estimate.shapeId,
     offRouteMeters: estimate.offRouteMeters,
+    routePositionMeters: stablePositionMeters,
+    routeLengthMeters,
+    stopPredictions: realtimeStopPredictions(tripUpdate, stopTimeIndex),
     lat: finalPoint.lat,
     lon: finalPoint.lon,
     bearing: isSnappedToRoute
@@ -601,18 +686,24 @@ function toVehicle(vehicle: GttVehiclePosition, index: number): Vehicle {
     terminalName: estimate.terminalName,
     etaTerminalMinutes: estimate.etaTerminalMinutes,
     etaTerminalTimeLabel: estimate.etaTerminalTimeLabel,
-    remainingKm: estimate.remainingKm,
+    remainingKm: finalRouteProgress
+      ? Math.round((finalRouteProgress.remainingMeters / 1000) * 10) / 10
+      : estimate.remainingKm,
   };
 }
 
 export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | undefined> {
   let response: Response;
   try {
-    const [vehicleResponse] = await Promise.all([
+    const [vehicleResponse, , tripUpdates, stopTimeIndex] = await Promise.all([
       fetch(`${GTT_REALTIME_API_BASE}/vehicles`),
       loadGtfsNetwork().catch(() => undefined),
+      fetchTripUpdates().catch(() => []),
+      fetchStopTimeIndex(),
     ]);
     response = vehicleResponse;
+    tripUpdatesCache = { at: Date.now(), updates: tripUpdates };
+    stopTimeIndexCache = Promise.resolve(stopTimeIndex);
   } catch {
     return undefined;
   }
@@ -627,8 +718,19 @@ export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | 
   const sourceVehicles = inCoverageVehicles.length > 0
     ? inCoverageVehicles
     : identifiableVehicles.filter(hasNumericCoordinate);
+  const updates = tripUpdatesCache?.updates ?? [];
+  const stopTimeIndex = await fetchStopTimeIndex();
+  const updateByTrip = new Map(updates.filter((update) => update.tripId).map((update) => [update.tripId!, update]));
+  const updateByVehicle = new Map(updates.flatMap((update) => {
+    const ids = [update.vehicleId, update.vehicleLabel].map((id) => normalizeVehicleId(id ?? null)).filter(Boolean);
+    return ids.map((id) => [id, update] as const);
+  }));
   const vehicles = sourceVehicles
-    .map(toVehicleSafely)
+    .map((vehicle, index) => {
+      const vehicleId = normalizeVehicleId(vehicle.vehicleId) || normalizeVehicleId(vehicle.vehicleLabel ?? null);
+      const update = (vehicle.tripId ? updateByTrip.get(vehicle.tripId) : undefined) ?? updateByVehicle.get(vehicleId);
+      return toVehicleSafely(vehicle, index, update, stopTimeIndex);
+    })
     .filter((vehicle): vehicle is Vehicle => Boolean(vehicle));
   if (vehicles.length === 0) {
     try {

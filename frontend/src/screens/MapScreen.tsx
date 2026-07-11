@@ -60,18 +60,46 @@ function sameVehicleRunGroup(a: Vehicle, b: Vehicle) {
 }
 
 function routeOrderValue(vehicle: Vehicle) {
+  if (vehicle.routePositionMeters != null && Number.isFinite(vehicle.routePositionMeters)) return vehicle.routePositionMeters;
   if (Number.isFinite(vehicle.progress)) return vehicle.progress;
   if (vehicle.remainingKm != null && Number.isFinite(vehicle.remainingKm)) return -vehicle.remainingKm;
   return undefined;
 }
 
-function estimatedGap(current: Vehicle, peer: Vehicle, relation: 'ahead' | 'behind') {
-  if (current.remainingKm != null && peer.remainingKm != null) {
-    const distanceKm = Math.abs(current.remainingKm - peer.remainingKm);
-    const movingSpeeds = [current.speed, peer.speed].filter((speed) => speed >= 5 && speed <= 65);
-    const speedKmh = movingSpeeds.length
-      ? movingSpeeds.reduce((sum, speed) => sum + speed, 0) / movingSpeeds.length
-      : 18;
+function commonStopGapMinutes(current: Vehicle, peer: Vehicle) {
+  if (!current.stopPredictions?.length || !peer.stopPredictions?.length) return undefined;
+  const peerPredictions = new Map(peer.stopPredictions.map((prediction) => [
+    `${prediction.stopId}:${prediction.stopSequence ?? ''}`,
+    prediction.arrivalTimeMs,
+  ]));
+  const matches = current.stopPredictions
+    .map((prediction) => {
+      const peerTime = peerPredictions.get(`${prediction.stopId}:${prediction.stopSequence ?? ''}`);
+      return peerTime == null
+        ? undefined
+        : { time: Math.max(prediction.arrivalTimeMs, peerTime), gapMs: Math.abs(prediction.arrivalTimeMs - peerTime) };
+    })
+    .filter((match): match is NonNullable<typeof match> => Boolean(match))
+    .sort((a, b) => a.time - b.time);
+  const match = matches[0];
+  return match ? Math.max(0, Math.round(match.gapMs / 60_000)) : undefined;
+}
+
+function referenceSpeedKmh(vehicle: Vehicle) {
+  if (vehicle.vehicleType === 'tram') return 16;
+  if (vehicle.vehicleLivery === 'interurban-blue') return 28;
+  return 18;
+}
+
+function estimatedGap(current: Vehicle, peer: Vehicle) {
+  const realtimeMinutes = commonStopGapMinutes(current, peer);
+  if (realtimeMinutes != null) {
+    return { minutes: realtimeMinutes, basis: 'realtime' as const };
+  }
+
+  if (current.routePositionMeters != null && peer.routePositionMeters != null) {
+    const distanceKm = Math.abs(current.routePositionMeters - peer.routePositionMeters) / 1000;
+    const speedKmh = (referenceSpeedKmh(current) + referenceSpeedKmh(peer)) / 2;
     return {
       minutes: Math.max(1, Math.round((distanceKm / speedKmh) * 60)),
       distanceKm: Math.round(distanceKm * 10) / 10,
@@ -79,13 +107,14 @@ function estimatedGap(current: Vehicle, peer: Vehicle, relation: 'ahead' | 'behi
     };
   }
 
-  if (current.etaTerminalMinutes != null && peer.etaTerminalMinutes != null) {
-    const etaGap = relation === 'ahead'
-      ? current.etaTerminalMinutes - peer.etaTerminalMinutes
-      : peer.etaTerminalMinutes - current.etaTerminalMinutes;
-    if (Number.isFinite(etaGap)) {
-      return { minutes: Math.max(0, Math.round(Math.abs(etaGap))), basis: 'eta' as const };
-    }
+  if (current.remainingKm != null && peer.remainingKm != null) {
+    const distanceKm = Math.abs(current.remainingKm - peer.remainingKm);
+    const speedKmh = (referenceSpeedKmh(current) + referenceSpeedKmh(peer)) / 2;
+    return {
+      minutes: Math.max(1, Math.round((distanceKm / speedKmh) * 60)),
+      distanceKm: Math.round(distanceKm * 10) / 10,
+      basis: 'position' as const,
+    };
   }
 
   return { basis: 'unavailable' as const };
@@ -130,10 +159,10 @@ function buildVehicleHeadway(vehicle: Vehicle, vehicles: Vehicle[]): VehicleHead
   const behindCandidate = currentIndex > 0
     ? rankedVehicles[currentIndex - 1]
     : undefined;
-  const aheadGap = aheadCandidate ? estimatedGap(vehicle, aheadCandidate.vehicle, 'ahead') : undefined;
-  const behindGap = behindCandidate ? estimatedGap(vehicle, behindCandidate.vehicle, 'behind') : undefined;
-  const basis = aheadGap?.basis === 'eta' || behindGap?.basis === 'eta'
-    ? 'eta'
+  const aheadGap = aheadCandidate ? estimatedGap(vehicle, aheadCandidate.vehicle) : undefined;
+  const behindGap = behindCandidate ? estimatedGap(vehicle, behindCandidate.vehicle) : undefined;
+  const basis = aheadGap?.basis === 'realtime' || behindGap?.basis === 'realtime'
+    ? 'realtime'
     : aheadGap?.basis === 'position' || behindGap?.basis === 'position'
       ? 'position'
       : 'unavailable';

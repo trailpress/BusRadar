@@ -17,6 +17,10 @@ const RadarScreen = lazy(() => import('./screens/RadarScreen').then((module) => 
 const StopsScreen = lazy(() => import('./screens/StopsScreen').then((module) => ({ default: module.StopsScreen })));
 const VehiclesScreen = lazy(() => import('./screens/VehiclesScreen').then((module) => ({ default: module.VehiclesScreen })));
 
+function ScreenLoading() {
+  return <div className="screen-loading" role="status">Caricamento schermata...</div>;
+}
+
 function isIosLikeDevice() {
   const ua = navigator.userAgent;
   return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -582,7 +586,7 @@ function App() {
   if (selectedLine) {
     return (
       <div className="app-shell">
-        <Suspense fallback={null}>
+        <Suspense fallback={<ScreenLoading />}>
           <LineDetailScreen line={selectedLine} vehicles={vehicles} userLocation={userLocation} onBack={() => setSelectedLine(undefined)} onSelectVehicle={openVehicle} onSelectStop={openStop} />
         </Suspense>
         {toast && <div className="toast">{toast}</div>}
@@ -593,7 +597,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Suspense fallback={null}>
+      <Suspense fallback={<ScreenLoading />}>
         {activeTab === 'map' && (
           <MapScreen
             vehicles={searchedVehicles}

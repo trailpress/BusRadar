@@ -9,13 +9,16 @@ export type VehicleFleetKey =
   | 'tram-serie-6000'
   | 'tram-serie-8000'
   | 'byd-k7-electric-9m'
+  | 'byd-k9ub-2017-12m'
   | 'byd-k9-electric-12m'
+  | 'byd-k9ud-2023-12m'
   | 'indcar-eb6-electric-6m'
   | 'bmc-neocity-9m'
   | 'iia-citymood-cng-12m'
   | 'iveco-citelis-12m'
   | 'iveco-eway-electric-12m'
   | 'iveco-eway-electric-18m'
+  | 'iveco-eway-electric-18m-brt'
   | 'iveco-urbanway-cng-18m'
   | 'irisbus-citelis-18m'
   | 'mercedes-conecto-12m'
@@ -27,6 +30,7 @@ export type VehicleFleetKey =
   | 'irisbus-crossway-11m'
   | 'irisbus-crossway-12m'
   | 'iveco-crossway-line-12m'
+  | 'iveco-crossway-line-2022-12m'
   | 'iveco-crossway-line-cng-12m'
   | 'irisbus-arway-15m'
   | 'iveco-mago-granturismo-9m'
@@ -52,6 +56,13 @@ export type TransitVehicle = {
   routeVariantId?: string;
   shapeId?: string;
   offRouteMeters?: number;
+  routePositionMeters?: number;
+  routeLengthMeters?: number;
+  stopPredictions?: Array<{
+    stopId: string;
+    stopSequence?: number;
+    arrivalTimeMs: number;
+  }>;
   lat: number;
   lon: number;
   bearing: number;
