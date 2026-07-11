@@ -819,42 +819,6 @@ button {
     0 16px 28px rgba(0, 0, 0, 0.26);
 }
 
-.vehicle-destination-display--front {
-  position: absolute;
-  z-index: 4;
-  top: 49px;
-  right: 38px;
-  grid-template-columns: minmax(18px, auto) minmax(0, 1fr);
-  gap: 4px;
-  width: min(27%, 146px);
-  min-height: 18px;
-  max-height: 27px;
-  margin: 0;
-  padding: 2px 5px 3px;
-  overflow: hidden;
-  border-color: rgba(255, 255, 255, 0.12);
-  border-radius: 3px;
-  background:
-    repeating-radial-gradient(circle at center, rgba(255, 255, 255, 0.16) 0 0.6px, transparent 0.75px 2.4px),
-    linear-gradient(180deg, rgba(3, 5, 7, 0.9), rgba(0, 0, 0, 0.94));
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
-    inset 0 5px 10px rgba(255, 255, 255, 0.04),
-    0 4px 9px rgba(0, 0, 0, 0.24);
-  opacity: 0.88;
-  pointer-events: none;
-  transform: perspective(420px) rotateX(-1deg);
-}
-
-.vehicle-destination-display--front-left {
-  left: 36px;
-  right: auto;
-}
-
-.vehicle-destination-display--front-right {
-  right: 38px;
-}
-
 .vehicle-destination-display::before {
   position: absolute;
   inset: 0;
@@ -864,10 +828,6 @@ button {
   pointer-events: none;
   opacity: 0.72;
   content: "";
-}
-
-.vehicle-destination-display--front::before {
-  opacity: 0.42;
 }
 
 .vehicle-destination-display strong,
@@ -891,19 +851,10 @@ button {
     0 0 16px rgba(255, 255, 255, 0.16);
 }
 
-.vehicle-destination-display--front strong {
-  font-size: clamp(9px, 2.25vw, 15px);
-  line-height: 1;
-}
-
 .vehicle-destination-display div {
   display: grid;
   min-width: 0;
   gap: 3px;
-}
-
-.vehicle-destination-display--front div {
-  gap: 1px;
 }
 
 .vehicle-destination-display span,
@@ -932,16 +883,6 @@ button {
   opacity: 0.82;
 }
 
-.vehicle-destination-display--front span {
-  font-size: clamp(5px, 1.45vw, 8px);
-  line-height: 0.96;
-}
-
-.vehicle-destination-display--front em {
-  font-size: clamp(4.5px, 1.25vw, 7px);
-  line-height: 0.96;
-}
-
 .vehicle-destination-display i {
   justify-self: center;
   width: 22px;
@@ -952,10 +893,6 @@ button {
     linear-gradient(180deg, rgba(248, 250, 252, 0.88) 0 20%, transparent 20% 78%, rgba(248, 250, 252, 0.88) 78% 100%);
   clip-path: polygon(8% 18%, 82% 18%, 94% 48%, 82% 82%, 8% 82%, 18% 50%);
   filter: drop-shadow(0 0 7px rgba(255, 255, 255, 0.2));
-}
-
-.vehicle-destination-display--front i {
-  display: none;
 }
 
 .bus-photo {
