@@ -1,0 +1,1 @@
+function t(e){return e.fleetNumber?`Vettura ${e.fleetNumber}`:`ID feed ${e.vehicleId}`}function r(e){return e.fleetNumber??`ID ${e.vehicleId}`}function i(e){return e.fleetNumber?"Matricola vettura":"Identificativo tecnico GTFS-RT"}export{i as a,r as b,t as v};

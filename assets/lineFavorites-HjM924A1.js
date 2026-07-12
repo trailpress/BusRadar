@@ -1,0 +1,1 @@
+const o="busradar:line-favorites";function i(){try{return JSON.parse(localStorage.getItem(o)??"{}")}catch{return{}}}function s(e,r=!1){return i()[e]??r}function a(e,r){const t=i();t[e]=r,localStorage.setItem(o,JSON.stringify(t))}export{s as i,a as s};

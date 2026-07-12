@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#05070A" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link rel="icon" type="image/png" href="/BusRadar/assets/icons/busradar-app-icon-36417d2.png" />
+    <link rel="apple-touch-icon" href="/BusRadar/assets/icons/apple-touch-icon-36417d2.png" />
+    <link rel="manifest" href="/BusRadar/manifest.webmanifest" />
+    <title>BusRadar v0.2.19</title>
+    <style>
+      #boot-status {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: grid;
+        place-content: center;
+        gap: 14px;
+        padding: 32px;
+        background: #05070a;
+        color: #fff;
+        font: 600 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        text-align: center;
+      }
+      #boot-status button {
+        min-height: 46px;
+        border: 0;
+        border-radius: 12px;
+        background: #2f7dff;
+        color: #fff;
+        font: inherit;
+      }
+    </style>
+    <script type="module" crossorigin src="/BusRadar/assets/index-ChUTXB91.js"></script>
+    <link rel="stylesheet" crossorigin href="/BusRadar/assets/index-Bq0_6Kgm.css">
+  </head>
+  <body>
+    <div id="boot-status">
+      <span>Caricamento BusRadar...</span>
+      <button type="button" hidden onclick="location.replace(location.pathname + '?reload=' + Date.now())">Ricarica applicazione</button>
+    </div>
+    <div id="root"></div>
+    <script>
+      window.setTimeout(function () {
+        var status = document.getElementById('boot-status');
+        if (!status) return;
+        status.querySelector('span').textContent = 'BusRadar non si è caricato correttamente.';
+        status.querySelector('button').hidden = false;
+      }, 8000);
+    </script>
+  </body>
+</html>
