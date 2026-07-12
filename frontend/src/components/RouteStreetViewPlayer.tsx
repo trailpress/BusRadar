@@ -94,7 +94,7 @@ const routePreviewProvider = (import.meta.env.VITE_ROUTE_PREVIEW_PROVIDER ?? 'au
 const panoramaSearchRadiusMeters = 70;
 const mapillarySearchRadiusMeters = 85;
 const mapillaryMaxHeadingDeltaDegrees = 70;
-const frameStepMeters = 85;
+const frameStepMeters = 35;
 const minSpeedKmh = 5;
 const maxSpeedKmh = 60;
 const freeMonthlyDynamicStreetViewEvents = 5000;
@@ -237,9 +237,17 @@ function hasGoogleProvider() {
   return routePreviewProvider !== 'mapillary' && Boolean(apiKey);
 }
 
+function prefersGoogleProvider() {
+  return hasGoogleProvider() && routePreviewProvider !== 'mapillary';
+}
+
+function prefersMapillaryProvider() {
+  return hasMapillaryProvider() && !prefersGoogleProvider();
+}
+
 function routePreviewProviderLabel() {
-  if (hasMapillaryProvider()) return 'Mapillary';
   if (hasGoogleProvider()) return 'Google';
+  if (hasMapillaryProvider()) return 'Mapillary';
   return 'Nessuna sorgente';
 }
 
@@ -402,7 +410,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
     if (!containerRef.current || !route || frames.length === 0) return undefined;
     let cancelled = false;
 
-    if (hasMapillaryProvider()) {
+    if (hasMapillaryProvider() || hasGoogleProvider()) {
       setReadyState('ready');
       return () => {
         cancelled = true;
@@ -509,6 +517,12 @@ export function RouteStreetViewPlayer({ route }: Props) {
     setCoverageState('searching');
 
     (async () => {
+      if (prefersGoogleProvider()) {
+        const googleCovered = await showGoogleFrame();
+        if (cancelled || requestId !== requestIdRef.current) return;
+        if (googleCovered) return;
+      }
+
       if (hasMapillaryProvider()) {
         const image = await findMapillaryImage(route.id, currentFrame);
         if (cancelled || requestId !== requestIdRef.current) return;
@@ -521,9 +535,14 @@ export function RouteStreetViewPlayer({ route }: Props) {
         }
       }
 
-      const googleCovered = await showGoogleFrame();
+      if (!prefersGoogleProvider()) {
+        const googleCovered = await showGoogleFrame();
+        if (cancelled || requestId !== requestIdRef.current) return;
+        if (googleCovered) return;
+      }
+
       if (cancelled || requestId !== requestIdRef.current) return;
-      if (!googleCovered) {
+      {
         setMapillaryImage(undefined);
         setOffRouteMeters(undefined);
         setActiveSource('none');
@@ -608,10 +627,10 @@ export function RouteStreetViewPlayer({ route }: Props) {
       {hasMapillaryProvider() && (
         <div className="street-view-cost-guard is-free-source">
           <div>
-            <strong>Mapillary attivo</strong>
-            <span>Nessun consumo Google</span>
+            <strong>{prefersMapillaryProvider() ? 'Mapillary attivo' : 'Mapillary fallback'}</strong>
+            <span>{prefersMapillaryProvider() ? 'Nessun consumo Google' : 'solo se Google manca'}</span>
           </div>
-          <small>Il player prova prima Mapillary. Se una tratta non ha immagini e Google e configurato, Google viene usato solo come fallback controllato.</small>
+          <small>{prefersMapillaryProvider() ? 'Mapillary resta gratuito, ma non offre la stessa continuita di Street View. Per uso autista serve Google come sorgente principale.' : 'Google e la sorgente principale. Mapillary viene usato solo quando Street View non ha copertura o non e configurato.'}</small>
         </div>
       )}
 
