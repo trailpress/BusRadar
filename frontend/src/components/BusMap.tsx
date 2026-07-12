@@ -144,6 +144,24 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
   return [...byRoute.values()];
 }
 
+function vehicleMatchesLine(vehicle: Vehicle, line: string) {
+  if (vehicle.line === line || vehicle.routeShortName === line) return true;
+  const exactVariant = getGtfsRouteVariant(vehicle.routeVariantId);
+  if (exactVariant?.line === line) return true;
+  const routeId = vehicle.routeId.replace(/^gtt-/, '');
+  return getGtfsRoutesForRouteId(routeId).some((route) => route.line === line);
+}
+
+function vehicleMatchesSelectedRoutes(vehicle: Vehicle, routes: GtfsRouteVariant[], selectedRouteKey?: string) {
+  if (!selectedRouteKey) return true;
+  const exactVariant = getGtfsRouteVariant(vehicle.routeVariantId);
+  if (exactVariant) return getGtfsRouteDirectionKey(exactVariant) === selectedRouteKey;
+  return routes.some((route) => {
+    const match = routeProgressAtPoint(route.path, vehicle);
+    return Boolean(match && match.distanceMeters <= 120);
+  });
+}
+
 function overviewRouteVariants() {
   const byRoute = new Map<string, GtfsRouteVariant>();
   priorityScheduledLines.forEach((lineId) => {
@@ -1062,9 +1080,18 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     };
   }, []);
 
+  const highlightedRoutes = useMemo(
+    () => routeVariantsForVehicles(vehicles, selectedLine, showRouteForLine, selectedRouteKey),
+    [gtfsRevision, vehicles, selectedLine, selectedRouteKey, showRouteForLine],
+  );
+  highlightedRoutesRef.current = highlightedRoutes;
+
   const visibleVehicles = useMemo(
-    () => vehicles.filter((vehicle) => !selectedLine || vehicle.line === selectedLine),
-    [vehicles, selectedLine],
+    () => vehicles.filter((vehicle) => (
+      (!selectedLine || vehicleMatchesLine(vehicle, selectedLine))
+      && vehicleMatchesSelectedRoutes(vehicle, highlightedRoutes, selectedRouteKey)
+    )),
+    [highlightedRoutes, selectedLine, selectedRouteKey, vehicles],
   );
   visibleVehiclesRef.current = visibleVehicles;
 
@@ -1088,12 +1115,6 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       map.off('render', renderOverlay);
     };
   }, [mapReady]);
-
-  const highlightedRoutes = useMemo(
-    () => routeVariantsForVehicles(visibleVehicles, selectedLine, showRouteForLine, selectedRouteKey),
-    [gtfsRevision, visibleVehicles, selectedLine, selectedRouteKey, showRouteForLine],
-  );
-  highlightedRoutesRef.current = highlightedRoutes;
 
   const routeStops = useMemo(() => {
     if (!showRouteForLine && !selectedLine) return [];

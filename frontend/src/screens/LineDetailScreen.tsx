@@ -3,12 +3,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { BusMap } from '../components/BusMap';
 import { LineBadge } from '../components/LineBadge';
 import { RouteDirectionSelector } from '../components/RouteDirectionSelector';
-import { getCanonicalGtfsRoutesForLine, getGtfsRoutesForLine, getGtfsStopsForRoute, gtfsNetwork, type GtfsStop } from '../data/gtfsNetwork';
+import { getCanonicalGtfsRoutesForLine, getGtfsRouteDirectionKey, getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsStopsForRoute, gtfsNetwork, type GtfsStop } from '../data/gtfsNetwork';
 import { useGtfsNetwork } from '../data/useGtfsNetwork';
 import { fetchGttStopArrivalsInfo } from '../services/gttRealtime';
 import type { LatLng, TransitLine, Vehicle } from '../types';
 import { isLineFavorite, setLineFavorite } from '../utils/lineFavorites';
 import { notify } from '../utils/notify';
+import { routeProgressAtPoint } from '../utils/geo';
 import { vehicleIdentifierLabel } from '../utils/vehicleIdentity';
 
 type Props = {
@@ -45,7 +46,16 @@ export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelec
       .filter((stop, index, list) => list.findIndex((item) => item.id === stop.id) === index);
   }, [gtfsRevision, line.id, routeVariants]);
   const liveVehicles = vehicles
-    .filter((vehicle) => vehicle.line === line.id)
+    .filter((vehicle) => vehicle.line === line.id || getGtfsRouteVariant(vehicle.routeVariantId)?.line === line.id)
+    .filter((vehicle) => {
+      if (!selectedRouteKey) return true;
+      const routeVariant = getGtfsRouteVariant(vehicle.routeVariantId);
+      if (routeVariant) return getGtfsRouteDirectionKey(routeVariant) === selectedRouteKey;
+      return canonicalRoutes.some((route) => (
+        getGtfsRouteDirectionKey(route) === selectedRouteKey
+        && (routeProgressAtPoint(route.path, vehicle)?.distanceMeters ?? Number.POSITIVE_INFINITY) <= 120
+      ));
+    })
     .sort((a, b) => (a.etaTerminalMinutes ?? 999) - (b.etaTerminalMinutes ?? 999));
   const routeIds = useMemo(
     () => [...new Set(routeVariants.flatMap((route) => [route.routeId, route.line]).filter(Boolean))],

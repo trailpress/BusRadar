@@ -102,6 +102,10 @@ function normalizeRouteName(routeId: string) {
   return routeId.replace(/U$/, '');
 }
 
+function lineNameForRoute(routeId: string) {
+  return getGtfsRoutesForRouteId(routeId)[0]?.line ?? normalizeRouteName(routeId);
+}
+
 function normalizeVehicleId(vehicleId: string | null) {
   return vehicleId?.replace(/U$/, '') ?? '';
 }
@@ -113,7 +117,8 @@ function normalizeOptionalVehicleId(vehicleId?: string | null) {
 
 function vehicleTypeForRoute(routeId: string): Vehicle['vehicleType'] {
   const routeName = normalizeRouteName(routeId).replace(/\D/g, '');
-  return getGtfsLine(normalizeRouteName(routeId))?.vehicleType ?? (tramRoutes.has(routeName) ? 'tram' : 'bus');
+  const lineName = lineNameForRoute(routeId);
+  return getGtfsLine(lineName)?.vehicleType ?? (tramRoutes.has(routeName) ? 'tram' : 'bus');
 }
 
 let tripUpdatesCache: { at: number; updates: GttTripUpdate[] } | undefined;
@@ -577,7 +582,7 @@ function toVehicleSafely(vehicle: GttVehiclePosition, index: number, tripUpdate?
 
 function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttTripUpdate, stopTimeIndex?: StopTimeIndex): Vehicle {
   const routeId = vehicle.routeId || 'GTT';
-  const line = normalizeRouteName(routeId);
+  const line = lineNameForRoute(routeId);
   const gtfsLine = getGtfsLine(line);
   const vehicleType = vehicleTypeForRoute(routeId);
   const vehicleId = normalizeVehicleId(vehicle.vehicleId) || normalizeVehicleId(vehicle.vehicleLabel ?? null);
