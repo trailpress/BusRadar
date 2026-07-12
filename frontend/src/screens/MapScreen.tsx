@@ -6,8 +6,11 @@ import type { LatLng, Vehicle } from '../types';
 import { AppHeader } from '../components/AppHeader';
 import type { MapSearchSuggestion } from '../components/AppHeader';
 import { BusMap } from '../components/BusMap';
+import { RouteDirectionSelector } from '../components/RouteDirectionSelector';
 import { ServiceCard } from '../components/ServiceCard';
 import { VehicleSheet, type VehicleHeadwayInfo, type VehicleHeadwayPeer } from '../components/VehicleSheet';
+import { getCanonicalGtfsRoutesForLine } from '../data/gtfsNetwork';
+import { useGtfsNetwork } from '../data/useGtfsNetwork';
 
 type Props = {
   vehicles: Vehicle[];
@@ -212,11 +215,20 @@ export function MapScreen({
   onShowRoute,
   onResetMap,
 }: Props) {
+  const { revision: gtfsRevision } = useGtfsNetwork();
   const [stopPopupOpen, setStopPopupOpen] = useState(false);
   const [followCameraLocked, setFollowCameraLocked] = useState(Boolean(followedVehicleId));
+  const [selectedRouteKey, setSelectedRouteKey] = useState<string>();
   useEffect(() => {
     setFollowCameraLocked(Boolean(followedVehicleId));
   }, [followedVehicleId]);
+  useEffect(() => {
+    setSelectedRouteKey(undefined);
+  }, [selectedLine, showRouteForLine]);
+  const directionRoutes = useMemo(
+    () => getCanonicalGtfsRoutesForLine(selectedLine),
+    [gtfsRevision, selectedLine],
+  );
   const detailVehicle = selectedVehicle ?? selectedVehicleFallback;
   const vehicleHeadway = useMemo(
     () => detailVehicle ? buildVehicleHeadway(detailVehicle, vehicles) : undefined,
@@ -237,6 +249,7 @@ export function MapScreen({
         hasUserLocation={hasUserLocation}
         onLocateUser={onLocateUser}
         showRouteForLine={showRouteForLine}
+        selectedRouteKey={selectedRouteKey}
         searchedArea={searchedArea}
         selectedStop={selectedStop}
         selectedStopRequest={selectedStopRequest}
@@ -255,6 +268,11 @@ export function MapScreen({
         onSelectSuggestion={onSelectSearchSuggestion}
         onRadar={onRadar}
       />
+      {selectedLine && !followedVehicleId && !detailVehicle && (
+        <div className="map-direction-control">
+          <RouteDirectionSelector routes={directionRoutes} selectedRouteKey={selectedRouteKey} onChange={setSelectedRouteKey} compact />
+        </div>
+      )}
       {searchedArea && !stopPopupOpen && (
         <aside className="search-area-summary">
           <button type="button" aria-label="Chiudi area cercata" onClick={onClearSearchedArea}>×</button>

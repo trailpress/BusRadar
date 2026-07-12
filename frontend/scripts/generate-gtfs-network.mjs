@@ -138,18 +138,28 @@ for (const trip of trips) {
   tripsByRouteDirection.set(key, bucket);
 }
 
-function pickRepresentativeTrips(routeId, directionId, limit = 2) {
+function pickRepresentativeTrips(routeId, directionId) {
   const bucket = tripsByRouteDirection.get(`${routeId}::${directionId}`) ?? [];
   if (bucket.length === 0) return [];
 
-  const shapeCounts = new Map();
+  const byHeadsign = new Map();
   for (const trip of bucket) {
-    if (!trip.shape_id) continue;
-    shapeCounts.set(trip.shape_id, (shapeCounts.get(trip.shape_id) ?? 0) + 1);
+    const headsign = (trip.trip_headsign || '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('it');
+    const key = headsign || trip.shape_id || trip.trip_id;
+    byHeadsign.set(key, [...(byHeadsign.get(key) ?? []), trip]);
   }
 
-  const shapeIds = [...shapeCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([shapeId]) => shapeId);
-  return shapeIds.map((shapeId) => bucket.find((trip) => trip.shape_id === shapeId)).filter(Boolean);
+  return [...byHeadsign.values()].map((headsignTrips) => {
+    const fullTrips = headsignTrips.filter((trip) => trip.limited_route !== '1');
+    const candidates = fullTrips.length > 0 ? fullTrips : headsignTrips;
+    const shapeCounts = new Map();
+    for (const trip of candidates) {
+      if (!trip.shape_id) continue;
+      shapeCounts.set(trip.shape_id, (shapeCounts.get(trip.shape_id) ?? 0) + 1);
+    }
+    const shapeId = [...shapeCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    return candidates.find((trip) => trip.shape_id === shapeId);
+  }).filter(Boolean);
 }
 
 const selectedTrips = [];

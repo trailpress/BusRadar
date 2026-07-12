@@ -2,7 +2,8 @@ import { ArrowLeft, BusFront, Clock3, MapPinned, Route as RouteIcon, Star, Timer
 import { useEffect, useMemo, useState } from 'react';
 import { BusMap } from '../components/BusMap';
 import { LineBadge } from '../components/LineBadge';
-import { getGtfsRoutesForLine, getGtfsStopsForRoute, gtfsNetwork, type GtfsStop } from '../data/gtfsNetwork';
+import { RouteDirectionSelector } from '../components/RouteDirectionSelector';
+import { getCanonicalGtfsRoutesForLine, getGtfsRoutesForLine, getGtfsStopsForRoute, gtfsNetwork, type GtfsStop } from '../data/gtfsNetwork';
 import { useGtfsNetwork } from '../data/useGtfsNetwork';
 import { fetchGttStopArrivalsInfo } from '../services/gttRealtime';
 import type { LatLng, TransitLine, Vehicle } from '../types';
@@ -34,7 +35,9 @@ export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelec
   const [favorite, setFavorite] = useState(() => isLineFavorite(line.id, Boolean(line.favorite)));
   const [plannedPassages, setPlannedPassages] = useState<PlannedLinePassage[]>([]);
   const [plannedPassagesLoading, setPlannedPassagesLoading] = useState(false);
+  const [selectedRouteKey, setSelectedRouteKey] = useState<string>();
   const routeVariants = useMemo(() => getGtfsRoutesForLine(line.id), [gtfsRevision, line.id]);
+  const canonicalRoutes = useMemo(() => getCanonicalGtfsRoutesForLine(line.id), [gtfsRevision, line.id]);
   const lineStops = useMemo(() => {
     const routeStops = routeVariants.flatMap(getGtfsStopsForRoute);
     const fallbackStops = gtfsNetwork.stops.filter((stop) => stop.lines.includes(line.id));
@@ -172,11 +175,11 @@ export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelec
 
       {tab === 'route' && (
         <>
+          <RouteDirectionSelector routes={canonicalRoutes} selectedRouteKey={selectedRouteKey} onChange={setSelectedRouteKey} />
           <section className="line-map-panel">
-            <BusMap vehicles={vehicles} selectedLine={line.id} showRouteForLine={line.id} userLocation={userLocation} onSelectVehicle={onSelectVehicle} />
+            <BusMap vehicles={vehicles} selectedLine={line.id} showRouteForLine={line.id} selectedRouteKey={selectedRouteKey} userLocation={userLocation} onSelectVehicle={onSelectVehicle} />
           </section>
           <section className="list-section live-line-section">
-            <div className="route-endpoint"><LineBadge line={line.id} /> {line.direction}</div>
             <div className="section-heading">
               <h2>Mezzi live GTT</h2>
               <span>{liveVehicles.length} live</span>

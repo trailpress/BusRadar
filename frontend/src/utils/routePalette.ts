@@ -52,3 +52,14 @@ export function routeLineOffset(routeId: string, directionId?: string) {
   const directionNudge = directionId === '1' ? 1.4 : directionId === '0' ? -1.4 : 0;
   return base + directionNudge;
 }
+
+const DIRECTION_COLORS = [
+  '#2F7DFF', '#F59E0B', '#10B981', '#E85D75',
+  '#8B5CF6', '#06B6D4', '#EF4444', '#84CC16',
+  '#EC4899', '#14B8A6', '#F97316', '#6366F1',
+  '#22C55E', '#D946EF', '#0EA5E9', '#EAB308',
+];
+
+export function routeDirectionColor(directionIndex: number) {
+  return DIRECTION_COLORS[Math.max(0, directionIndex) % DIRECTION_COLORS.length];
+}

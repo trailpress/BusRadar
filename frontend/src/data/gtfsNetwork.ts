@@ -120,6 +120,39 @@ export function getGtfsRoutesForLine(lineId?: string) {
   return routesByLine.get(lineId) ?? [];
 }
 
+export function getGtfsRouteDirectionKey(route: GtfsRouteVariant) {
+  const headsign = route.headsign.trim().replace(/\s+/g, ' ').toLocaleUpperCase('it');
+  return `${route.directionId || '0'}:${headsign || route.id}`;
+}
+
+function routePathLengthMeters(route: GtfsRouteVariant) {
+  const earthRadiusMeters = 6_371_000;
+  const toRadians = (value: number) => value * Math.PI / 180;
+  return route.path.slice(1).reduce((total, point, index) => {
+    const previous = route.path[index];
+    const latitudeDelta = toRadians(point.lat - previous.lat);
+    const longitudeDelta = toRadians(point.lon - previous.lon);
+    const previousLatitude = toRadians(previous.lat);
+    const latitude = toRadians(point.lat);
+    const haversine = Math.sin(latitudeDelta / 2) ** 2
+      + Math.cos(previousLatitude) * Math.cos(latitude) * Math.sin(longitudeDelta / 2) ** 2;
+    return total + 2 * earthRadiusMeters * Math.asin(Math.sqrt(haversine));
+  }, 0);
+}
+
+export function getCanonicalGtfsRoutesForLine(lineId?: string) {
+  const routes = getGtfsRoutesForLine(lineId);
+  const longestByDirection = new Map<string, GtfsRouteVariant>();
+  routes.forEach((route) => {
+    const key = getGtfsRouteDirectionKey(route);
+    const existing = longestByDirection.get(key);
+    if (!existing || routePathLengthMeters(route) > routePathLengthMeters(existing)) {
+      longestByDirection.set(key, route);
+    }
+  });
+  return [...longestByDirection.values()].sort((a, b) => a.directionId.localeCompare(b.directionId));
+}
+
 export function getGtfsRoutesForRouteId(routeId?: string) {
   if (!routeId) return [];
   return routesByRouteId.get(routeId) ?? routesByRouteId.get(`${routeId}U`) ?? routesByLine.get(routeId.replace(/U$/, '')) ?? [];

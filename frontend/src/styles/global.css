@@ -687,6 +687,75 @@ button {
   bottom: 246px;
 }
 
+.map-direction-control {
+  position: absolute;
+  z-index: 610;
+  top: 112px;
+  left: 14px;
+  right: 14px;
+}
+
+.route-direction-selector {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: rgba(8, 12, 18, 0.94);
+  scrollbar-width: none;
+}
+
+.route-direction-selector::-webkit-scrollbar {
+  display: none;
+}
+
+.route-direction-selector button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.route-direction-selector button.is-active {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.13);
+  color: #ffffff;
+}
+
+.direction-swatch {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+}
+
+.route-direction-selector.is-compact {
+  width: max-content;
+  max-width: 100%;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px);
+}
+
+.route-direction-selector.is-compact button {
+  min-height: 34px;
+}
+
 .service-card {
   position: absolute;
   z-index: 550;
@@ -2399,6 +2468,12 @@ button {
   .map-reset-button {
     left: 24px;
     bottom: 202px;
+  }
+
+  .map-direction-control {
+    top: 124px;
+    left: 24px;
+    right: 24px;
   }
 
   .follow-banner {

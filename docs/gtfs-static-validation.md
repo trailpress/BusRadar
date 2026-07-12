@@ -1,23 +1,20 @@
 # GTFS static validation
 
-Validation date: 2026-06-15
+Validation date: 2026-07-12
 
-Source used locally:
+Official source:
 
-- `/private/tmp/busradar-gtfs/extracted/routes.txt`
-- `/private/tmp/busradar-gtfs/extracted/trips.txt`
-- `/private/tmp/busradar-gtfs/extracted/shapes.txt`
-- `/private/tmp/busradar-gtfs/extracted/stops.txt`
-- `/private/tmp/busradar-gtfs/extracted/stop_times.txt`
+- `https://www.gtt.to.it/open_data/gtt_gtfs.zip`
+- Feed version: `20260711`
+- Service validity: 2026-07-10 to 2026-12-31
 
 ## Source counts
 
-- Routes: 216
-- Trips: 46,181
-- Shapes: 1,434
-- Shape points: 208,180
-- Stops: 7,049
-- Stop times: 1,386,014
+- Routes: 223
+- Trips: 56,044
+- Shape points: 211,584
+- Stops: 7,035
+- Stop times: 1,672,859
 - Trips without shape: 0
 
 ## Findings
@@ -32,21 +29,25 @@ Source used locally:
 - Route variant ids now include `shape_id`.
 - Line length is now calculated from haversine distance along the route path.
 - Shape simplification now preserves up to 1,200 points before thinning, instead of 260.
-- The dataset was regenerated from the local GTFS static source.
+- The dataset was regenerated from the downloaded official GTT static source.
+- Display routes now keep every distinct direction and destination branch.
+- When GTT publishes multiple shapes for the same direction and destination, the longest complete shape is selected instead of a partial trip.
 
 ## Post-regeneration checks
 
-- Generated lines: 216
-- Generated route variants: 714
-- Generated stops: 7,049
+- Generated lines: 223
+- Generated route variants: 894
+- Generated stops: 7,035
 - Duplicate route variant ids: 0
 - Short generated routes under 20 points: 14
+- Distinct direction/destination branches: 894
+- Limited duplicate trips are excluded while generating each direction/destination branch.
 
 Examples:
 
-- Line 63: 12.8 km average, 4 variants, 38-42 stops per main direction.
-- Line 1510: 23.7 km average, 4 variants, 61 stops on the main Torino/Cumiana variants.
-- Line 4: 11.0 km average, 4 variants.
+- Line 63/: complete Caio Mario direction is 10.8 km; complete Stazione Lingotto direction is 10.0 km. The 2.2 km short trip is no longer used as the main route.
+- Line 1510: all 16 published Torino, Orbassano, Cumiana, Piossasco, Rivalta and Pinerolo direction/destination branches remain selectable.
+- Line 4: complete main directions are 12.7 km and 11.9 km; the 3.9 km and 7.1 km partial trips are not used as the main route.
 
 ## Residual risk
 

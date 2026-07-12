@@ -1,14 +1,14 @@
 import maplibregl, { type GeoJSONSource, type LngLatBoundsLike, type MapMouseEvent } from 'maplibre-gl';
 import { LocateFixed, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, gtfsNetwork, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
+import { getCanonicalGtfsRoutesForLine, getGtfsRouteDirectionKey, getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, gtfsNetwork, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
 import { useGtfsNetwork } from '../data/useGtfsNetwork';
 import { fetchGttStopArrivalsInfo, type GttStopArrival, type GttStopArrivalsResult } from '../services/gttRealtime';
 import type { GeocodingResult } from '../services/geocoding';
 import type { LatLng, Vehicle } from '../types';
 import { distanceMeters, interpolatePathState, offsetPointMeters, routeProgressAtPoint } from '../utils/geo';
 import { getLineColor } from '../utils/lineColors';
-import { routeDisplayTextColor, routeLineOffset } from '../utils/routePalette';
+import { routeDirectionColor, routeDisplayTextColor, routeLineOffset } from '../utils/routePalette';
 import { vehicleIdentifierLabel } from '../utils/vehicleIdentity';
 import { IconButton } from './IconButton';
 
@@ -25,6 +25,7 @@ type Props = {
   hasUserLocation?: boolean;
   onLocateUser?: () => Promise<LatLng | undefined>;
   showRouteForLine?: string;
+  selectedRouteKey?: string;
   searchedArea?: GeocodingResult;
   selectedStop?: GtfsStop;
   selectedStopRequest?: number;
@@ -92,19 +93,22 @@ function createMapStyle(): maplibregl.StyleSpecification {
   };
 }
 
-function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, showRouteForLine?: string) {
+function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, showRouteForLine?: string, selectedRouteKey?: string) {
   if (showRouteForLine) {
     const exactVariant = getGtfsRouteVariant(showRouteForLine);
-    if (exactVariant) return [exactVariant];
-    const activeRoutes = activeRouteVariantsForLine(vehicles, showRouteForLine);
-    if (activeRoutes.length > 0) return activeRoutes;
+    if (exactVariant && selectedRouteKey == null) return [exactVariant];
     const routesById = getGtfsRoutesForRouteId(showRouteForLine);
-    return compactRouteVariants(routesById.length > 0 ? routesById : getGtfsRoutesForLine(showRouteForLine));
+    const lineId = exactVariant?.line ?? routesById[0]?.line ?? showRouteForLine.replace(/U$/, '');
+    const canonicalRoutes = getCanonicalGtfsRoutesForLine(lineId);
+    return selectedRouteKey == null
+      ? canonicalRoutes
+      : canonicalRoutes.filter((route) => getGtfsRouteDirectionKey(route) === selectedRouteKey);
   }
   if (selectedLine) {
-    const activeRoutes = activeRouteVariantsForLine(vehicles, selectedLine);
-    if (activeRoutes.length > 0) return activeRoutes;
-    return compactRouteVariants(getGtfsRoutesForLine(selectedLine));
+    const canonicalRoutes = getCanonicalGtfsRoutesForLine(selectedLine);
+    return selectedRouteKey == null
+      ? canonicalRoutes
+      : canonicalRoutes.filter((route) => getGtfsRouteDirectionKey(route) === selectedRouteKey);
   }
 
   const byRoute = new Map<string, GtfsRouteVariant>();
@@ -140,57 +144,6 @@ function routeVariantsForVehicles(vehicles: Vehicle[], selectedLine?: string, sh
   return [...byRoute.values()];
 }
 
-function activeRouteVariantsForLine(vehicles: Vehicle[], line: string) {
-  const lineKey = line.replace(/U$/, '');
-  const lineVehicles = vehicles.filter((vehicle) => (
-    vehicle.line === line || vehicle.routeId.replace(/^gtt-/, '').replace(/U$/, '') === lineKey
-  ));
-  if (lineVehicles.length === 0) return [];
-
-  const candidates = getGtfsRoutesForLine(lineKey);
-  const byDirection = new Map<string, { route: GtfsRouteVariant; score: number }>();
-  candidates.forEach((route) => {
-    let closeVehicles = 0;
-    let assignedVehicles = 0;
-    lineVehicles.forEach((vehicle) => {
-      if (vehicle.routeVariantId === route.id) assignedVehicles += 1;
-      const match = routeProgressAtPoint(route.path, vehicle);
-      if (match && match.distanceMeters <= 260) closeVehicles += 1;
-    });
-    if (closeVehicles === 0 && assignedVehicles === 0) return;
-
-    const score = closeVehicles * 100 + assignedVehicles * 8 - routeLengthMeters(route) / 600;
-    const key = route.directionId || route.headsign || route.id;
-    const existing = byDirection.get(key);
-    if (!existing || score > existing.score) byDirection.set(key, { route, score });
-  });
-
-  return [...byDirection.values()].sort((a, b) => b.score - a.score).slice(0, 2).map((item) => item.route);
-}
-
-function compactRouteVariants(routes: GtfsRouteVariant[]) {
-  const byDirection = new Map<string, GtfsRouteVariant>();
-  routes.forEach((route) => {
-    const key = route.directionId || route.headsign || route.id;
-    const existing = byDirection.get(key);
-    if (!existing || routeLengthMeters(route) < routeLengthMeters(existing)) byDirection.set(key, route);
-  });
-  return [...byDirection.values()].slice(0, 2);
-}
-
-const routeLengthCache = new Map<string, number>();
-
-function routeLengthMeters(route: GtfsRouteVariant) {
-  const cached = routeLengthCache.get(route.id);
-  if (cached != null) return cached;
-  let length = 0;
-  for (let index = 1; index < route.path.length; index += 1) {
-    length += distanceMeters(route.path[index - 1], route.path[index]);
-  }
-  routeLengthCache.set(route.id, length);
-  return length;
-}
-
 function overviewRouteVariants() {
   const byRoute = new Map<string, GtfsRouteVariant>();
   priorityScheduledLines.forEach((lineId) => {
@@ -221,13 +174,14 @@ function routesToGeoJson(routes: GtfsRouteVariant[], selectedLine?: string, show
     type: 'FeatureCollection',
     features: routes.map((route) => {
       const highlighted = showRouteForLine === route.id || showRouteForLine === route.routeId || showRouteForLine === route.line || selectedLine === route.routeId || selectedLine === route.line;
+      const directionIndex = getCanonicalGtfsRoutesForLine(route.line).findIndex((candidate) => candidate.id === route.id);
       return {
         type: 'Feature',
         geometry: { type: 'LineString', coordinates: route.path.map((point) => [point.lon, point.lat]) },
         properties: {
           id: route.id,
           line: route.line,
-          color: getLineColor(route.line),
+          color: selectedLine || showRouteForLine ? routeDirectionColor(directionIndex) : getLineColor(route.line),
           casingColor: '#ffffff',
           width: highlighted ? 6.8 : 3.6,
           casingWidth: highlighted ? 10.5 : 6.4,
@@ -997,7 +951,7 @@ function installTransitLayers(map: maplibregl.Map) {
   });
 }
 
-export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, followCameraLocked = false, onFollowCameraLockChange, focusPoint, userLocation, userLocationAccuracy, hasUserLocation, onLocateUser, showRouteForLine, searchedArea, selectedStop, selectedStopRequest, onSelectVehicle, onSelectLine, onStopPopupOpenChange, onResetMap }: Props) {
+export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehicleId, followCameraLocked = false, onFollowCameraLockChange, focusPoint, userLocation, userLocationAccuracy, hasUserLocation, onLocateUser, showRouteForLine, selectedRouteKey, searchedArea, selectedStop, selectedStopRequest, onSelectVehicle, onSelectLine, onStopPopupOpenChange, onResetMap }: Props) {
   const { revision: gtfsRevision } = useGtfsNetwork();
   const containerRef = useRef<HTMLDivElement>(null);
   const vehicleOverlayRef = useRef<HTMLDivElement>(null);
@@ -1136,8 +1090,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   }, [mapReady]);
 
   const highlightedRoutes = useMemo(
-    () => routeVariantsForVehicles(visibleVehicles, selectedLine, showRouteForLine),
-    [gtfsRevision, visibleVehicles, selectedLine, showRouteForLine],
+    () => routeVariantsForVehicles(visibleVehicles, selectedLine, showRouteForLine, selectedRouteKey),
+    [gtfsRevision, visibleVehicles, selectedLine, selectedRouteKey, showRouteForLine],
   );
   highlightedRoutesRef.current = highlightedRoutes;
 
@@ -1378,18 +1332,19 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   }, [mapReady]);
 
   useEffect(() => {
-    const routeKey = showRouteForLine || selectedLine;
-    if (!routeKey) {
+    const baseRouteKey = showRouteForLine || selectedLine;
+    if (!baseRouteKey) {
       lastAutoFitRouteKeyRef.current = undefined;
       return;
     }
+    const routeKey = `${baseRouteKey}:${selectedRouteKey ?? 'both'}`;
     if (!mapReady || !mapRef.current || followedVehicleId) return;
     if (lastAutoFitRouteKeyRef.current === routeKey) return;
     const bounds = boundsFromRoutes(highlightedRoutes);
     if (!bounds) return;
     lastAutoFitRouteKeyRef.current = routeKey;
     mapRef.current.fitBounds(bounds, { padding: { top: 120, bottom: 220, left: 40, right: 40 }, maxZoom: 15, duration: 550 });
-  }, [followedVehicleId, highlightedRoutes, mapReady, selectedLine, showRouteForLine]);
+  }, [followedVehicleId, highlightedRoutes, mapReady, selectedLine, selectedRouteKey, showRouteForLine]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current || !focusPoint) return;

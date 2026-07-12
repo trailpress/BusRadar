@@ -12,14 +12,27 @@ type Props = {
   onSelectLine: (line: GtfsLine) => void;
 };
 
+function normalizeLineSearch(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/barrat[oa]/g, '/')
+    .replace(/\s*\/\s*/g, '/')
+    .replace(/\s+/g, ' ');
+}
+
 export function LinesScreen({ vehicles, onSelectLine }: Props) {
   const { loaded, revision: gtfsRevision } = useGtfsNetwork();
   const [query, setQuery] = useState('');
   const [editingFavorites, setEditingFavorites] = useState(false);
   const [, setFavoriteRevision] = useState(0);
-  const normalized = query.trim().toLowerCase();
+  const normalized = normalizeLineSearch(query);
   const filtered = useMemo(
-    () => gtfsNetwork.lines.filter((line) => line.id.toLowerCase().includes(normalized) || line.name.toLowerCase().includes(normalized) || line.direction.toLowerCase().includes(normalized)),
+    () => gtfsNetwork.lines.filter((line) => (
+      normalizeLineSearch(line.id).includes(normalized)
+      || normalizeLineSearch(line.name).includes(normalized)
+      || normalizeLineSearch(line.direction).includes(normalized)
+    )),
     [gtfsRevision, normalized],
   );
   const favorites = filtered.filter((line) => isLineFavorite(line.id, Boolean(line.favorite)));
