@@ -37,6 +37,14 @@ type StreetViewUsage = {
   events: number;
 };
 
+type RoutePreviewProvider = 'auto' | 'mapillary' | 'google';
+
+type RoutePreviewRuntimeConfig = {
+  googleMapsApiKey?: string;
+  mapillaryAccessToken?: string;
+  provider: RoutePreviewProvider;
+};
+
 type GoogleLatLng = {
   lat: () => number;
   lng: () => number;
@@ -101,9 +109,9 @@ declare global {
   }
 }
 
-const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
-const mapillaryAccessToken = import.meta.env.VITE_MAPILLARY_ACCESS_TOKEN as string | undefined;
-const routePreviewProvider = (import.meta.env.VITE_ROUTE_PREVIEW_PROVIDER ?? 'auto') as 'auto' | 'mapillary' | 'google';
+const fallbackRoutePreviewProvider = (import.meta.env.VITE_ROUTE_PREVIEW_PROVIDER ?? 'auto') as RoutePreviewProvider;
+const routePreviewConfigUrl = import.meta.env.VITE_ROUTE_PREVIEW_CONFIG_URL
+  ?? 'https://mtuwzlbxhmpnqpaahity.supabase.co/functions/v1/route-preview-config';
 const panoramaSearchRadiusMeters = 32;
 const mapillarySearchRadiusMeters = 55;
 const mapillaryMaxHeadingDeltaDegrees = 42;
@@ -120,6 +128,7 @@ const usageStoragePrefix = 'busradar:street-view-usage';
 const panoramaCache = new Map<string, PanoramaResult | null>();
 const rawPanoramaCache = new Map<string, Omit<PanoramaResult, 'progressDeltaMeters' | 'headingDeltaDegrees'> | null>();
 const mapillaryImageCache = new Map<string, MapillaryImageResult | null>();
+let routePreviewConfigPromise: Promise<RoutePreviewRuntimeConfig> | undefined;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -228,7 +237,35 @@ function reserveStreetViewEvent(currentUsage: StreetViewUsage) {
   return nextUsage;
 }
 
-function loadGoogleMaps() {
+function normalizeRoutePreviewProvider(value: unknown): RoutePreviewProvider {
+  return value === 'google' || value === 'mapillary' || value === 'auto' ? value : fallbackRoutePreviewProvider;
+}
+
+function hasRuntimeValue(value: unknown) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+async function loadRoutePreviewConfig(): Promise<RoutePreviewRuntimeConfig> {
+  if (routePreviewConfigPromise) return routePreviewConfigPromise;
+
+  routePreviewConfigPromise = fetch(routePreviewConfigUrl, { cache: 'no-store' })
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`route-preview-config-${response.status}`);
+      const payload = await response.json() as Partial<RoutePreviewRuntimeConfig>;
+      return {
+        googleMapsApiKey: hasRuntimeValue(payload.googleMapsApiKey) ? payload.googleMapsApiKey : undefined,
+        mapillaryAccessToken: hasRuntimeValue(payload.mapillaryAccessToken) ? payload.mapillaryAccessToken : undefined,
+        provider: normalizeRoutePreviewProvider(payload.provider),
+      };
+    })
+    .catch(() => ({
+      provider: fallbackRoutePreviewProvider,
+    }));
+
+  return routePreviewConfigPromise;
+}
+
+function loadGoogleMaps(apiKey?: string) {
   if (window.google?.maps) return Promise.resolve();
   if (!apiKey) return Promise.reject(new Error('missing-api-key'));
   if (window.__busRadarGoogleMapsPromise) return window.__busRadarGoogleMapsPromise;
@@ -246,25 +283,25 @@ function loadGoogleMaps() {
   return window.__busRadarGoogleMapsPromise;
 }
 
-function hasMapillaryProvider() {
-  return routePreviewProvider !== 'google' && Boolean(mapillaryAccessToken);
+function hasMapillaryProvider(config: RoutePreviewRuntimeConfig) {
+  return config.provider !== 'google' && Boolean(config.mapillaryAccessToken);
 }
 
-function hasGoogleProvider() {
-  return routePreviewProvider !== 'mapillary' && Boolean(apiKey);
+function hasGoogleProvider(config: RoutePreviewRuntimeConfig) {
+  return config.provider !== 'mapillary' && Boolean(config.googleMapsApiKey);
 }
 
-function prefersGoogleProvider() {
-  return hasGoogleProvider() && routePreviewProvider !== 'mapillary';
+function prefersGoogleProvider(config: RoutePreviewRuntimeConfig) {
+  return hasGoogleProvider(config) && config.provider !== 'mapillary';
 }
 
-function prefersMapillaryProvider() {
-  return hasMapillaryProvider() && !prefersGoogleProvider();
+function prefersMapillaryProvider(config: RoutePreviewRuntimeConfig) {
+  return hasMapillaryProvider(config) && !prefersGoogleProvider(config);
 }
 
-function routePreviewProviderLabel() {
-  if (hasGoogleProvider()) return 'Google';
-  if (hasMapillaryProvider()) return 'Mapillary';
+function routePreviewProviderLabel(config: RoutePreviewRuntimeConfig) {
+  if (hasGoogleProvider(config)) return 'Google';
+  if (hasMapillaryProvider(config)) return 'Mapillary';
   return 'Nessuna sorgente';
 }
 
@@ -283,13 +320,13 @@ function headingDeltaDegrees(a: number, b: number) {
   return Math.abs(((a - b + 540) % 360) - 180);
 }
 
-async function findMapillaryImage(routeId: string, frame: StreetViewFrame) {
+async function findMapillaryImage(accessToken: string | undefined, routeId: string, frame: StreetViewFrame) {
   const key = `mapillary:${cacheKey(routeId, frame)}`;
   if (mapillaryImageCache.has(key)) return mapillaryImageCache.get(key) ?? null;
-  if (!mapillaryAccessToken) return null;
+  if (!accessToken) return null;
 
   const url = new URL('https://graph.mapillary.com/images');
-  url.searchParams.set('access_token', mapillaryAccessToken);
+  url.searchParams.set('access_token', accessToken);
   url.searchParams.set('fields', 'id,computed_geometry,thumb_2048_url,computed_compass_angle,is_pano');
   url.searchParams.set('bbox', bboxAroundPoint(frame.point, mapillarySearchRadiusMeters));
   url.searchParams.set('limit', '30');
@@ -459,6 +496,8 @@ export function RouteStreetViewPlayer({ route }: Props) {
   const [offRouteMeters, setOffRouteMeters] = useState<number>();
   const [mapillaryImage, setMapillaryImage] = useState<MapillaryImageResult>();
   const [activeSource, setActiveSource] = useState<'none' | 'mapillary' | 'google'>('none');
+  const [runtimeConfig, setRuntimeConfig] = useState<RoutePreviewRuntimeConfig>({ provider: fallbackRoutePreviewProvider });
+  const [runtimeConfigReady, setRuntimeConfigReady] = useState(false);
   const [usage, setUsage] = useState<StreetViewUsage>(() => (
     typeof window === 'undefined' ? { month: currentUsageMonth(), events: 0 } : readStreetViewUsage()
   ));
@@ -481,17 +520,45 @@ export function RouteStreetViewPlayer({ route }: Props) {
   }, [route?.id]);
 
   useEffect(() => {
+    let cancelled = false;
+    setRuntimeConfigReady(false);
+
+    loadRoutePreviewConfig()
+      .then((config) => {
+        if (cancelled) return;
+        setRuntimeConfig(config);
+        setRuntimeConfigReady(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRuntimeConfig({ provider: fallbackRoutePreviewProvider });
+        setRuntimeConfigReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!containerRef.current || !route || frames.length === 0) return undefined;
     let cancelled = false;
 
-    if (hasMapillaryProvider() || hasGoogleProvider()) {
+    if (!runtimeConfigReady) {
+      setReadyState('loading');
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (hasMapillaryProvider(runtimeConfig) || hasGoogleProvider(runtimeConfig)) {
       setReadyState('ready');
       return () => {
         cancelled = true;
       };
     }
 
-    if (!hasGoogleProvider()) {
+    if (!hasGoogleProvider(runtimeConfig)) {
       setReadyState('missing-key');
       return () => {
         cancelled = true;
@@ -500,7 +567,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
 
     setReadyState('loading');
 
-    loadGoogleMaps()
+    loadGoogleMaps(runtimeConfig.googleMapsApiKey)
       .then(() => {
         if (cancelled || !containerRef.current || !window.google?.maps) return;
         panoramaRef.current ??= new window.google.maps.StreetViewPanorama(containerRef.current, {
@@ -527,7 +594,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [frames, route]);
+  }, [frames, route, runtimeConfig, runtimeConfigReady]);
 
   useEffect(() => {
     let cancelled = false;
@@ -535,7 +602,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
     requestIdRef.current = requestId;
 
     const showGoogleFrame = async () => {
-      if (!route || !currentFrame || !containerRef.current || !hasGoogleProvider()) return false;
+      if (!route || !currentFrame || !containerRef.current || !hasGoogleProvider(runtimeConfig)) return false;
       if (googleCostBlocked) {
         setCoverageState('blocked');
         setPlaying(false);
@@ -543,7 +610,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
         return true;
       }
 
-      await loadGoogleMaps();
+      await loadGoogleMaps(runtimeConfig.googleMapsApiKey);
       if (!containerRef.current || !window.google?.maps) return false;
       panoramaRef.current ??= new window.google.maps.StreetViewPanorama(containerRef.current, {
         addressControl: false,
@@ -591,14 +658,14 @@ export function RouteStreetViewPlayer({ route }: Props) {
     setCoverageState('searching');
 
     (async () => {
-      if (prefersGoogleProvider()) {
+      if (prefersGoogleProvider(runtimeConfig)) {
         const googleCovered = await showGoogleFrame();
         if (cancelled || requestId !== requestIdRef.current) return;
         if (googleCovered) return;
       }
 
-      if (hasMapillaryProvider()) {
-        const image = await findMapillaryImage(route.id, currentFrame);
+      if (hasMapillaryProvider(runtimeConfig)) {
+        const image = await findMapillaryImage(runtimeConfig.mapillaryAccessToken, route.id, currentFrame);
         if (cancelled || requestId !== requestIdRef.current) return;
         if (image) {
           setMapillaryImage(image);
@@ -609,7 +676,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
         }
       }
 
-      if (!prefersGoogleProvider()) {
+      if (!prefersGoogleProvider(runtimeConfig)) {
         const googleCovered = await showGoogleFrame();
         if (cancelled || requestId !== requestIdRef.current) return;
         if (googleCovered) return;
@@ -633,7 +700,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [currentFrame, currentIndex, frames, googleCostBlocked, readyState, route]);
+  }, [currentFrame, currentIndex, frames, googleCostBlocked, readyState, route, runtimeConfig]);
 
   useEffect(() => {
     if (!playing || frames.length < 2 || totalMeters <= 0) return undefined;
@@ -694,31 +761,31 @@ export function RouteStreetViewPlayer({ route }: Props) {
           <span>{formatDistance(totalMeters)} · {frames.length} punti guida</span>
         </div>
         <em className={`street-coverage-pill is-${coverageState}`}>
-          {coverageState === 'blocked' ? 'Google bloccato' : coverageState === 'covered' && offRouteMeters != null ? `${activeSource === 'mapillary' ? 'Mapillary' : 'Google'} a ${Math.round(offRouteMeters)} m` : coverageState === 'missing' ? 'tratto non coperto' : coverageState === 'searching' ? 'cerco foto' : routePreviewProviderLabel()}
+          {coverageState === 'blocked' ? 'Google bloccato' : coverageState === 'covered' && offRouteMeters != null ? `${activeSource === 'mapillary' ? 'Mapillary' : 'Google'} a ${Math.round(offRouteMeters)} m` : coverageState === 'missing' ? 'tratto non coperto' : coverageState === 'searching' ? 'cerco foto' : routePreviewProviderLabel(runtimeConfig)}
         </em>
       </div>
 
-      {(hasGoogleProvider() || hasMapillaryProvider()) && (
+      {(hasGoogleProvider(runtimeConfig) || hasMapillaryProvider(runtimeConfig)) && (
         <div className="street-view-status-strip" aria-label="Stato anteprima strada">
-          {hasGoogleProvider() && (
+          {hasGoogleProvider(runtimeConfig) && (
             <div className="street-view-status-card">
               <span>Sorgente</span>
               <strong>Google Street View</strong>
               <small>{activeSource === 'google' ? 'vista principale' : 'pronto'}</small>
             </div>
           )}
-          {hasGoogleProvider() && (
+          {hasGoogleProvider(runtimeConfig) && (
             <div className="street-view-status-card is-budget">
               <span>Budget mese</span>
               <strong>{remainingFreeEvents.toLocaleString('it-IT')} rimasti</strong>
               <meter min="0" max="100" value={googleUsagePercent} aria-label="Uso mensile Street View" />
             </div>
           )}
-          {hasMapillaryProvider() && (
+          {hasMapillaryProvider(runtimeConfig) && (
             <div className="street-view-status-card is-backup">
               <span>Backup</span>
               <strong>Mapillary</strong>
-              <small>{prefersMapillaryProvider() ? 'sorgente gratuita' : 'solo se Google manca'}</small>
+              <small>{prefersMapillaryProvider(runtimeConfig) ? 'sorgente gratuita' : 'solo se Google manca'}</small>
             </div>
           )}
         </div>
@@ -736,7 +803,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
           <div className="street-view-overlay">
             <AlertTriangle size={22} />
             <strong>Serve una sorgente immagini</strong>
-            <span>Imposta `VITE_MAPILLARY_ACCESS_TOKEN` per usare Mapillary. Google resta opzionale con `VITE_GOOGLE_MAPS_API_KEY` solo come fallback.</span>
+            <span>Configura le chiavi della vista strada nei secret Supabase. La build pubblica non deve contenere chiavi.</span>
           </div>
         )}
         {readyState === 'loading' && (
