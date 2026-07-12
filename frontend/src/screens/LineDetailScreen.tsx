@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { BusMap } from '../components/BusMap';
 import { LineBadge } from '../components/LineBadge';
 import { RouteDirectionSelector } from '../components/RouteDirectionSelector';
+import { RouteStreetViewPlayer } from '../components/RouteStreetViewPlayer';
 import { getCanonicalGtfsRoutesForLine, getGtfsRouteDirectionKey, getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsStopsForRoute, gtfsNetwork, type GtfsStop } from '../data/gtfsNetwork';
 import { useGtfsNetwork } from '../data/useGtfsNetwork';
 import { fetchGttStopArrivalsInfo } from '../services/gttRealtime';
@@ -32,13 +33,18 @@ type PlannedLinePassage = {
 
 export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelectVehicle, onSelectStop }: Props) {
   const { revision: gtfsRevision } = useGtfsNetwork();
-  const [tab, setTab] = useState<'details' | 'route' | 'stops'>('route');
+  const [tab, setTab] = useState<'details' | 'route' | 'street' | 'stops'>('route');
   const [favorite, setFavorite] = useState(() => isLineFavorite(line.id, Boolean(line.favorite)));
   const [plannedPassages, setPlannedPassages] = useState<PlannedLinePassage[]>([]);
   const [plannedPassagesLoading, setPlannedPassagesLoading] = useState(false);
   const [selectedRouteKey, setSelectedRouteKey] = useState<string>();
   const routeVariants = useMemo(() => getGtfsRoutesForLine(line.id), [gtfsRevision, line.id]);
   const canonicalRoutes = useMemo(() => getCanonicalGtfsRoutesForLine(line.id), [gtfsRevision, line.id]);
+  const streetViewRoute = useMemo(() => {
+    if (canonicalRoutes.length === 0) return undefined;
+    if (!selectedRouteKey) return canonicalRoutes[0];
+    return canonicalRoutes.find((route) => getGtfsRouteDirectionKey(route) === selectedRouteKey) ?? canonicalRoutes[0];
+  }, [canonicalRoutes, selectedRouteKey]);
   const lineStops = useMemo(() => {
     const routeStops = routeVariants.flatMap(getGtfsStopsForRoute);
     const fallbackStops = gtfsNetwork.stops.filter((stop) => stop.lines.includes(line.id));
@@ -135,6 +141,11 @@ export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelec
     };
   }, [line.id, lineStops, liveVehicles.length, routeIds, stopSequencesByRoute, tab]);
 
+  useEffect(() => {
+    if (tab !== 'street' || selectedRouteKey || canonicalRoutes.length === 0) return;
+    setSelectedRouteKey(getGtfsRouteDirectionKey(canonicalRoutes[0]));
+  }, [canonicalRoutes, selectedRouteKey, tab]);
+
   const toggleFavorite = () => {
     const nextFavorite = !favorite;
     setLineFavorite(line.id, nextFavorite);
@@ -157,6 +168,7 @@ export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelec
       <div className="segmented-tabs" role="tablist" aria-label={`Informazioni linea ${line.id}`}>
         <button className={tab === 'details' ? 'is-active' : ''} type="button" role="tab" aria-selected={tab === 'details'} onClick={() => setTab('details')}>Dettagli</button>
         <button className={tab === 'route' ? 'is-active' : ''} type="button" role="tab" aria-selected={tab === 'route'} onClick={() => setTab('route')}>Percorso</button>
+        <button className={tab === 'street' ? 'is-active' : ''} type="button" role="tab" aria-selected={tab === 'street'} onClick={() => setTab('street')}>Vista strada</button>
         <button className={tab === 'stops' ? 'is-active' : ''} type="button" role="tab" aria-selected={tab === 'stops'} onClick={() => setTab('stops')}>Fermate</button>
       </div>
 
@@ -235,6 +247,13 @@ export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelec
               </>
             )}
           </section>
+        </>
+      )}
+
+      {tab === 'street' && (
+        <>
+          <RouteDirectionSelector routes={canonicalRoutes} selectedRouteKey={selectedRouteKey} onChange={setSelectedRouteKey} allowAll={false} />
+          <RouteStreetViewPlayer route={streetViewRoute} />
         </>
       )}
 

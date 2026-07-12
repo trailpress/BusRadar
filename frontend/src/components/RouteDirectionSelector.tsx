@@ -6,6 +6,7 @@ type Props = {
   selectedRouteKey?: string;
   onChange: (routeKey?: string) => void;
   compact?: boolean;
+  allowAll?: boolean;
 };
 
 function destinationLabel(route: GtfsRouteVariant, routes: GtfsRouteVariant[]) {
@@ -16,14 +17,16 @@ function destinationLabel(route: GtfsRouteVariant, routes: GtfsRouteVariant[]) {
   return origin ? `${destination} da ${origin}` : destination;
 }
 
-export function RouteDirectionSelector({ routes, selectedRouteKey, onChange, compact = false }: Props) {
+export function RouteDirectionSelector({ routes, selectedRouteKey, onChange, compact = false, allowAll = true }: Props) {
   if (routes.length < 2) return null;
 
   return (
     <div className={`route-direction-selector${compact ? ' is-compact' : ''}`} role="group" aria-label="Direzione della linea">
-      <button type="button" className={selectedRouteKey == null ? 'is-active' : undefined} onClick={() => onChange(undefined)} aria-pressed={selectedRouteKey == null}>
-        Entrambe
-      </button>
+      {allowAll && (
+        <button type="button" className={selectedRouteKey == null ? 'is-active' : undefined} onClick={() => onChange(undefined)} aria-pressed={selectedRouteKey == null}>
+          Entrambe
+        </button>
+      )}
       {routes.map((route, index) => {
         const routeKey = getGtfsRouteDirectionKey(route);
         return (
