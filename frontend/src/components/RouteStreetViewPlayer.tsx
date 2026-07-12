@@ -242,6 +242,17 @@ function routePreviewProviderLabel() {
   return 'Nessuna sorgente';
 }
 
+function bboxAroundPoint(point: LatLng, radiusMeters: number) {
+  const latitudeDelta = radiusMeters / 111_320;
+  const longitudeDelta = radiusMeters / (111_320 * Math.max(0.2, Math.cos((point.lat * Math.PI) / 180)));
+  return [
+    point.lon - longitudeDelta,
+    point.lat - latitudeDelta,
+    point.lon + longitudeDelta,
+    point.lat + latitudeDelta,
+  ].join(',');
+}
+
 async function findMapillaryImage(routeId: string, frame: StreetViewFrame) {
   const key = `mapillary:${cacheKey(routeId, frame)}`;
   if (mapillaryImageCache.has(key)) return mapillaryImageCache.get(key) ?? null;
@@ -250,8 +261,8 @@ async function findMapillaryImage(routeId: string, frame: StreetViewFrame) {
   const url = new URL('https://graph.mapillary.com/images');
   url.searchParams.set('access_token', mapillaryAccessToken);
   url.searchParams.set('fields', 'id,computed_geometry,thumb_2048_url,computed_compass_angle,is_pano');
-  url.searchParams.set('closeto', `${frame.point.lon},${frame.point.lat}`);
-  url.searchParams.set('limit', '8');
+  url.searchParams.set('bbox', bboxAroundPoint(frame.point, mapillarySearchRadiusMeters));
+  url.searchParams.set('limit', '20');
 
   try {
     const response = await fetch(url.toString());
@@ -605,7 +616,10 @@ export function RouteStreetViewPlayer({ route }: Props) {
       <div className="street-view-frame">
         <div ref={containerRef} className={`street-view-canvas${mapillaryImage ? ' is-hidden' : ''}`} />
         {mapillaryImage && (
-          <img className="street-view-mapillary-image" src={mapillaryImage.imageUrl} alt={`Anteprima Mapillary linea ${route.line}`} />
+          <>
+            <img className="street-view-mapillary-image" src={mapillaryImage.imageUrl} alt={`Anteprima Mapillary linea ${route.line}`} />
+            <span className="street-view-mapillary-credit">Mapillary contributors</span>
+          </>
         )}
         {readyState === 'missing-key' && (
           <div className="street-view-overlay">

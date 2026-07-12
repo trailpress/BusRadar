@@ -2134,6 +2134,18 @@ button {
   background: #05070a;
 }
 
+.street-view-mapillary-credit {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(5, 7, 10, 0.72);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 10px;
+  font-weight: 800;
+}
+
 .street-view-overlay,
 .street-view-empty {
   display: grid;
