@@ -160,7 +160,7 @@ export const GTT_FLEET_CATALOG: GttFleetCluster[] = [
     livery: 'Urbana GTT bianco/blu con filetto giallo, serbatoi CNG a tetto.',
     asset: 'assets/vehicles/detail/generated/iia-citymood-cng-12m-gtt-render-v5.png',
     assetStatus: 'validated-render',
-    sourceNotes: 'Cluster urbano CNG 12m: Citymood 9200-9261. Render v5 con vano del display anteriore spento e libero per il solare dinamico integrato.',
+    sourceNotes: 'Cluster urbano CNG 12m: Citymood 9200-9261. Render v5 con vano del display anteriore spento e lasciato libero.',
     renderPrompt: `${sharedRenderPrompt} Exact subject: IIA Menarinibus Citymood CNG 12m GTT Torino, distinctive flat front, roof CNG tanks, black window band, blue roof equipment, yellow side band, blue lower body, fleet number 9201.`,
   },
   {

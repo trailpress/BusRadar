@@ -866,88 +866,45 @@ button {
   font-size: 12px;
 }
 
-.vehicle-destination-display {
-  position: relative;
+.vehicle-service-display {
   display: grid;
-  grid-template-columns: minmax(0, 0.29fr) minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 3px;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  margin: 0;
-  padding: 2px 4px;
-  overflow: hidden;
-  border: 0;
-  border-radius: 2px;
-  background: transparent;
-  box-shadow: none;
+  gap: 11px;
+  min-height: 62px;
+  margin-bottom: 12px;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(15, 22, 32, 0.92);
 }
 
-.vehicle-destination-display::before {
-  position: absolute;
-  inset: 0;
-  background: repeating-radial-gradient(circle at center, rgba(255, 255, 255, 0.055) 0 0.55px, transparent 0.7px 2.5px);
-  pointer-events: none;
-  opacity: 0.34;
-  content: "";
-}
-
-.vehicle-destination-display strong,
-.vehicle-destination-display span,
-.vehicle-destination-display em,
-.vehicle-destination-display i {
-  position: relative;
-  z-index: 1;
-}
-
-.vehicle-destination-display strong {
-  justify-self: center;
-  color: rgba(248, 250, 252, 0.96);
-  font-family: "SF Mono", "Menlo", "Consolas", monospace;
-  font-size: clamp(7px, 3.1cqw, 13px);
-  font-weight: 900;
-  line-height: 0.95;
-  letter-spacing: 0;
-  text-shadow:
-    0 0 7px rgba(255, 255, 255, 0.24),
-    0 0 16px rgba(255, 255, 255, 0.16);
-}
-
-.vehicle-destination-display div {
+.vehicle-service-display > div {
   display: grid;
   min-width: 0;
-  gap: 1px;
+  gap: 3px;
 }
 
-.vehicle-destination-display span,
-.vehicle-destination-display em {
-  overflow: hidden;
-  color: rgba(248, 250, 252, 0.94);
-  font-family: "SF Mono", "Menlo", "Consolas", monospace;
-  font-style: normal;
-  font-weight: 850;
-  letter-spacing: 0;
-  line-height: 1.04;
-  text-overflow: ellipsis;
+.vehicle-service-display > div span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
   text-transform: uppercase;
-  text-shadow:
-    0 0 6px rgba(255, 255, 255, 0.2),
-    0 0 14px rgba(255, 255, 255, 0.14);
+}
+
+.vehicle-service-display > div strong {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.vehicle-service-display > small {
+  align-self: start;
+  padding-top: 3px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
   white-space: nowrap;
-}
-
-.vehicle-destination-display span {
-  font-size: clamp(4px, 1.65cqw, 7px);
-}
-
-.vehicle-destination-display em {
-  font-size: clamp(3.5px, 1.4cqw, 6px);
-  opacity: 0.82;
-}
-
-.vehicle-destination-display i {
-  display: none;
 }
 
 .bus-photo {
@@ -1040,18 +997,6 @@ button {
   max-width: calc(100% - 28px);
   aspect-ratio: 16 / 9;
   container-type: inline-size;
-}
-
-.vehicle-front-display {
-  position: absolute;
-  z-index: 4;
-  left: var(--display-left);
-  top: var(--display-top);
-  width: var(--display-width);
-  height: var(--display-height);
-  overflow: hidden;
-  clip-path: polygon(2% 4%, 98% 7%, 99% 94%, 1% 96%);
-  pointer-events: none;
 }
 
 .missing-render-panel {

@@ -125,71 +125,21 @@ function formatHeadwayPeer(peer?: VehicleHeadwayPeer) {
   return `${peer.label} · ${minutes}${distance}`;
 }
 
-function splitDestinationLabel(value: string) {
-  const normalized = value.replace(/\s+/g, ' ').trim();
-  if (!normalized) return { primary: 'DIREZIONE', secondary: 'NON DISPONIBILE' };
-  const commaParts = normalized.split(',').map((part) => part.trim()).filter(Boolean);
-  if (commaParts.length > 1) {
-    return {
-      primary: commaParts[0],
-      secondary: commaParts.slice(1).join(' '),
-    };
-  }
-  const dashParts = normalized.split(/\s[-–]\s/).map((part) => part.trim()).filter(Boolean);
-  if (dashParts.length > 1) {
-    return {
-      primary: dashParts[0],
-      secondary: dashParts.slice(1).join(' '),
-    };
-  }
-  const words = normalized.split(' ');
-  if (words.length > 3) {
-    const midpoint = Math.ceil(words.length / 2);
-    return {
-      primary: words.slice(0, midpoint).join(' '),
-      secondary: words.slice(midpoint).join(' '),
-    };
-  }
-  return { primary: normalized, secondary: '' };
-}
-
-function VehicleDestinationDisplay({ vehicle }: { vehicle: Vehicle }) {
+function VehicleServiceDisplay({ vehicle }: { vehicle: Vehicle }) {
   const route = vehicle.routeShortName || vehicle.line;
-  const destination = splitDestinationLabel(vehicle.terminalName ?? vehicle.direction);
-  const serviceType = vehicle.vehicleType === 'tram' ? 'TRAM' : 'BUS';
+  const destination = (vehicle.terminalName ?? vehicle.direction).trim() || 'Direzione non disponibile';
+  const serviceType = vehicle.vehicleType === 'tram' ? 'Tram GTT' : 'Bus GTT';
 
   return (
-    <div className="vehicle-destination-display" aria-label={`Linea ${route}, direzione ${vehicle.terminalName ?? vehicle.direction}`}>
-      <strong>{route}</strong>
+    <div className="vehicle-service-display" aria-label={`Linea ${route}, direzione ${destination}`}>
+      <LineBadge line={route} size="lg" />
       <div>
-        <span>{destination.primary}</span>
-        {destination.secondary ? <em>{destination.secondary}</em> : <em>{serviceType} GTT</em>}
+        <span>Direzione</span>
+        <strong>{destination}</strong>
       </div>
-      <i aria-hidden="true" />
+      <small>{serviceType}</small>
     </div>
   );
-}
-
-function frontDisplayStyle(vehicle: Vehicle): CSSProperties {
-  const placement = vehicle.vehicleFleetKey === 'iia-citymood-cng-12m'
-    ? [67.55, 21.7, 21.55, 9.6]
-    : vehicle.vehicleFleetKey === 'irisbus-citelis-18m'
-      ? [70.8, 14.15, 19.6, 6.25]
-      : vehicle.vehicleFleetKey === 'iveco-citelis-12m'
-        ? [65.8, 21.75, 19.8, 9.7]
-        : vehicle.vehicleFleetKey === 'tram-serie-8000'
-          ? [70.4, 23.8, 20.5, 10.2]
-          : vehicle.vehicleType === 'tram'
-            ? [69.2, 21.5, 21.5, 10.5]
-            : vehicle.vehicleFleetKey === 'indcar-eb6-electric-6m' || vehicle.vehicleFleetKey === 'iveco-mago-granturismo-9m'
-              ? [68.5, 21.5, 21.5, 10]
-              : [66.4, 20.8, 23.4, 10.5];
-  return {
-    '--display-left': `${placement[0]}%`,
-    '--display-top': `${placement[1]}%`,
-    '--display-width': `${placement[2]}%`,
-    '--display-height': `${placement[3]}%`,
-  } as CSSProperties;
 }
 
 export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onRoute, onClose }: Props) {
@@ -235,25 +185,12 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
           <span>Linea {vehicle.routeShortName || vehicle.line} · {vehicleKind}</span>
         </div>
       </div>
-      <div className="direction-block">
-        <strong>Linea {vehicle.routeShortName || vehicle.line}</strong>
-        <span>Direzione: {vehicle.terminalName ?? vehicle.direction}</span>
-        <span>
-          {vehicleIdentifierKind(vehicle)}: {vehicle.fleetNumber ?? vehicle.vehicleId} · Route GTFS: {vehicle.routeId.replace(/^gtt-/, '')}
-          {rawVehicleLabel ? ` · label GTFS-RT: ${rawVehicleLabel}` : ''}
-          {vehicle.realtimeEntityId && vehicle.realtimeEntityId !== vehicle.vehicleId ? ` · entity: ${vehicle.realtimeEntityId}` : ''}
-          {vehicle.tripId ? ` · trip: ${vehicle.tripId}` : ''}
-        </span>
-        <span>{routeTrackingText(vehicle)}</span>
-      </div>
+      <VehicleServiceDisplay vehicle={vehicle} />
       <div className="bus-photo">
         <span className="vehicle-operator-mark" aria-label="Operatore GTT">GTT</span>
         {showDetailImage ? (
           <div className="vehicle-render-stage">
             <img className="vehicle-render" src={detailImage} alt={`Rendering ${vehicleKind}`} />
-            <div className="vehicle-front-display" style={frontDisplayStyle(vehicle)}>
-              <VehicleDestinationDisplay vehicle={vehicle} />
-            </div>
           </div>
         ) : (
           <div className="missing-render-panel" aria-label="Render 3D non ancora validato">
@@ -264,6 +201,15 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
         )}
         <em>{vehicleKind}</em>
         <small>{vehicleRenderStatusLabel(vehicle, fleetProfile.assetStatus)}</small>
+      </div>
+      <div className="direction-block">
+        <span>
+          {vehicleIdentifierKind(vehicle)}: {vehicle.fleetNumber ?? vehicle.vehicleId} · Route GTFS: {vehicle.routeId.replace(/^gtt-/, '')}
+          {rawVehicleLabel ? ` · label GTFS-RT: ${rawVehicleLabel}` : ''}
+          {vehicle.realtimeEntityId && vehicle.realtimeEntityId !== vehicle.vehicleId ? ` · entity: ${vehicle.realtimeEntityId}` : ''}
+          {vehicle.tripId ? ` · trip: ${vehicle.tripId}` : ''}
+        </span>
+        <span>{routeTrackingText(vehicle)}</span>
       </div>
       <div className={fleetCardClass} aria-label="Specifiche ufficiali del mezzo">
         <div className="official-fleet-copy">

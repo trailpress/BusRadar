@@ -61,7 +61,7 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'iia-citymood-cng-12m': {
     label: 'Menarini Citymood CNG 12m',
-    detailAsset: 'assets/vehicles/detail/generated/iia-citymood-cng-12m-gtt-render-v4.png',
+    detailAsset: 'assets/vehicles/detail/generated/iia-citymood-cng-12m-gtt-render-v5.png',
     referenceNotes: 'Schede ufficiali UL09-UL10: serie 9200-9261, lunghezza 12.100 mm, CNG.',
   },
   'iveco-citelis-12m': {
