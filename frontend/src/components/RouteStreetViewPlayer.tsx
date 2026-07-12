@@ -93,6 +93,7 @@ const mapillaryAccessToken = import.meta.env.VITE_MAPILLARY_ACCESS_TOKEN as stri
 const routePreviewProvider = (import.meta.env.VITE_ROUTE_PREVIEW_PROVIDER ?? 'auto') as 'auto' | 'mapillary' | 'google';
 const panoramaSearchRadiusMeters = 70;
 const mapillarySearchRadiusMeters = 85;
+const mapillaryMaxHeadingDeltaDegrees = 70;
 const frameStepMeters = 85;
 const minSpeedKmh = 5;
 const maxSpeedKmh = 60;
@@ -253,6 +254,10 @@ function bboxAroundPoint(point: LatLng, radiusMeters: number) {
   ].join(',');
 }
 
+function headingDeltaDegrees(a: number, b: number) {
+  return Math.abs(((a - b + 540) % 360) - 180);
+}
+
 async function findMapillaryImage(routeId: string, frame: StreetViewFrame) {
   const key = `mapillary:${cacheKey(routeId, frame)}`;
   if (mapillaryImageCache.has(key)) return mapillaryImageCache.get(key) ?? null;
@@ -262,7 +267,7 @@ async function findMapillaryImage(routeId: string, frame: StreetViewFrame) {
   url.searchParams.set('access_token', mapillaryAccessToken);
   url.searchParams.set('fields', 'id,computed_geometry,thumb_2048_url,computed_compass_angle,is_pano');
   url.searchParams.set('bbox', bboxAroundPoint(frame.point, mapillarySearchRadiusMeters));
-  url.searchParams.set('limit', '20');
+  url.searchParams.set('limit', '30');
 
   try {
     const response = await fetch(url.toString());
@@ -281,13 +286,15 @@ async function findMapillaryImage(routeId: string, frame: StreetViewFrame) {
       }>;
     };
 
-    const candidates: MapillaryImageResult[] = (payload.data ?? [])
+    const candidates = (payload.data ?? [])
       .map((image): MapillaryImageResult | undefined => {
         const coordinates = image.computed_geometry?.coordinates;
-        if (!image.id || !image.thumb_2048_url || !coordinates) return undefined;
+        if (!image.id || !image.thumb_2048_url || !coordinates || !Number.isFinite(image.computed_compass_angle)) return undefined;
         const point = { lon: coordinates[0], lat: coordinates[1] };
         const offRouteMeters = distanceMeters(frame.point, point);
         if (offRouteMeters > mapillarySearchRadiusMeters) return undefined;
+        const headingDelta = headingDeltaDegrees(image.computed_compass_angle ?? 0, frame.bearing);
+        if (headingDelta > mapillaryMaxHeadingDeltaDegrees) return undefined;
         return {
           id: image.id,
           imageUrl: image.thumb_2048_url,
@@ -298,7 +305,13 @@ async function findMapillaryImage(routeId: string, frame: StreetViewFrame) {
         };
       })
       .filter((image): image is MapillaryImageResult => Boolean(image))
-      .sort((a, b) => a.offRouteMeters - b.offRouteMeters);
+      .sort((a, b) => {
+        const aHeadingDelta = headingDeltaDegrees(a.compassAngle ?? frame.bearing, frame.bearing);
+        const bHeadingDelta = headingDeltaDegrees(b.compassAngle ?? frame.bearing, frame.bearing);
+        const aScore = a.offRouteMeters + aHeadingDelta * 1.4 + (a.isPano ? -18 : 12);
+        const bScore = b.offRouteMeters + bHeadingDelta * 1.4 + (b.isPano ? -18 : 12);
+        return aScore - bScore;
+      });
 
     const result = candidates[0] ?? null;
     mapillaryImageCache.set(key, result);
@@ -650,7 +663,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
         {readyState === 'ready' && coverageState === 'missing' && (
           <div className="street-view-corner-warning">
             <AlertTriangle size={15} />
-            <span>Nessuna foto entro {Math.max(mapillarySearchRadiusMeters, panoramaSearchRadiusMeters)} m</span>
+            <span>Nessuna foto frontale affidabile entro {Math.max(mapillarySearchRadiusMeters, panoramaSearchRadiusMeters)} m</span>
           </div>
         )}
       </div>
