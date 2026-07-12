@@ -115,7 +115,6 @@ const googleCandidateFrameOffsets = [0, 1, -1, 2, -2, 3, -3];
 const minSpeedKmh = 5;
 const maxSpeedKmh = 60;
 const freeMonthlyDynamicStreetViewEvents = 5000;
-const dynamicStreetViewUsdPer1000AfterFree = 14;
 const usageStoragePrefix = 'busradar:street-view-usage';
 
 const panoramaCache = new Map<string, PanoramaResult | null>();
@@ -468,6 +467,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
   const progress = totalMeters > 0 && currentFrame ? currentFrame.distanceMeters / totalMeters : 0;
   const remainingFreeEvents = Math.max(0, freeMonthlyDynamicStreetViewEvents - usage.events);
   const googleCostBlocked = remainingFreeEvents <= 0;
+  const googleUsagePercent = clamp((usage.events / freeMonthlyDynamicStreetViewEvents) * 100, 0, 100);
 
   useEffect(() => {
     setPlaying(false);
@@ -698,24 +698,29 @@ export function RouteStreetViewPlayer({ route }: Props) {
         </em>
       </div>
 
-      {hasMapillaryProvider() && (
-        <div className="street-view-cost-guard is-free-source">
-          <div>
-            <strong>{prefersMapillaryProvider() ? 'Mapillary attivo' : 'Mapillary fallback'}</strong>
-            <span>{prefersMapillaryProvider() ? 'Nessun consumo Google' : 'solo se Google manca'}</span>
-          </div>
-          <small>{prefersMapillaryProvider() ? 'Mapillary resta gratuito, ma non offre la stessa continuita di Street View. Per uso autista serve Google come sorgente principale.' : 'Google e la sorgente principale. Mapillary viene usato solo quando Street View non ha copertura o non e configurato.'}</small>
-        </div>
-      )}
-
-      {hasGoogleProvider() && (
-        <div className="street-view-cost-guard">
-          <div>
-            <strong>Fallback Google</strong>
-            <span>{remainingFreeEvents.toLocaleString('it-IT')} panorami rimasti su {freeMonthlyDynamicStreetViewEvents.toLocaleString('it-IT')} questo mese</span>
-          </div>
-          <meter min="0" max={freeMonthlyDynamicStreetViewEvents} value={usage.events} aria-label="Uso mensile Street View" />
-          <small>Dopo la soglia gratuita stimata, Google indica circa {dynamicStreetViewUsdPer1000AfterFree} USD ogni 1.000 panorami Dynamic Street View. Il blocco forte va impostato anche nelle quote Google Cloud.</small>
+      {(hasGoogleProvider() || hasMapillaryProvider()) && (
+        <div className="street-view-status-strip" aria-label="Stato anteprima strada">
+          {hasGoogleProvider() && (
+            <div className="street-view-status-card">
+              <span>Sorgente</span>
+              <strong>Google Street View</strong>
+              <small>{activeSource === 'google' ? 'vista principale' : 'pronto'}</small>
+            </div>
+          )}
+          {hasGoogleProvider() && (
+            <div className="street-view-status-card is-budget">
+              <span>Budget mese</span>
+              <strong>{remainingFreeEvents.toLocaleString('it-IT')} rimasti</strong>
+              <meter min="0" max="100" value={googleUsagePercent} aria-label="Uso mensile Street View" />
+            </div>
+          )}
+          {hasMapillaryProvider() && (
+            <div className="street-view-status-card is-backup">
+              <span>Backup</span>
+              <strong>Mapillary</strong>
+              <small>{prefersMapillaryProvider() ? 'sorgente gratuita' : 'solo se Google manca'}</small>
+            </div>
+          )}
         </div>
       )}
 
