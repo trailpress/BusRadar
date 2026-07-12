@@ -2,7 +2,7 @@ import { AlertTriangle, Gauge, Pause, Play, RotateCcw, SkipBack, SkipForward } f
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GtfsRouteVariant } from '../data/gtfsNetwork';
 import type { LatLng } from '../types';
-import { bearingDegrees, distanceMeters } from '../utils/geo';
+import { bearingDegrees, distanceMeters, routeProgressAtPoint } from '../utils/geo';
 import { LineBadge } from './LineBadge';
 
 type Props = {
@@ -19,6 +19,8 @@ type PanoramaResult = {
   point: LatLng;
   pano: string;
   offRouteMeters: number;
+  progressDeltaMeters: number;
+  headingDeltaDegrees: number;
 };
 
 type MapillaryImageResult = {
@@ -46,7 +48,12 @@ type GoogleStreetViewStatus = {
 
 type GoogleStreetViewService = {
   getPanorama: (
-    request: { location: { lat: number; lng: number }; radius: number },
+    request: {
+      location: { lat: number; lng: number };
+      preference?: string;
+      radius: number;
+      source?: string;
+    },
     callback: (data: { location?: { latLng?: GoogleLatLng; pano?: string } } | null, status: string) => void,
   ) => void;
 };
@@ -76,7 +83,13 @@ type GoogleMapsWindow = {
         zoom: number;
       },
     ) => GoogleStreetViewPanorama;
+    StreetViewPreference?: {
+      NEAREST: string;
+    };
     StreetViewService: new () => GoogleStreetViewService;
+    StreetViewSource?: {
+      OUTDOOR: string;
+    };
     StreetViewStatus: GoogleStreetViewStatus;
   };
 };
@@ -91,10 +104,14 @@ declare global {
 const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 const mapillaryAccessToken = import.meta.env.VITE_MAPILLARY_ACCESS_TOKEN as string | undefined;
 const routePreviewProvider = (import.meta.env.VITE_ROUTE_PREVIEW_PROVIDER ?? 'auto') as 'auto' | 'mapillary' | 'google';
-const panoramaSearchRadiusMeters = 70;
-const mapillarySearchRadiusMeters = 85;
-const mapillaryMaxHeadingDeltaDegrees = 70;
-const frameStepMeters = 35;
+const panoramaSearchRadiusMeters = 32;
+const mapillarySearchRadiusMeters = 55;
+const mapillaryMaxHeadingDeltaDegrees = 42;
+const frameStepMeters = 6;
+const googleMaxOffRouteMeters = 22;
+const googleMaxProgressDeltaMeters = 42;
+const googleMaxHeadingDeltaDegrees = 55;
+const googleCandidateFrameOffsets = [0, 1, -1, 2, -2, 3, -3];
 const minSpeedKmh = 5;
 const maxSpeedKmh = 60;
 const freeMonthlyDynamicStreetViewEvents = 5000;
@@ -102,6 +119,7 @@ const dynamicStreetViewUsdPer1000AfterFree = 14;
 const usageStoragePrefix = 'busradar:street-view-usage';
 
 const panoramaCache = new Map<string, PanoramaResult | null>();
+const rawPanoramaCache = new Map<string, Omit<PanoramaResult, 'progressDeltaMeters' | 'headingDeltaDegrees'> | null>();
 const mapillaryImageCache = new Map<string, MapillaryImageResult | null>();
 
 function clamp(value: number, min: number, max: number) {
@@ -330,19 +348,29 @@ async function findMapillaryImage(routeId: string, frame: StreetViewFrame) {
   }
 }
 
-function findPanorama(service: GoogleStreetViewService, routeId: string, frame: StreetViewFrame) {
-  const key = cacheKey(routeId, frame);
-  if (panoramaCache.has(key)) return Promise.resolve(panoramaCache.get(key) ?? null);
+function scoreGooglePanorama(result: PanoramaResult) {
+  return (
+    result.offRouteMeters * 3.2 +
+    result.progressDeltaMeters * 1.15 +
+    result.headingDeltaDegrees * 1.5
+  );
+}
 
-  return new Promise<PanoramaResult | null>((resolve) => {
+function requestRawPanorama(service: GoogleStreetViewService, routeId: string, frame: StreetViewFrame) {
+  const key = `raw:${cacheKey(routeId, frame)}`;
+  if (rawPanoramaCache.has(key)) return Promise.resolve(rawPanoramaCache.get(key) ?? null);
+
+  return new Promise<Omit<PanoramaResult, 'progressDeltaMeters' | 'headingDeltaDegrees'> | null>((resolve) => {
     service.getPanorama(
       {
         location: { lat: frame.point.lat, lng: frame.point.lon },
+        preference: window.google?.maps.StreetViewPreference?.NEAREST,
         radius: panoramaSearchRadiusMeters,
+        source: window.google?.maps.StreetViewSource?.OUTDOOR,
       },
       (data, status) => {
         if (status !== window.google?.maps.StreetViewStatus.OK || !data?.location?.latLng || !data.location.pano) {
-          panoramaCache.set(key, null);
+          rawPanoramaCache.set(key, null);
           resolve(null);
           return;
         }
@@ -353,11 +381,57 @@ function findPanorama(service: GoogleStreetViewService, routeId: string, frame: 
           pano: data.location.pano,
           offRouteMeters: distanceMeters(frame.point, panoramaPoint),
         };
-        panoramaCache.set(key, result);
+        rawPanoramaCache.set(key, result);
         resolve(result);
       },
     );
   });
+}
+
+async function findPanorama(
+  service: GoogleStreetViewService,
+  route: GtfsRouteVariant,
+  frames: StreetViewFrame[],
+  frameIndex: number,
+) {
+  const frame = frames[frameIndex];
+  if (!frame) return null;
+
+  const key = cacheKey(route.id, frame);
+  if (panoramaCache.has(key)) return Promise.resolve(panoramaCache.get(key) ?? null);
+
+  const candidates: PanoramaResult[] = [];
+  const seenPanos = new Set<string>();
+
+  for (const offset of googleCandidateFrameOffsets) {
+    const candidateFrame = frames[frameIndex + offset];
+    if (!candidateFrame) continue;
+    const raw = await requestRawPanorama(service, route.id, candidateFrame);
+    if (!raw || seenPanos.has(raw.pano)) continue;
+    seenPanos.add(raw.pano);
+
+    const projection = routeProgressAtPoint(route.path, raw.point);
+    if (!projection) continue;
+
+    const progressDeltaMeters = Math.abs(projection.traveledMeters - frame.distanceMeters);
+    const routeBearingDelta = headingDeltaDegrees(projection.bearing, frame.bearing);
+    const offRouteMeters = projection.distanceMeters;
+
+    if (offRouteMeters > googleMaxOffRouteMeters) continue;
+    if (progressDeltaMeters > googleMaxProgressDeltaMeters) continue;
+    if (routeBearingDelta > googleMaxHeadingDeltaDegrees) continue;
+
+    candidates.push({
+      ...raw,
+      offRouteMeters,
+      progressDeltaMeters,
+      headingDeltaDegrees: routeBearingDelta,
+    });
+  }
+
+  const result = candidates.sort((a, b) => scoreGooglePanorama(a) - scoreGooglePanorama(b))[0] ?? null;
+  panoramaCache.set(key, result);
+  return result;
 }
 
 function formatDistance(meters: number) {
@@ -486,7 +560,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
       });
       serviceRef.current ??= new window.google.maps.StreetViewService();
 
-      const result = await findPanorama(serviceRef.current, route.id, currentFrame);
+      const result = await findPanorama(serviceRef.current, route, frames, currentIndex);
       if (cancelled || requestId !== requestIdRef.current || !panoramaRef.current) return true;
       if (!result) return false;
 
@@ -559,7 +633,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [currentFrame, frames, googleCostBlocked, readyState, route]);
+  }, [currentFrame, currentIndex, frames, googleCostBlocked, readyState, route]);
 
   useEffect(() => {
     if (!playing || frames.length < 2 || totalMeters <= 0) return undefined;
