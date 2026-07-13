@@ -2164,13 +2164,31 @@ button {
   box-shadow: 0 20px 46px rgba(0, 0, 0, 0.34);
 }
 
-.street-view-canvas {
-  width: 100%;
-  height: 100%;
+.street-view-google-stack {
+  position: absolute;
+  inset: 0;
+  isolation: isolate;
 }
 
-.street-view-canvas.is-hidden {
+.street-view-google-stack.is-hidden {
   visibility: hidden;
+}
+
+.street-view-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 320ms ease;
+  will-change: opacity;
+}
+
+.street-view-canvas.is-active {
+  z-index: 1;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .street-view-mapillary-image {

@@ -67,10 +67,20 @@ type GoogleStreetViewService = {
 };
 
 type GoogleStreetViewPanorama = {
+  addListener: (eventName: string, handler: () => void) => { remove: () => void };
+  getStatus?: () => string;
   setPano: (pano: string) => void;
   setPosition: (position: { lat: number; lng: number }) => void;
   setPov: (pov: { heading: number; pitch: number }) => void;
   setZoom: (zoom: number) => void;
+};
+
+type PanoramaLayer = 0 | 1;
+
+type QueuedPanorama = {
+  routeId: string;
+  result: PanoramaResult;
+  bearing: number;
 };
 
 type GoogleMapsWindow = {
@@ -125,6 +135,8 @@ const googleMaxHeadingDeltaDegrees = 55;
 const googleCandidateFrameOffsets = [0, 1, -1, 2, -2, 3, -3];
 const panoramaMinStepMeters = 14;
 const panoramaMinIntervalMs = 650;
+const panoramaReadyDelayMs = 420;
+const panoramaLoadTimeoutMs = 3_000;
 const minSpeedKmh = 5;
 const maxSpeedKmh = 60;
 const freeMonthlyDynamicStreetViewEvents = 5000;
@@ -529,13 +541,75 @@ function formatDistance(meters: number) {
   return `${Math.round(meters)} m`;
 }
 
+function createStreetViewPanorama(element: HTMLElement, bearing: number) {
+  if (!window.google?.maps) return undefined;
+  return new window.google.maps.StreetViewPanorama(element, {
+    addressControl: false,
+    clickToGo: true,
+    disableDefaultUI: false,
+    fullscreenControl: true,
+    linksControl: true,
+    motionTracking: false,
+    motionTrackingControl: false,
+    panControl: true,
+    pov: { heading: bearing, pitch: -3 },
+    showRoadLabels: true,
+    zoom: 1,
+  });
+}
+
+function prepareStreetViewPanorama(
+  panorama: GoogleStreetViewPanorama,
+  request: QueuedPanorama,
+) {
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    let readyTimer: number | undefined;
+    let timeoutTimer: number | undefined;
+    const listeners: Array<{ remove: () => void }> = [];
+
+    const finish = (ready: boolean) => {
+      if (settled) return;
+      settled = true;
+      if (readyTimer) window.clearTimeout(readyTimer);
+      if (timeoutTimer) window.clearTimeout(timeoutTimer);
+      listeners.forEach((listener) => listener.remove());
+      resolve(ready);
+    };
+
+    const scheduleReady = () => {
+      if (readyTimer) window.clearTimeout(readyTimer);
+      readyTimer = window.setTimeout(() => finish(true), panoramaReadyDelayMs);
+    };
+
+    listeners.push(panorama.addListener('pano_changed', scheduleReady));
+    listeners.push(panorama.addListener('status_changed', () => {
+      const status = panorama.getStatus?.();
+      if (!status || status === window.google?.maps.StreetViewStatus.OK) scheduleReady();
+    }));
+
+    panorama.setPov({ heading: request.bearing, pitch: -4 });
+    panorama.setZoom(1);
+    panorama.setPano(request.result.pano);
+    timeoutTimer = window.setTimeout(() => finish(false), panoramaLoadTimeoutMs);
+  });
+}
+
 function cleanHeadsign(value: string) {
   return value.replace(/^NULL,?\s*/i, '').trim() || 'Direzione non disponibile';
 }
 
 export function RouteStreetViewPlayer({ route }: Props) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const panoramaRef = useRef<GoogleStreetViewPanorama | undefined>(undefined);
+  const primaryContainerRef = useRef<HTMLDivElement | null>(null);
+  const secondaryContainerRef = useRef<HTMLDivElement | null>(null);
+  const panoramaRefs = useRef<[GoogleStreetViewPanorama | undefined, GoogleStreetViewPanorama | undefined]>([undefined, undefined]);
+  const activePanoramaLayerRef = useRef<PanoramaLayer>(0);
+  const pendingPanoramaRef = useRef<QueuedPanorama>();
+  const stagingPanoRef = useRef<string>();
+  const panoramaTransitionRunningRef = useRef(false);
+  const panoramaRouteIdRef = useRef(route?.id);
+  const componentMountedRef = useRef(true);
+  const googleFrameVisibleRef = useRef(false);
   const serviceRef = useRef<GoogleStreetViewService | undefined>(undefined);
   const animationRef = useRef<number | undefined>(undefined);
   const lastAnimationAtRef = useRef<number | undefined>(undefined);
@@ -545,6 +619,8 @@ export function RouteStreetViewPlayer({ route }: Props) {
   const lastPanoramaAtRef = useRef(0);
   const requestIdRef = useRef(0);
   const lastDisplayedPanoRef = useRef<string | undefined>(undefined);
+  const [activePanoramaLayer, setActivePanoramaLayer] = useState<PanoramaLayer>(0);
+  const [googleFrameVisible, setGoogleFrameVisible] = useState(false);
   const [readyState, setReadyState] = useState<'idle' | 'loading' | 'ready' | 'missing-key' | 'error'>('idle');
   const [coverageState, setCoverageState] = useState<'idle' | 'searching' | 'covered' | 'missing' | 'blocked'>('idle');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -572,6 +648,79 @@ export function RouteStreetViewPlayer({ route }: Props) {
     googleUnavailable ? { ...runtimeConfig, googleMapsApiKey: undefined } : runtimeConfig
   ), [googleUnavailable, runtimeConfig]);
 
+  const ensurePanorama = (layer: PanoramaLayer, bearing: number) => {
+    const element = layer === 0 ? primaryContainerRef.current : secondaryContainerRef.current;
+    if (!element) return undefined;
+    panoramaRefs.current[layer] ??= createStreetViewPanorama(element, bearing);
+    return panoramaRefs.current[layer];
+  };
+
+  const activePanorama = () => panoramaRefs.current[activePanoramaLayerRef.current];
+
+  const processPanoramaQueue = async () => {
+    if (panoramaTransitionRunningRef.current) return;
+    panoramaTransitionRunningRef.current = true;
+
+    try {
+      while (componentMountedRef.current && pendingPanoramaRef.current) {
+        const request = pendingPanoramaRef.current;
+        pendingPanoramaRef.current = undefined;
+        if (panoramaRouteIdRef.current !== request.routeId) continue;
+
+        const nextUsage = reserveStreetViewEvent(readStreetViewUsage());
+        if (!nextUsage) {
+          setUsage(readStreetViewUsage());
+          setCoverageState('blocked');
+          setPlaying(false);
+          break;
+        }
+
+        const targetLayer: PanoramaLayer = googleFrameVisibleRef.current
+          ? activePanoramaLayerRef.current === 0 ? 1 : 0
+          : activePanoramaLayerRef.current;
+        const panorama = ensurePanorama(targetLayer, request.bearing);
+        if (!panorama) break;
+
+        stagingPanoRef.current = request.result.pano;
+        const ready = await prepareStreetViewPanorama(panorama, request);
+        stagingPanoRef.current = undefined;
+        if (!ready || !componentMountedRef.current || panoramaRouteIdRef.current !== request.routeId) continue;
+
+        setUsage(nextUsage);
+        lastDisplayedPanoRef.current = request.result.pano;
+        activePanoramaLayerRef.current = targetLayer;
+        setActivePanoramaLayer(targetLayer);
+        googleFrameVisibleRef.current = true;
+        setGoogleFrameVisible(true);
+        setOffRouteMeters(request.result.offRouteMeters);
+        setMapillaryImage(undefined);
+        setActiveSource('google');
+        setCoverageState('covered');
+      }
+    } finally {
+      panoramaTransitionRunningRef.current = false;
+      if (componentMountedRef.current && pendingPanoramaRef.current) void processPanoramaQueue();
+    }
+  };
+
+  const queuePanorama = (request: QueuedPanorama) => {
+    if (
+      request.result.pano === lastDisplayedPanoRef.current
+      || request.result.pano === stagingPanoRef.current
+      || request.result.pano === pendingPanoramaRef.current?.result.pano
+    ) return;
+    pendingPanoramaRef.current = request;
+    void processPanoramaQueue();
+  };
+
+  useEffect(() => {
+    componentMountedRef.current = true;
+    return () => {
+      componentMountedRef.current = false;
+      pendingPanoramaRef.current = undefined;
+    };
+  }, []);
+
   useEffect(() => {
     const handleGoogleFailure = () => {
       setGoogleUnavailable(true);
@@ -586,6 +735,9 @@ export function RouteStreetViewPlayer({ route }: Props) {
   }, []);
 
   useEffect(() => {
+    panoramaRouteIdRef.current = route?.id;
+    pendingPanoramaRef.current = undefined;
+    stagingPanoRef.current = undefined;
     setPlaying(false);
     setCurrentIndex(0);
     setCurrentDistanceMeters(0);
@@ -597,6 +749,8 @@ export function RouteStreetViewPlayer({ route }: Props) {
     setOffRouteMeters(undefined);
     setMapillaryImage(undefined);
     setActiveSource('none');
+    googleFrameVisibleRef.current = false;
+    setGoogleFrameVisible(false);
     lastDisplayedPanoRef.current = undefined;
   }, [route?.id]);
 
@@ -626,7 +780,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!containerRef.current || !route || frames.length === 0) return undefined;
+    if (!primaryContainerRef.current || !secondaryContainerRef.current || !route || frames.length === 0) return undefined;
     let cancelled = false;
 
     if (!runtimeConfigReady) {
@@ -654,20 +808,9 @@ export function RouteStreetViewPlayer({ route }: Props) {
 
     loadGoogleMaps(effectiveRuntimeConfig.googleMapsApiKey)
       .then(() => {
-        if (cancelled || !containerRef.current || !window.google?.maps) return;
-        panoramaRef.current ??= new window.google.maps.StreetViewPanorama(containerRef.current, {
-          addressControl: false,
-          clickToGo: true,
-          disableDefaultUI: false,
-          fullscreenControl: true,
-          linksControl: true,
-          motionTracking: false,
-          motionTrackingControl: false,
-          panControl: true,
-          pov: { heading: frames[0].bearing, pitch: -3 },
-          showRoadLabels: true,
-          zoom: 1,
-        });
+        if (cancelled || !primaryContainerRef.current || !secondaryContainerRef.current || !window.google?.maps) return;
+        ensurePanorama(0, frames[0].bearing);
+        ensurePanorama(1, frames[0].bearing);
         serviceRef.current ??= new window.google.maps.StreetViewService();
         setReadyState('ready');
       })
@@ -694,7 +837,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
     requestIdRef.current = requestId;
 
     const showGoogleFrame = async () => {
-      if (!route || !currentFrame || !containerRef.current || !hasGoogleProvider(effectiveRuntimeConfig)) return 'unavailable';
+      if (!route || !currentFrame || !primaryContainerRef.current || !secondaryContainerRef.current || !hasGoogleProvider(effectiveRuntimeConfig)) return 'unavailable';
       if (googleCostBlocked) {
         setCoverageState('blocked');
         setPlaying(false);
@@ -710,46 +853,28 @@ export function RouteStreetViewPlayer({ route }: Props) {
         return 'unavailable';
       }
 
-      if (!containerRef.current || !window.google?.maps) return 'unavailable';
-      panoramaRef.current ??= new window.google.maps.StreetViewPanorama(containerRef.current, {
-        addressControl: false,
-        clickToGo: true,
-        disableDefaultUI: false,
-        fullscreenControl: true,
-        linksControl: true,
-        motionTracking: false,
-        motionTrackingControl: false,
-        panControl: true,
-        pov: { heading: frames[0]?.bearing ?? currentFrame.bearing, pitch: -3 },
-        showRoadLabels: true,
-        zoom: 1,
-      });
+      if (!primaryContainerRef.current || !secondaryContainerRef.current || !window.google?.maps) return 'unavailable';
+      ensurePanorama(0, frames[0]?.bearing ?? currentFrame.bearing);
+      ensurePanorama(1, frames[0]?.bearing ?? currentFrame.bearing);
       serviceRef.current ??= new window.google.maps.StreetViewService();
 
       const result = await findPanorama(serviceRef.current, route, frames, currentIndex);
-      if (cancelled || requestId !== requestIdRef.current || !panoramaRef.current) return 'handled';
+      if (cancelled || requestId !== requestIdRef.current) return 'handled';
       if (!result) return 'missing';
 
-      if (result.pano !== lastDisplayedPanoRef.current) {
-        const nextUsage = reserveStreetViewEvent(readStreetViewUsage());
-        if (!nextUsage) {
-          setUsage(readStreetViewUsage());
-          setCoverageState('blocked');
-          setPlaying(false);
-          return 'handled';
-        }
-        setUsage(nextUsage);
-        lastDisplayedPanoRef.current = result.pano;
-        panoramaRef.current.setPano(result.pano);
+      if (result.pano === lastDisplayedPanoRef.current) {
+        const panorama = activePanorama();
+        panorama?.setPov({ heading: currentFrame.bearing, pitch: -4 });
+        panorama?.setZoom(1);
+        setOffRouteMeters(result.offRouteMeters);
+        setMapillaryImage(undefined);
+        setActiveSource('google');
+        setCoverageState('covered');
+        return 'covered';
       }
-      panoramaRef.current.setPosition({ lat: result.point.lat, lng: result.point.lon });
-      panoramaRef.current.setPov({ heading: currentFrame.bearing, pitch: -4 });
-      panoramaRef.current.setZoom(1);
-      setOffRouteMeters(result.offRouteMeters);
-      setMapillaryImage(undefined);
-      setActiveSource('google');
-      setCoverageState('covered');
-      return 'covered';
+
+      queuePanorama({ routeId: route.id, result, bearing: currentFrame.bearing });
+      return 'handled';
     };
 
     if (readyState !== 'ready' || !route || !currentFrame) return undefined;
@@ -820,8 +945,8 @@ export function RouteStreetViewPlayer({ route }: Props) {
       setCurrentDistanceMeters(distanceRef.current);
       const nextIndex = frameIndexAtDistance(frames, distanceRef.current);
       const nextFrame = frames[nextIndex];
-      if (nextFrame && panoramaRef.current && activeSource === 'google') {
-        panoramaRef.current.setPov({ heading: nextFrame.bearing, pitch: -4 });
+      if (nextFrame && activeSource === 'google') {
+        activePanorama()?.setPov({ heading: nextFrame.bearing, pitch: -4 });
       }
       const movedEnough = nextFrame
         ? Math.abs(nextFrame.distanceMeters - lastPanoramaDistanceRef.current) >= panoramaMinStepMeters
@@ -925,7 +1050,18 @@ export function RouteStreetViewPlayer({ route }: Props) {
       )}
 
       <div className="street-view-frame">
-        <div ref={containerRef} className={`street-view-canvas${mapillaryImage || googleUnavailable ? ' is-hidden' : ''}`} />
+        <div className={`street-view-google-stack${mapillaryImage || googleUnavailable || !googleFrameVisible ? ' is-hidden' : ''}`}>
+          <div
+            ref={primaryContainerRef}
+            className={`street-view-canvas${activePanoramaLayer === 0 ? ' is-active' : ''}`}
+            aria-hidden={activePanoramaLayer !== 0}
+          />
+          <div
+            ref={secondaryContainerRef}
+            className={`street-view-canvas${activePanoramaLayer === 1 ? ' is-active' : ''}`}
+            aria-hidden={activePanoramaLayer !== 1}
+          />
+        </div>
         {mapillaryImage && (
           <>
             <img className="street-view-mapillary-image" src={mapillaryImage.imageUrl} alt={`Anteprima Mapillary linea ${route.line}`} />
