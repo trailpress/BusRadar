@@ -21,6 +21,14 @@ type PanoramaResult = {
   offRouteMeters: number;
   progressDeltaMeters: number;
   headingDeltaDegrees: number;
+  links: StreetViewLink[];
+};
+
+type RawPanoramaResult = Omit<PanoramaResult, 'progressDeltaMeters' | 'headingDeltaDegrees'>;
+
+type StreetViewLink = {
+  pano: string;
+  heading: number;
 };
 
 type MapillaryImageResult = {
@@ -61,8 +69,13 @@ type GoogleStreetViewService = {
       preference?: string;
       radius: number;
       source?: string;
+    } | {
+      pano: string;
     },
-    callback: (data: { location?: { latLng?: GoogleLatLng; pano?: string } } | null, status: string) => void,
+    callback: (data: {
+      links?: Array<{ pano?: string; heading?: number }>;
+      location?: { latLng?: GoogleLatLng; pano?: string };
+    } | null, status: string) => void,
   ) => void;
 };
 
@@ -81,6 +94,8 @@ type QueuedPanorama = {
   routeId: string;
   result: PanoramaResult;
   bearing: number;
+  generation: number;
+  activateAtMeters?: number;
 };
 
 type GoogleMapsWindow = {
@@ -129,15 +144,19 @@ const panoramaSearchRadiusMeters = 32;
 const mapillarySearchRadiusMeters = 55;
 const mapillaryMaxHeadingDeltaDegrees = 42;
 const frameStepMeters = 6;
-const googleMaxOffRouteMeters = 22;
-const googleMaxProgressDeltaMeters = 42;
-const googleMaxHeadingDeltaDegrees = 55;
+const googleMaxOffRouteMeters = 16;
+const googleMaxProgressDeltaMeters = 34;
+const googleMaxHeadingDeltaDegrees = 48;
 const googleCandidateFrameOffsets = [0, 1, -1, 2, -2, 3, -3];
 const panoramaMinStepMeters = 14;
-const panoramaMinIntervalMs = 650;
-const panoramaReadyDelayMs = 180;
+const panoramaMinIntervalMs = 560;
+const panoramaReadyDelayMs = 520;
 const panoramaLoadTimeoutMs = 4_000;
-const panoramaFadeDurationMs = 360;
+const panoramaFadeDurationMs = 620;
+const panoramaActivationToleranceMeters = 2;
+const panoramaPrefetchSeconds = 1.8;
+const panoramaMinPrefetchMeters = 12;
+const panoramaMaxPrefetchMeters = 30;
 const minSpeedKmh = 5;
 const maxSpeedKmh = 60;
 const freeMonthlyDynamicStreetViewEvents = 5000;
@@ -147,7 +166,8 @@ const googleMapsCallbackName = '__busRadarGoogleMapsLoaded';
 const googleMapsLoadTimeoutMs = 15_000;
 
 const panoramaCache = new Map<string, PanoramaResult | null>();
-const rawPanoramaCache = new Map<string, Omit<PanoramaResult, 'progressDeltaMeters' | 'headingDeltaDegrees'> | null>();
+const rawPanoramaCache = new Map<string, RawPanoramaResult | null>();
+const rawPanoramaPromiseCache = new Map<string, Promise<RawPanoramaResult | null>>();
 const mapillaryImageCache = new Map<string, MapillaryImageResult | null>();
 let routePreviewConfigPromise: Promise<RoutePreviewRuntimeConfig> | undefined;
 
@@ -451,19 +471,38 @@ async function findMapillaryImage(accessToken: string | undefined, routeId: stri
   }
 }
 
-function scoreGooglePanorama(result: PanoramaResult) {
+function normalizeStreetViewLinks(data: {
+  links?: Array<{ pano?: string; heading?: number }>;
+}) {
+  return (data.links ?? [])
+    .filter((link): link is { pano: string; heading: number } => (
+      typeof link.pano === 'string' && typeof link.heading === 'number'
+    ))
+    .map((link) => ({ pano: link.pano, heading: link.heading }));
+}
+
+function scoreGooglePanorama(result: PanoramaResult, previous?: PanoramaResult) {
+  const continuityLink = previous?.links.find((link) => link.pano === result.pano);
+  const continuityScore = previous
+    ? continuityLink
+      ? -90
+      : 28
+    : 0;
   return (
     result.offRouteMeters * 3.2 +
     result.progressDeltaMeters * 1.15 +
-    result.headingDeltaDegrees * 1.5
+    result.headingDeltaDegrees * 1.5 +
+    continuityScore
   );
 }
 
 function requestRawPanorama(service: GoogleStreetViewService, routeId: string, frame: StreetViewFrame) {
   const key = `raw:${cacheKey(routeId, frame)}`;
   if (rawPanoramaCache.has(key)) return Promise.resolve(rawPanoramaCache.get(key) ?? null);
+  const inFlight = rawPanoramaPromiseCache.get(key);
+  if (inFlight) return inFlight;
 
-  return new Promise<Omit<PanoramaResult, 'progressDeltaMeters' | 'headingDeltaDegrees'> | null>((resolve) => {
+  const promise = new Promise<RawPanoramaResult | null>((resolve) => {
     service.getPanorama(
       {
         location: { lat: frame.point.lat, lng: frame.point.lon },
@@ -474,6 +513,7 @@ function requestRawPanorama(service: GoogleStreetViewService, routeId: string, f
       (data, status) => {
         if (status !== window.google?.maps.StreetViewStatus.OK || !data?.location?.latLng || !data.location.pano) {
           rawPanoramaCache.set(key, null);
+          rawPanoramaPromiseCache.delete(key);
           resolve(null);
           return;
         }
@@ -483,12 +523,46 @@ function requestRawPanorama(service: GoogleStreetViewService, routeId: string, f
           point: panoramaPoint,
           pano: data.location.pano,
           offRouteMeters: distanceMeters(frame.point, panoramaPoint),
+          links: normalizeStreetViewLinks(data),
         };
         rawPanoramaCache.set(key, result);
+        rawPanoramaPromiseCache.delete(key);
         resolve(result);
       },
     );
   });
+  rawPanoramaPromiseCache.set(key, promise);
+  return promise;
+}
+
+function requestRawPanoramaById(service: GoogleStreetViewService, pano: string) {
+  const key = `raw:pano:${pano}`;
+  if (rawPanoramaCache.has(key)) return Promise.resolve(rawPanoramaCache.get(key) ?? null);
+  const inFlight = rawPanoramaPromiseCache.get(key);
+  if (inFlight) return inFlight;
+
+  const promise = new Promise<RawPanoramaResult | null>((resolve) => {
+    service.getPanorama({ pano }, (data, status) => {
+      if (status !== window.google?.maps.StreetViewStatus.OK || !data?.location?.latLng || !data.location.pano) {
+        rawPanoramaCache.set(key, null);
+        rawPanoramaPromiseCache.delete(key);
+        resolve(null);
+        return;
+      }
+
+      const result = {
+        point: { lat: data.location.latLng.lat(), lon: data.location.latLng.lng() },
+        pano: data.location.pano,
+        offRouteMeters: 0,
+        links: normalizeStreetViewLinks(data),
+      };
+      rawPanoramaCache.set(key, result);
+      rawPanoramaPromiseCache.delete(key);
+      resolve(result);
+    });
+  });
+  rawPanoramaPromiseCache.set(key, promise);
+  return promise;
 }
 
 async function findPanorama(
@@ -496,6 +570,7 @@ async function findPanorama(
   route: GtfsRouteVariant,
   frames: StreetViewFrame[],
   frameIndex: number,
+  previous?: PanoramaResult,
 ) {
   const frame = frames[frameIndex];
   if (!frame) return null;
@@ -506,23 +581,20 @@ async function findPanorama(
   const candidates: PanoramaResult[] = [];
   const seenPanos = new Set<string>();
 
-  for (const offset of googleCandidateFrameOffsets) {
-    const candidateFrame = frames[frameIndex + offset];
-    if (!candidateFrame) continue;
-    const raw = await requestRawPanorama(service, route.id, candidateFrame);
-    if (!raw || seenPanos.has(raw.pano)) continue;
+  const addCandidate = (raw: RawPanoramaResult) => {
+    if (seenPanos.has(raw.pano)) return;
     seenPanos.add(raw.pano);
 
     const projection = routeProgressAtPoint(route.path, raw.point);
-    if (!projection) continue;
+    if (!projection) return;
 
     const progressDeltaMeters = Math.abs(projection.traveledMeters - frame.distanceMeters);
     const routeBearingDelta = headingDeltaDegrees(projection.bearing, frame.bearing);
     const offRouteMeters = projection.distanceMeters;
 
-    if (offRouteMeters > googleMaxOffRouteMeters) continue;
-    if (progressDeltaMeters > googleMaxProgressDeltaMeters) continue;
-    if (routeBearingDelta > googleMaxHeadingDeltaDegrees) continue;
+    if (offRouteMeters > googleMaxOffRouteMeters) return;
+    if (progressDeltaMeters > googleMaxProgressDeltaMeters) return;
+    if (routeBearingDelta > googleMaxHeadingDeltaDegrees) return;
 
     candidates.push({
       ...raw,
@@ -530,9 +602,28 @@ async function findPanorama(
       progressDeltaMeters,
       headingDeltaDegrees: routeBearingDelta,
     });
+  };
+
+  if (previous) {
+    const forwardLinks = previous.links
+      .filter((link) => headingDeltaDegrees(link.heading, frame.bearing) <= 72)
+      .sort((a, b) => headingDeltaDegrees(a.heading, frame.bearing) - headingDeltaDegrees(b.heading, frame.bearing))
+      .slice(0, 2);
+    const linkedResults = await Promise.all(forwardLinks.map((link) => requestRawPanoramaById(service, link.pano)));
+    linkedResults.forEach((raw) => {
+      if (raw) addCandidate(raw);
+    });
   }
 
-  const result = candidates.sort((a, b) => scoreGooglePanorama(a) - scoreGooglePanorama(b))[0] ?? null;
+  const nearbyResults = await Promise.all(googleCandidateFrameOffsets.map((offset) => {
+    const candidateFrame = frames[frameIndex + offset];
+    return candidateFrame ? requestRawPanorama(service, route.id, candidateFrame) : Promise.resolve(null);
+  }));
+  nearbyResults.forEach((raw) => {
+    if (raw) addCandidate(raw);
+  });
+
+  const result = candidates.sort((a, b) => scoreGooglePanorama(a, previous) - scoreGooglePanorama(b, previous))[0] ?? null;
   panoramaCache.set(key, result);
   return result;
 }
@@ -628,21 +719,28 @@ export function RouteStreetViewPlayer({ route }: Props) {
   const componentMountedRef = useRef(true);
   const googleFrameVisibleRef = useRef(false);
   const panoramaFadeTimeoutRef = useRef<number | undefined>(undefined);
+  const panoramaLayerReusableAtRef = useRef<[number, number]>([0, 0]);
   const serviceRef = useRef<GoogleStreetViewService | undefined>(undefined);
   const animationRef = useRef<number | undefined>(undefined);
   const lastAnimationAtRef = useRef<number | undefined>(undefined);
   const distanceRef = useRef(0);
   const currentIndexRef = useRef(0);
+  const panoramaRequestIndexRef = useRef(0);
   const lastPanoramaDistanceRef = useRef(0);
   const lastPanoramaAtRef = useRef(0);
   const requestIdRef = useRef(0);
+  const panoramaGenerationRef = useRef(0);
   const lastDisplayedPanoRef = useRef<string | undefined>(undefined);
+  const lastDisplayedPanoramaRef = useRef<PanoramaResult | undefined>(undefined);
+  const playingRef = useRef(false);
+  const displayHeadingRef = useRef<number | undefined>(undefined);
   const [activePanoramaLayer, setActivePanoramaLayer] = useState<PanoramaLayer>(0);
   const [leavingPanoramaLayer, setLeavingPanoramaLayer] = useState<PanoramaLayer | undefined>(undefined);
   const [googleFrameVisible, setGoogleFrameVisible] = useState(false);
   const [readyState, setReadyState] = useState<'idle' | 'loading' | 'ready' | 'missing-key' | 'error'>('idle');
   const [coverageState, setCoverageState] = useState<'idle' | 'searching' | 'covered' | 'missing' | 'blocked'>('idle');
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [panoramaRequestIndex, setPanoramaRequestIndex] = useState(0);
   const [currentDistanceMeters, setCurrentDistanceMeters] = useState(0);
   const [speedKmh, setSpeedKmh] = useState(25);
   const [playing, setPlaying] = useState(false);
@@ -659,6 +757,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
   ));
   const { frames, totalMeters } = useMemo(() => buildStreetViewFrames(route?.path ?? []), [route]);
   const currentFrame = frames[currentIndex];
+  const panoramaRequestFrame = frames[panoramaRequestIndex];
   const progress = totalMeters > 0 ? currentDistanceMeters / totalMeters : 0;
   const remainingFreeEvents = Math.max(0, freeMonthlyDynamicStreetViewEvents - usage.events);
   const googleCostBlocked = remainingFreeEvents <= 0;
@@ -675,6 +774,49 @@ export function RouteStreetViewPlayer({ route }: Props) {
   };
 
   const activePanorama = () => panoramaRefs.current[activePanoramaLayerRef.current];
+
+  const waitForPanoramaActivation = (request: QueuedPanorama) => new Promise<boolean>((resolve) => {
+    if (request.activateAtMeters == null) {
+      resolve(true);
+      return;
+    }
+
+    const check = () => {
+      if (
+        !componentMountedRef.current
+        || panoramaRouteIdRef.current !== request.routeId
+        || request.generation !== panoramaGenerationRef.current
+      ) {
+        resolve(false);
+        return;
+      }
+      if (distanceRef.current >= request.activateAtMeters! - panoramaActivationToleranceMeters) {
+        resolve(true);
+        return;
+      }
+      window.requestAnimationFrame(check);
+    };
+    check();
+  });
+
+  const waitForPanoramaLayer = (layer: PanoramaLayer, request: QueuedPanorama) => new Promise<boolean>((resolve) => {
+    const check = () => {
+      if (
+        !componentMountedRef.current
+        || panoramaRouteIdRef.current !== request.routeId
+        || request.generation !== panoramaGenerationRef.current
+      ) {
+        resolve(false);
+        return;
+      }
+      if (performance.now() >= panoramaLayerReusableAtRef.current[layer]) {
+        resolve(true);
+        return;
+      }
+      window.requestAnimationFrame(check);
+    };
+    check();
+  });
 
   const processPanoramaQueue = async () => {
     if (panoramaTransitionRunningRef.current) return;
@@ -697,6 +839,8 @@ export function RouteStreetViewPlayer({ route }: Props) {
         const targetLayer: PanoramaLayer = googleFrameVisibleRef.current
           ? activePanoramaLayerRef.current === 0 ? 1 : 0
           : activePanoramaLayerRef.current;
+        const layerReady = await waitForPanoramaLayer(targetLayer, request);
+        if (!layerReady) continue;
         const panorama = ensurePanorama(targetLayer, request.bearing);
         if (!panorama) break;
 
@@ -704,14 +848,18 @@ export function RouteStreetViewPlayer({ route }: Props) {
         const ready = await prepareStreetViewPanorama(panorama, request);
         stagingPanoRef.current = undefined;
         if (!ready || !componentMountedRef.current || panoramaRouteIdRef.current !== request.routeId) continue;
+        const activationReady = await waitForPanoramaActivation(request);
+        if (!activationReady) continue;
 
         setUsage(nextUsage);
         const previousLayer = activePanoramaLayerRef.current;
         lastDisplayedPanoRef.current = request.result.pano;
+        lastDisplayedPanoramaRef.current = request.result;
         activePanoramaLayerRef.current = targetLayer;
         setActivePanoramaLayer(targetLayer);
         if (googleFrameVisibleRef.current && previousLayer !== targetLayer) {
           if (panoramaFadeTimeoutRef.current) window.clearTimeout(panoramaFadeTimeoutRef.current);
+          panoramaLayerReusableAtRef.current[previousLayer] = performance.now() + panoramaFadeDurationMs + 80;
           setLeavingPanoramaLayer(previousLayer);
           panoramaFadeTimeoutRef.current = window.setTimeout(() => {
             setLeavingPanoramaLayer(undefined);
@@ -765,6 +913,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
 
   useEffect(() => {
     panoramaRouteIdRef.current = route?.id;
+    panoramaGenerationRef.current += 1;
     pendingPanoramaRef.current = undefined;
     stagingPanoRef.current = undefined;
     setPlaying(false);
@@ -772,6 +921,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
     setCurrentDistanceMeters(0);
     distanceRef.current = 0;
     currentIndexRef.current = 0;
+    panoramaRequestIndexRef.current = 0;
     lastPanoramaDistanceRef.current = 0;
     lastPanoramaAtRef.current = 0;
     setCoverageState('idle');
@@ -781,8 +931,21 @@ export function RouteStreetViewPlayer({ route }: Props) {
     googleFrameVisibleRef.current = false;
     setGoogleFrameVisible(false);
     setLeavingPanoramaLayer(undefined);
+    panoramaLayerReusableAtRef.current = [0, 0];
     lastDisplayedPanoRef.current = undefined;
+    lastDisplayedPanoramaRef.current = undefined;
+    displayHeadingRef.current = undefined;
+    setPanoramaRequestIndex(0);
   }, [route?.id]);
+
+  useEffect(() => {
+    playingRef.current = playing;
+    if (!playing) {
+      panoramaGenerationRef.current += 1;
+      panoramaRequestIndexRef.current = currentIndexRef.current;
+      setPanoramaRequestIndex(currentIndexRef.current);
+    }
+  }, [playing]);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -867,7 +1030,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
     requestIdRef.current = requestId;
 
     const showGoogleFrame = async () => {
-      if (!route || !currentFrame || !primaryContainerRef.current || !secondaryContainerRef.current || !hasGoogleProvider(effectiveRuntimeConfig)) return 'unavailable';
+      if (!route || !panoramaRequestFrame || !primaryContainerRef.current || !secondaryContainerRef.current || !hasGoogleProvider(effectiveRuntimeConfig)) return 'unavailable';
       if (googleCostBlocked) {
         setCoverageState('blocked');
         setPlaying(false);
@@ -884,17 +1047,23 @@ export function RouteStreetViewPlayer({ route }: Props) {
       }
 
       if (!primaryContainerRef.current || !secondaryContainerRef.current || !window.google?.maps) return 'unavailable';
-      ensurePanorama(0, frames[0]?.bearing ?? currentFrame.bearing);
-      ensurePanorama(1, frames[0]?.bearing ?? currentFrame.bearing);
+      ensurePanorama(0, frames[0]?.bearing ?? panoramaRequestFrame.bearing);
+      ensurePanorama(1, frames[0]?.bearing ?? panoramaRequestFrame.bearing);
       serviceRef.current ??= new window.google.maps.StreetViewService();
 
-      const result = await findPanorama(serviceRef.current, route, frames, currentIndex);
+      const result = await findPanorama(
+        serviceRef.current,
+        route,
+        frames,
+        panoramaRequestIndex,
+        lastDisplayedPanoramaRef.current,
+      );
       if (cancelled || requestId !== requestIdRef.current) return 'handled';
       if (!result) return 'missing';
 
       if (result.pano === lastDisplayedPanoRef.current) {
         const panorama = activePanorama();
-        panorama?.setPov({ heading: currentFrame.bearing, pitch: -4 });
+        panorama?.setPov({ heading: panoramaRequestFrame.bearing, pitch: -4 });
         panorama?.setZoom(1);
         setOffRouteMeters(result.offRouteMeters);
         setMapillaryImage(undefined);
@@ -903,11 +1072,17 @@ export function RouteStreetViewPlayer({ route }: Props) {
         return 'covered';
       }
 
-      queuePanorama({ routeId: route.id, result, bearing: currentFrame.bearing });
+      queuePanorama({
+        routeId: route.id,
+        result,
+        bearing: panoramaRequestFrame.bearing,
+        generation: panoramaGenerationRef.current,
+        activateAtMeters: playingRef.current ? panoramaRequestFrame.distanceMeters : undefined,
+      });
       return 'handled';
     };
 
-    if (readyState !== 'ready' || !route || !currentFrame) return undefined;
+    if (readyState !== 'ready' || !route || !panoramaRequestFrame) return undefined;
 
     setCoverageState('searching');
 
@@ -927,7 +1102,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
       }
 
       if (hasMapillaryProvider(effectiveRuntimeConfig)) {
-        const image = await findMapillaryImage(effectiveRuntimeConfig.mapillaryAccessToken, route.id, currentFrame);
+        const image = await findMapillaryImage(effectiveRuntimeConfig.mapillaryAccessToken, route.id, panoramaRequestFrame);
         if (cancelled || requestId !== requestIdRef.current) return;
         if (image) {
           setMapillaryImage(image);
@@ -962,7 +1137,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [currentFrame, currentIndex, effectiveRuntimeConfig, frames, googleCostBlocked, readyState, route]);
+  }, [effectiveRuntimeConfig, frames, googleCostBlocked, panoramaRequestFrame, panoramaRequestIndex, readyState, route]);
 
   useEffect(() => {
     if (!playing || frames.length < 2 || totalMeters <= 0) return undefined;
@@ -976,17 +1151,36 @@ export function RouteStreetViewPlayer({ route }: Props) {
       const nextIndex = frameIndexAtDistance(frames, distanceRef.current);
       const nextFrame = frames[nextIndex];
       if (nextFrame && activeSource === 'google') {
-        activePanorama()?.setPov({ heading: nextFrame.bearing, pitch: -4 });
+        const currentHeading = displayHeadingRef.current ?? nextFrame.bearing;
+        const delta = ((nextFrame.bearing - currentHeading + 540) % 360) - 180;
+        const smoothedHeading = (currentHeading + delta * clamp(elapsedSeconds * 4.2, 0, 1) + 360) % 360;
+        displayHeadingRef.current = smoothedHeading;
+        activePanorama()?.setPov({ heading: smoothedHeading, pitch: -4 });
       }
-      const movedEnough = nextFrame
-        ? Math.abs(nextFrame.distanceMeters - lastPanoramaDistanceRef.current) >= panoramaMinStepMeters
+      if (nextIndex !== currentIndexRef.current) {
+        currentIndexRef.current = nextIndex;
+        setCurrentIndex(nextIndex);
+      }
+
+      const prefetchMeters = clamp(
+        (speedKmh / 3.6) * panoramaPrefetchSeconds,
+        panoramaMinPrefetchMeters,
+        panoramaMaxPrefetchMeters,
+      );
+      const requestDistance = activeSource === 'mapillary'
+        ? distanceRef.current
+        : Math.min(totalMeters, distanceRef.current + prefetchMeters);
+      const requestIndex = frameIndexAtDistance(frames, requestDistance);
+      const requestFrame = frames[requestIndex];
+      const movedEnough = requestFrame
+        ? Math.abs(requestFrame.distanceMeters - lastPanoramaDistanceRef.current) >= panoramaMinStepMeters
         : false;
       const waitedEnough = timestamp - lastPanoramaAtRef.current >= panoramaMinIntervalMs;
-      if (nextFrame && nextIndex !== currentIndexRef.current && movedEnough && waitedEnough) {
-        currentIndexRef.current = nextIndex;
-        lastPanoramaDistanceRef.current = nextFrame.distanceMeters;
+      if (requestFrame && requestIndex !== panoramaRequestIndexRef.current && movedEnough && waitedEnough) {
+        panoramaRequestIndexRef.current = requestIndex;
+        lastPanoramaDistanceRef.current = requestFrame.distanceMeters;
         lastPanoramaAtRef.current = timestamp;
-        setCurrentIndex(nextIndex);
+        setPanoramaRequestIndex(requestIndex);
       }
 
       if (distanceRef.current >= totalMeters) {
@@ -1007,6 +1201,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
   }, [activeSource, frames, playing, speedKmh, totalMeters]);
 
   const goToIndex = (index: number) => {
+    panoramaGenerationRef.current += 1;
     const nextIndex = clamp(index, 0, Math.max(0, frames.length - 1));
     setCurrentIndex(nextIndex);
     currentIndexRef.current = nextIndex;
@@ -1015,9 +1210,12 @@ export function RouteStreetViewPlayer({ route }: Props) {
     lastPanoramaDistanceRef.current = nextDistance;
     lastPanoramaAtRef.current = performance.now();
     setCurrentDistanceMeters(nextDistance);
+    panoramaRequestIndexRef.current = nextIndex;
+    setPanoramaRequestIndex(nextIndex);
   };
 
   const progressChange = (value: number) => {
+    panoramaGenerationRef.current += 1;
     const nextDistance = clamp(value, 0, 100) / 100 * totalMeters;
     const nextIndex = frameIndexAtDistance(frames, nextDistance);
     distanceRef.current = nextDistance;
@@ -1026,6 +1224,8 @@ export function RouteStreetViewPlayer({ route }: Props) {
     lastPanoramaAtRef.current = performance.now();
     setCurrentDistanceMeters(nextDistance);
     setCurrentIndex(nextIndex);
+    panoramaRequestIndexRef.current = nextIndex;
+    setPanoramaRequestIndex(nextIndex);
   };
 
   if (!route) {

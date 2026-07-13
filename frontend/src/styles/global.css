@@ -2192,7 +2192,7 @@ button {
 .street-view-canvas.is-leaving {
   z-index: 2;
   pointer-events: none;
-  animation: street-view-fade-out 360ms ease-out forwards;
+  animation: street-view-fade-out 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
   will-change: opacity;
 }
 
