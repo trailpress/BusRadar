@@ -96,7 +96,7 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'mercedes-conecto-12m': {
     label: 'Mercedes Conecto 12m',
-    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-diesel-gtt-render.png',
+    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-diesel-gtt-render-v2.png',
     referenceNotes: 'Compatibilita storica: usare mercedes-conecto-12m-cng per serie 2400 e mercedes-conecto-12m-diesel per serie 3400.',
   },
   'mercedes-conecto-12m-cng': {
@@ -106,8 +106,8 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'mercedes-conecto-12m-diesel': {
     label: 'Mercedes Conecto 12m diesel',
-    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-diesel-gtt-render.png',
-    referenceNotes: 'Scheda ufficiale UL04: serie 3400-3440, Conecto E6 diesel con profilo tetto standard.',
+    detailAsset: 'assets/vehicles/detail/generated/mercedes-conecto-12m-diesel-gtt-render-v2.png',
+    referenceNotes: 'Scheda ufficiale UL04 e fotografie reali 3400: Conecto E6 diesel con corpo prevalentemente blu e campo posteriore giallo.',
   },
   'mercedes-conecto-18m': {
     label: 'Mercedes Conecto G 18m',
@@ -168,8 +168,10 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
 
 export function vehicleFleetProfile(fleetKey?: VehicleFleetKey) {
   const key = fleetKey ?? 'generic-bus';
+  const catalogProfile = GTT_FLEET_CATALOG_BY_KEY[key];
   return {
     ...VEHICLE_FLEET_PROFILES[key],
-    assetStatus: GTT_FLEET_CATALOG_BY_KEY[key]?.assetStatus ?? 'placeholder-render',
+    detailAsset: catalogProfile?.asset ?? VEHICLE_FLEET_PROFILES[key].detailAsset,
+    assetStatus: catalogProfile?.assetStatus ?? 'placeholder-render',
   };
 }

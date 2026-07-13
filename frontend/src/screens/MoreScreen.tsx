@@ -6,7 +6,7 @@ export function MoreScreen() {
     <main className="screen panel-screen">
       <section className="screen-header">
         <div>
-          <span>BusRadar v0.2.30</span>
+          <span>BusRadar v0.2.31</span>
           <h1>Altro</h1>
         </div>
       </section>
