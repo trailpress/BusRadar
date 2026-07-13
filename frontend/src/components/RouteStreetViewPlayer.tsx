@@ -604,8 +604,8 @@ export function RouteStreetViewPlayer({ route }: Props) {
   const secondaryContainerRef = useRef<HTMLDivElement | null>(null);
   const panoramaRefs = useRef<[GoogleStreetViewPanorama | undefined, GoogleStreetViewPanorama | undefined]>([undefined, undefined]);
   const activePanoramaLayerRef = useRef<PanoramaLayer>(0);
-  const pendingPanoramaRef = useRef<QueuedPanorama>();
-  const stagingPanoRef = useRef<string>();
+  const pendingPanoramaRef = useRef<QueuedPanorama | undefined>(undefined);
+  const stagingPanoRef = useRef<string | undefined>(undefined);
   const panoramaTransitionRunningRef = useRef(false);
   const panoramaRouteIdRef = useRef(route?.id);
   const componentMountedRef = useRef(true);
