@@ -289,7 +289,7 @@ function loadGoogleMaps(apiKey?: string) {
       reject(new Error('google-maps-auth-failed'));
     };
 
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&auth_referrer_policy=origin`;
     script.async = true;
     script.defer = true;
     script.onload = () => {
@@ -879,7 +879,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
       )}
 
       <div className="street-view-frame">
-        <div ref={containerRef} className={`street-view-canvas${mapillaryImage || activeSource !== 'google' ? ' is-hidden' : ''}`} />
+        <div ref={containerRef} className={`street-view-canvas${mapillaryImage || googleUnavailable ? ' is-hidden' : ''}`} />
         {mapillaryImage && (
           <>
             <img className="street-view-mapillary-image" src={mapillaryImage.imageUrl} alt={`Anteprima Mapillary linea ${route.line}`} />
