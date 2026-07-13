@@ -26,13 +26,13 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'tram-serie-8000': {
     label: 'Tram serie 8000 Hitachi',
-    detailAsset: 'assets/vehicles/detail/generated/tram-serie-8000-hitachi-gtt-render-v2.png',
-    referenceNotes: 'Scheda ufficiale M7: TPIR monodirezionale a 5 casse e 3 carrelli, 28.000 mm.',
+    detailAsset: 'assets/vehicles/detail/generated/tram-serie-8000-hitachi-gtt-render-v3.png',
+    referenceNotes: 'Render v3 riallineato alle foto reali 8000: Hitachi a 5 casse, livrea grigio/blu/giallo e solare spento.',
   },
   'byd-k7-electric-9m': {
     label: 'BYD K7 elettrico 8,8m',
-    detailAsset: 'assets/vehicles/detail/generated/byd-k7-electric-9m-gtt-render-v2.png',
-    referenceNotes: 'Scheda ufficiale UC01: serie 50E-57E, lunghezza 8.750 mm, 2 porte, 165 kWh.',
+    detailAsset: 'assets/vehicles/detail/generated/byd-k7-electric-9m-gtt-render-v3.png',
+    referenceNotes: 'Render v3 riallineato alle foto reali 50E-57E: midibus corto 8,75 m e livrea bianca/verde/arancio.',
   },
   'byd-k9ub-2017-12m': {
     label: 'BYD K9UB elettrico 12m (2017)',
@@ -116,8 +116,8 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'man-lions-city-19c-cng': {
     label: "MAN Lion's City 19C CNG",
-    detailAsset: 'assets/vehicles/detail/generated/man-lions-city-19c-cng-gtt-render.png',
-    referenceNotes: "Scheda ufficiale USNE01: serie 1400-1404, lunghezza 18.730 mm, CNG.",
+    detailAsset: 'assets/vehicles/detail/generated/man-lions-city-19c-cng-gtt-render-v2.png',
+    referenceNotes: "Render v2 riallineato alle foto reali 1401/1402: MAN 19C snodato blu/nero con minimi accenti gialli.",
   },
   'iveco-crossway-suburban': {
     label: 'Iveco Crossway LE suburbano',
