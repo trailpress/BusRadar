@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import type { MapSearchSuggestion } from './components/AppHeader';
-import { gtfsNetwork, type GtfsStop } from './data/gtfsNetwork';
+import { getGtfsLine, getGtfsRouteDirectionKey, getGtfsRouteVariant, gtfsNetwork, type GtfsStop } from './data/gtfsNetwork';
 import { useGtfsNetwork } from './data/useGtfsNetwork';
 import { geocodeTransitArea, geocodeTransitSuggestions, type GeocodingResult } from './services/geocoding';
 import { fetchGttRealtimeVehicles } from './services/gttRealtime';
@@ -16,6 +16,8 @@ const MapScreen = lazy(() => import('./screens/MapScreen').then((module) => ({ d
 const RadarScreen = lazy(() => import('./screens/RadarScreen').then((module) => ({ default: module.RadarScreen })));
 const StopsScreen = lazy(() => import('./screens/StopsScreen').then((module) => ({ default: module.StopsScreen })));
 const VehiclesScreen = lazy(() => import('./screens/VehiclesScreen').then((module) => ({ default: module.VehiclesScreen })));
+
+type LineDetailTab = 'details' | 'route' | 'street' | 'stops';
 
 function ScreenLoading() {
   return <div className="screen-loading" role="status">Caricamento schermata...</div>;
@@ -41,6 +43,8 @@ function App() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>();
   const [selectedVehicleFallback, setSelectedVehicleFallback] = useState<Vehicle>();
   const [selectedLine, setSelectedLine] = useState<TransitLine>();
+  const [lineDetailInitialTab, setLineDetailInitialTab] = useState<LineDetailTab>('route');
+  const [lineDetailInitialRouteKey, setLineDetailInitialRouteKey] = useState<string>();
   const [lineFilter, setLineFilter] = useState<string>();
   const [showRouteForLine, setShowRouteForLine] = useState<string>();
   const [followedVehicleId, setFollowedVehicleId] = useState<string>();
@@ -553,14 +557,27 @@ function App() {
     notify(`Linea ${vehicle.line} in movimento sul radar`);
   }
 
-  function openLine(line: TransitLine) {
+  function openLine(line: TransitLine, initialTab: LineDetailTab = 'route', initialRouteKey?: string) {
     lineDetailOpenedAtRef.current = performance.now();
     setSelectedStop(undefined);
     setSelectedLine(line);
+    setLineDetailInitialTab(initialTab);
+    setLineDetailInitialRouteKey(initialRouteKey);
     setSelectedVehicleFallback(undefined);
     setLineFilter(line.id);
     setShowRouteForLine(line.id);
     notify(`Linea ${line.id} selezionata`);
+  }
+
+  function openLineById(lineId: string, initialTab: LineDetailTab = 'street', routeVariantId?: string) {
+    const line = getGtfsLine(lineId) ?? gtfsNetwork.lines.find((item) => item.id === lineId);
+    if (!line) {
+      notify(`Linea ${lineId} non trovata nel GTFS caricato`);
+      return;
+    }
+    const routeVariant = getGtfsRouteVariant(routeVariantId);
+    const routeKey = routeVariant?.line === line.id ? getGtfsRouteDirectionKey(routeVariant) : undefined;
+    openLine(line, initialTab, routeKey);
   }
 
   function handleTabChange(tab: TabKey) {
@@ -590,7 +607,7 @@ function App() {
     return (
       <div className="app-shell">
         <Suspense fallback={<ScreenLoading />}>
-          <LineDetailScreen line={selectedLine} vehicles={vehicles} userLocation={userLocation} onBack={() => setSelectedLine(undefined)} onSelectVehicle={openVehicle} onSelectStop={openStop} />
+          <LineDetailScreen line={selectedLine} vehicles={vehicles} userLocation={userLocation} initialTab={lineDetailInitialTab} initialRouteKey={lineDetailInitialRouteKey} onBack={() => setSelectedLine(undefined)} onSelectVehicle={openVehicle} onSelectStop={openStop} />
         </Suspense>
         {toast && <div className="toast">{toast}</div>}
         <BottomNav
@@ -659,6 +676,7 @@ function App() {
                   : `Linea ${line}: percorso programmato, nessun mezzo realtime ora`,
               );
             }}
+            onOpenLineStreet={(line) => openLineById(line, 'street')}
             selectedStop={selectedStop}
             selectedStopRequest={selectedStopRequest}
             onSelectAreaStop={(stop) => {
@@ -683,17 +701,11 @@ function App() {
             }}
             onToggleVehicleFavorite={toggleVehicleFavorite}
             onShowRoute={(vehicle) => {
-              const routeKey = vehicle.routeVariantId || vehicle.routeId.replace(/^gtt-/, '') || vehicle.line;
-              setSelectedLine(undefined);
-              setSelectedStop(undefined);
               setSelectedVehicleId(undefined);
               setSelectedVehicleFallback(undefined);
               setFollowedVehicleId(undefined);
-              setLineFilter(vehicle.line);
-              setShowRouteForLine(routeKey);
               setMapFocus(undefined);
-              setActiveTab('map');
-              notify(`Percorso linea ${vehicle.line} mostrato sulla mappa`);
+              openLineById(vehicle.line, 'street', vehicle.routeVariantId);
             }}
             onResetMap={() => {
               setSelectedVehicleId(undefined);

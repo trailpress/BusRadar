@@ -1,4 +1,4 @@
-import { Layers3, LocateFixed, MapPinned } from 'lucide-react';
+import { Layers3, LocateFixed, MapPinned, Route as RouteIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { GtfsStop } from '../data/gtfsNetwork';
 import type { GeocodingResult } from '../services/geocoding';
@@ -38,6 +38,7 @@ type Props = {
   nearbyVehicleCount: number;
   onClearSearchedArea: () => void;
   onSelectAreaLine: (line: string) => void;
+  onOpenLineStreet: (line: string) => void;
   onSelectAreaStop: (stop: GtfsStop) => void;
   selectedStop?: GtfsStop;
   selectedStopRequest: number;
@@ -204,6 +205,7 @@ export function MapScreen({
   nearbyVehicleCount,
   onClearSearchedArea,
   onSelectAreaLine,
+  onOpenLineStreet,
   onSelectAreaStop,
   selectedStop,
   selectedStopRequest,
@@ -271,6 +273,10 @@ export function MapScreen({
       {selectedLine && !followedVehicleId && !detailVehicle && (
         <div className="map-direction-control">
           <RouteDirectionSelector routes={directionRoutes} selectedRouteKey={selectedRouteKey} onChange={setSelectedRouteKey} compact />
+          <button type="button" className="map-street-view-link" onClick={() => onOpenLineStreet(selectedLine)}>
+            <RouteIcon size={16} />
+            Vista strada
+          </button>
         </div>
       )}
       {searchedArea && !stopPopupOpen && (

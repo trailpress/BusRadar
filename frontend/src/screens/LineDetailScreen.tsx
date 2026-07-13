@@ -17,10 +17,14 @@ type Props = {
   line: TransitLine;
   vehicles: Vehicle[];
   userLocation: LatLng;
+  initialTab?: LineDetailTab;
+  initialRouteKey?: string;
   onBack: () => void;
   onSelectVehicle: (vehicle: Vehicle) => void;
   onSelectStop: (stop: GtfsStop) => void;
 };
+
+type LineDetailTab = 'details' | 'route' | 'street' | 'stops';
 
 type PlannedLinePassage = {
   id: string;
@@ -31,13 +35,13 @@ type PlannedLinePassage = {
   source: 'realtime' | 'scheduled';
 };
 
-export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelectVehicle, onSelectStop }: Props) {
+export function LineDetailScreen({ line, vehicles, userLocation, initialTab = 'route', initialRouteKey, onBack, onSelectVehicle, onSelectStop }: Props) {
   const { revision: gtfsRevision } = useGtfsNetwork();
-  const [tab, setTab] = useState<'details' | 'route' | 'street' | 'stops'>('route');
+  const [tab, setTab] = useState<LineDetailTab>(initialTab);
   const [favorite, setFavorite] = useState(() => isLineFavorite(line.id, Boolean(line.favorite)));
   const [plannedPassages, setPlannedPassages] = useState<PlannedLinePassage[]>([]);
   const [plannedPassagesLoading, setPlannedPassagesLoading] = useState(false);
-  const [selectedRouteKey, setSelectedRouteKey] = useState<string>();
+  const [selectedRouteKey, setSelectedRouteKey] = useState<string | undefined>(initialRouteKey);
   const routeVariants = useMemo(() => getGtfsRoutesForLine(line.id), [gtfsRevision, line.id]);
   const canonicalRoutes = useMemo(() => getCanonicalGtfsRoutesForLine(line.id), [gtfsRevision, line.id]);
   const streetViewRoute = useMemo(() => {
@@ -82,6 +86,11 @@ export function LineDetailScreen({ line, vehicles, userLocation, onBack, onSelec
     if (vehicle.routeMatchStatus === 'gps-only') return 'GPS reale';
     return 'solo feed';
   };
+
+  useEffect(() => {
+    setTab(initialTab);
+    setSelectedRouteKey(initialRouteKey);
+  }, [initialRouteKey, initialTab, line.id]);
 
   useEffect(() => {
     let cancelled = false;

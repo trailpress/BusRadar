@@ -120,6 +120,8 @@ const googleMaxOffRouteMeters = 22;
 const googleMaxProgressDeltaMeters = 42;
 const googleMaxHeadingDeltaDegrees = 55;
 const googleCandidateFrameOffsets = [0, 1, -1, 2, -2, 3, -3];
+const panoramaMinStepMeters = 14;
+const panoramaMinIntervalMs = 650;
 const minSpeedKmh = 5;
 const maxSpeedKmh = 60;
 const freeMonthlyDynamicStreetViewEvents = 5000;
@@ -486,11 +488,15 @@ export function RouteStreetViewPlayer({ route }: Props) {
   const animationRef = useRef<number | undefined>(undefined);
   const lastAnimationAtRef = useRef<number | undefined>(undefined);
   const distanceRef = useRef(0);
+  const currentIndexRef = useRef(0);
+  const lastPanoramaDistanceRef = useRef(0);
+  const lastPanoramaAtRef = useRef(0);
   const requestIdRef = useRef(0);
   const lastDisplayedPanoRef = useRef<string | undefined>(undefined);
   const [readyState, setReadyState] = useState<'idle' | 'loading' | 'ready' | 'missing-key' | 'error'>('idle');
   const [coverageState, setCoverageState] = useState<'idle' | 'searching' | 'covered' | 'missing' | 'blocked'>('idle');
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentDistanceMeters, setCurrentDistanceMeters] = useState(0);
   const [speedKmh, setSpeedKmh] = useState(25);
   const [playing, setPlaying] = useState(false);
   const [offRouteMeters, setOffRouteMeters] = useState<number>();
@@ -503,7 +509,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
   ));
   const { frames, totalMeters } = useMemo(() => buildStreetViewFrames(route?.path ?? []), [route]);
   const currentFrame = frames[currentIndex];
-  const progress = totalMeters > 0 && currentFrame ? currentFrame.distanceMeters / totalMeters : 0;
+  const progress = totalMeters > 0 ? currentDistanceMeters / totalMeters : 0;
   const remainingFreeEvents = Math.max(0, freeMonthlyDynamicStreetViewEvents - usage.events);
   const googleCostBlocked = remainingFreeEvents <= 0;
   const googleUsagePercent = clamp((usage.events / freeMonthlyDynamicStreetViewEvents) * 100, 0, 100);
@@ -511,13 +517,21 @@ export function RouteStreetViewPlayer({ route }: Props) {
   useEffect(() => {
     setPlaying(false);
     setCurrentIndex(0);
+    setCurrentDistanceMeters(0);
     distanceRef.current = 0;
+    currentIndexRef.current = 0;
+    lastPanoramaDistanceRef.current = 0;
+    lastPanoramaAtRef.current = 0;
     setCoverageState('idle');
     setOffRouteMeters(undefined);
     setMapillaryImage(undefined);
     setActiveSource('none');
     lastDisplayedPanoRef.current = undefined;
   }, [route?.id]);
+
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
 
   useEffect(() => {
     let cancelled = false;
@@ -710,10 +724,26 @@ export function RouteStreetViewPlayer({ route }: Props) {
       const elapsedSeconds = Math.min(1.4, (timestamp - lastAnimationAtRef.current) / 1000);
       lastAnimationAtRef.current = timestamp;
       distanceRef.current = clamp(distanceRef.current + (speedKmh / 3.6) * elapsedSeconds, 0, totalMeters);
+      setCurrentDistanceMeters(distanceRef.current);
       const nextIndex = frameIndexAtDistance(frames, distanceRef.current);
-      setCurrentIndex((previous) => (previous === nextIndex ? previous : nextIndex));
+      const nextFrame = frames[nextIndex];
+      if (nextFrame && panoramaRef.current && activeSource === 'google') {
+        panoramaRef.current.setPov({ heading: nextFrame.bearing, pitch: -4 });
+      }
+      const movedEnough = nextFrame
+        ? Math.abs(nextFrame.distanceMeters - lastPanoramaDistanceRef.current) >= panoramaMinStepMeters
+        : false;
+      const waitedEnough = timestamp - lastPanoramaAtRef.current >= panoramaMinIntervalMs;
+      if (nextFrame && nextIndex !== currentIndexRef.current && movedEnough && waitedEnough) {
+        currentIndexRef.current = nextIndex;
+        lastPanoramaDistanceRef.current = nextFrame.distanceMeters;
+        lastPanoramaAtRef.current = timestamp;
+        setCurrentIndex(nextIndex);
+      }
 
       if (distanceRef.current >= totalMeters) {
+        setCurrentIndex(frames.length - 1);
+        setCurrentDistanceMeters(totalMeters);
         setPlaying(false);
         lastAnimationAtRef.current = undefined;
         return;
@@ -726,18 +756,28 @@ export function RouteStreetViewPlayer({ route }: Props) {
       if (animationRef.current) window.cancelAnimationFrame(animationRef.current);
       lastAnimationAtRef.current = undefined;
     };
-  }, [frames, playing, speedKmh, totalMeters]);
+  }, [activeSource, frames, playing, speedKmh, totalMeters]);
 
   const goToIndex = (index: number) => {
     const nextIndex = clamp(index, 0, Math.max(0, frames.length - 1));
     setCurrentIndex(nextIndex);
-    distanceRef.current = frames[nextIndex]?.distanceMeters ?? 0;
+    currentIndexRef.current = nextIndex;
+    const nextDistance = frames[nextIndex]?.distanceMeters ?? 0;
+    distanceRef.current = nextDistance;
+    lastPanoramaDistanceRef.current = nextDistance;
+    lastPanoramaAtRef.current = performance.now();
+    setCurrentDistanceMeters(nextDistance);
   };
 
   const progressChange = (value: number) => {
     const nextDistance = clamp(value, 0, 100) / 100 * totalMeters;
+    const nextIndex = frameIndexAtDistance(frames, nextDistance);
     distanceRef.current = nextDistance;
-    setCurrentIndex(frameIndexAtDistance(frames, nextDistance));
+    currentIndexRef.current = nextIndex;
+    lastPanoramaDistanceRef.current = frames[nextIndex]?.distanceMeters ?? nextDistance;
+    lastPanoramaAtRef.current = performance.now();
+    setCurrentDistanceMeters(nextDistance);
+    setCurrentIndex(nextIndex);
   };
 
   if (!route) {
@@ -834,23 +874,32 @@ export function RouteStreetViewPlayer({ route }: Props) {
       </div>
 
       <div className="street-view-console">
-        <div className="street-view-controls">
-          <button type="button" aria-label="Torna all'inizio" onClick={() => goToIndex(0)}>
-            <RotateCcw size={18} />
-          </button>
-          <button type="button" aria-label="Punto precedente" onClick={() => goToIndex(currentIndex - 1)}>
-            <SkipBack size={18} />
-          </button>
-          <button className="street-view-play" type="button" aria-label={playing ? 'Pausa' : 'Avvia'} onClick={() => setPlaying((value) => !value)} disabled={readyState !== 'ready' || frames.length < 2}>
-            {playing ? <Pause size={19} /> : <Play size={19} />}
-          </button>
-          <button type="button" aria-label="Punto successivo" onClick={() => goToIndex(currentIndex + 1)}>
-            <SkipForward size={18} />
-          </button>
+        <div className="street-view-console-top">
+          <div className="street-view-readout">
+            <Gauge size={16} />
+            <div>
+              <strong>{speedKmh} km/h</strong>
+              <span>velocità simulata</span>
+            </div>
+          </div>
+          <div className="street-view-controls">
+            <button type="button" aria-label="Torna all'inizio" onClick={() => goToIndex(0)}>
+              <RotateCcw size={18} />
+            </button>
+            <button type="button" aria-label="Punto precedente" onClick={() => goToIndex(currentIndex - 1)}>
+              <SkipBack size={18} />
+            </button>
+            <button className="street-view-play" type="button" aria-label={playing ? 'Pausa' : 'Avvia'} onClick={() => setPlaying((value) => !value)} disabled={readyState !== 'ready' || frames.length < 2}>
+              {playing ? <Pause size={22} /> : <Play size={22} />}
+            </button>
+            <button type="button" aria-label="Punto successivo" onClick={() => goToIndex(currentIndex + 1)}>
+              <SkipForward size={18} />
+            </button>
+          </div>
         </div>
 
         <label className="street-view-range">
-          <span>{formatDistance(currentFrame?.distanceMeters ?? 0)}</span>
+          <span>{formatDistance(currentDistanceMeters)}</span>
           <input
             type="range"
             min="0"
@@ -863,8 +912,6 @@ export function RouteStreetViewPlayer({ route }: Props) {
         </label>
 
         <label className="street-view-speed">
-          <Gauge size={16} />
-          <span>{speedKmh} km/h</span>
           <input
             type="range"
             min={minSpeedKmh}
