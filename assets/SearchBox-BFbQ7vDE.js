@@ -1,0 +1,1 @@
+import{j as e}from"./index-z15y1zwB.js";import{S as t}from"./search-vFWpl9-S.js";function i({value:r,placeholder:s,onChange:a}){return e.jsxs("label",{className:"search-box",children:[e.jsx(t,{size:16}),e.jsx("input",{value:r,placeholder:s,onChange:o=>a(o.target.value)})]})}export{i as S};
