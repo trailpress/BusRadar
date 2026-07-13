@@ -105,6 +105,8 @@ type GoogleMapsWindow = {
 declare global {
   interface Window {
     google?: GoogleMapsWindow;
+    gm_authFailure?: () => void;
+    __busRadarGoogleMapsFailed?: boolean;
     __busRadarGoogleMapsPromise?: Promise<void>;
   }
 }
@@ -126,6 +128,7 @@ const minSpeedKmh = 5;
 const maxSpeedKmh = 60;
 const freeMonthlyDynamicStreetViewEvents = 5000;
 const usageStoragePrefix = 'busradar:street-view-usage';
+const googleMapsAuthFailureEvent = 'busradar:google-maps-auth-failure';
 
 const panoramaCache = new Map<string, PanoramaResult | null>();
 const rawPanoramaCache = new Map<string, Omit<PanoramaResult, 'progressDeltaMeters' | 'headingDeltaDegrees'> | null>();
@@ -268,17 +271,35 @@ async function loadRoutePreviewConfig(): Promise<RoutePreviewRuntimeConfig> {
 }
 
 function loadGoogleMaps(apiKey?: string) {
+  if (window.__busRadarGoogleMapsFailed) return Promise.reject(new Error('google-maps-auth-failed'));
   if (window.google?.maps) return Promise.resolve();
   if (!apiKey) return Promise.reject(new Error('missing-api-key'));
   if (window.__busRadarGoogleMapsPromise) return window.__busRadarGoogleMapsPromise;
 
   window.__busRadarGoogleMapsPromise = new Promise<void>((resolve, reject) => {
     const script = document.createElement('script');
+    const previousAuthFailure = window.gm_authFailure;
+    let settled = false;
+
+    window.gm_authFailure = () => {
+      window.__busRadarGoogleMapsFailed = true;
+      settled = true;
+      previousAuthFailure?.();
+      window.dispatchEvent(new Event(googleMapsAuthFailureEvent));
+      reject(new Error('google-maps-auth-failed'));
+    };
+
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly`;
     script.async = true;
     script.defer = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('google-maps-load-failed'));
+    script.onload = () => {
+      if (!settled && !window.__busRadarGoogleMapsFailed) resolve();
+    };
+    script.onerror = () => {
+      window.__busRadarGoogleMapsFailed = true;
+      window.dispatchEvent(new Event(googleMapsAuthFailureEvent));
+      reject(new Error('google-maps-load-failed'));
+    };
     document.head.append(script);
   });
 
@@ -504,6 +525,9 @@ export function RouteStreetViewPlayer({ route }: Props) {
   const [activeSource, setActiveSource] = useState<'none' | 'mapillary' | 'google'>('none');
   const [runtimeConfig, setRuntimeConfig] = useState<RoutePreviewRuntimeConfig>({ provider: fallbackRoutePreviewProvider });
   const [runtimeConfigReady, setRuntimeConfigReady] = useState(false);
+  const [googleUnavailable, setGoogleUnavailable] = useState(() => (
+    typeof window !== 'undefined' && Boolean(window.__busRadarGoogleMapsFailed)
+  ));
   const [usage, setUsage] = useState<StreetViewUsage>(() => (
     typeof window === 'undefined' ? { month: currentUsageMonth(), events: 0 } : readStreetViewUsage()
   ));
@@ -513,6 +537,22 @@ export function RouteStreetViewPlayer({ route }: Props) {
   const remainingFreeEvents = Math.max(0, freeMonthlyDynamicStreetViewEvents - usage.events);
   const googleCostBlocked = remainingFreeEvents <= 0;
   const googleUsagePercent = clamp((usage.events / freeMonthlyDynamicStreetViewEvents) * 100, 0, 100);
+  const effectiveRuntimeConfig = useMemo<RoutePreviewRuntimeConfig>(() => (
+    googleUnavailable ? { ...runtimeConfig, googleMapsApiKey: undefined } : runtimeConfig
+  ), [googleUnavailable, runtimeConfig]);
+
+  useEffect(() => {
+    const handleGoogleFailure = () => {
+      setGoogleUnavailable(true);
+      setMapillaryImage(undefined);
+      setOffRouteMeters(undefined);
+      setActiveSource('none');
+      setCoverageState('missing');
+    };
+
+    window.addEventListener(googleMapsAuthFailureEvent, handleGoogleFailure);
+    return () => window.removeEventListener(googleMapsAuthFailureEvent, handleGoogleFailure);
+  }, []);
 
   useEffect(() => {
     setPlaying(false);
@@ -565,14 +605,14 @@ export function RouteStreetViewPlayer({ route }: Props) {
       };
     }
 
-    if (hasMapillaryProvider(runtimeConfig) || hasGoogleProvider(runtimeConfig)) {
+    if (hasMapillaryProvider(effectiveRuntimeConfig) || hasGoogleProvider(effectiveRuntimeConfig)) {
       setReadyState('ready');
       return () => {
         cancelled = true;
       };
     }
 
-    if (!hasGoogleProvider(runtimeConfig)) {
+    if (!hasGoogleProvider(effectiveRuntimeConfig)) {
       setReadyState('missing-key');
       return () => {
         cancelled = true;
@@ -581,7 +621,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
 
     setReadyState('loading');
 
-    loadGoogleMaps(runtimeConfig.googleMapsApiKey)
+    loadGoogleMaps(effectiveRuntimeConfig.googleMapsApiKey)
       .then(() => {
         if (cancelled || !containerRef.current || !window.google?.maps) return;
         panoramaRef.current ??= new window.google.maps.StreetViewPanorama(containerRef.current, {
@@ -608,7 +648,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [frames, route, runtimeConfig, runtimeConfigReady]);
+  }, [effectiveRuntimeConfig, frames, route, runtimeConfigReady]);
 
   useEffect(() => {
     let cancelled = false;
@@ -616,7 +656,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
     requestIdRef.current = requestId;
 
     const showGoogleFrame = async () => {
-      if (!route || !currentFrame || !containerRef.current || !hasGoogleProvider(runtimeConfig)) return false;
+      if (!route || !currentFrame || !containerRef.current || !hasGoogleProvider(effectiveRuntimeConfig)) return false;
       if (googleCostBlocked) {
         setCoverageState('blocked');
         setPlaying(false);
@@ -624,7 +664,14 @@ export function RouteStreetViewPlayer({ route }: Props) {
         return true;
       }
 
-      await loadGoogleMaps(runtimeConfig.googleMapsApiKey);
+      try {
+        await loadGoogleMaps(effectiveRuntimeConfig.googleMapsApiKey);
+      } catch {
+        setGoogleUnavailable(true);
+        setActiveSource('none');
+        return false;
+      }
+
       if (!containerRef.current || !window.google?.maps) return false;
       panoramaRef.current ??= new window.google.maps.StreetViewPanorama(containerRef.current, {
         addressControl: false,
@@ -672,14 +719,14 @@ export function RouteStreetViewPlayer({ route }: Props) {
     setCoverageState('searching');
 
     (async () => {
-      if (prefersGoogleProvider(runtimeConfig)) {
+      if (prefersGoogleProvider(effectiveRuntimeConfig)) {
         const googleCovered = await showGoogleFrame();
         if (cancelled || requestId !== requestIdRef.current) return;
         if (googleCovered) return;
       }
 
-      if (hasMapillaryProvider(runtimeConfig)) {
-        const image = await findMapillaryImage(runtimeConfig.mapillaryAccessToken, route.id, currentFrame);
+      if (hasMapillaryProvider(effectiveRuntimeConfig)) {
+        const image = await findMapillaryImage(effectiveRuntimeConfig.mapillaryAccessToken, route.id, currentFrame);
         if (cancelled || requestId !== requestIdRef.current) return;
         if (image) {
           setMapillaryImage(image);
@@ -690,7 +737,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
         }
       }
 
-      if (!prefersGoogleProvider(runtimeConfig)) {
+      if (!prefersGoogleProvider(effectiveRuntimeConfig)) {
         const googleCovered = await showGoogleFrame();
         if (cancelled || requestId !== requestIdRef.current) return;
         if (googleCovered) return;
@@ -714,7 +761,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [currentFrame, currentIndex, frames, googleCostBlocked, readyState, route, runtimeConfig]);
+  }, [currentFrame, currentIndex, effectiveRuntimeConfig, frames, googleCostBlocked, readyState, route]);
 
   useEffect(() => {
     if (!playing || frames.length < 2 || totalMeters <= 0) return undefined;
@@ -801,38 +848,38 @@ export function RouteStreetViewPlayer({ route }: Props) {
           <span>{formatDistance(totalMeters)} · {frames.length} punti guida</span>
         </div>
         <em className={`street-coverage-pill is-${coverageState}`}>
-          {coverageState === 'blocked' ? 'Google bloccato' : coverageState === 'covered' && offRouteMeters != null ? `${activeSource === 'mapillary' ? 'Mapillary' : 'Google'} a ${Math.round(offRouteMeters)} m` : coverageState === 'missing' ? 'tratto non coperto' : coverageState === 'searching' ? 'cerco foto' : routePreviewProviderLabel(runtimeConfig)}
+          {coverageState === 'blocked' ? 'Google bloccato' : coverageState === 'covered' && offRouteMeters != null ? `${activeSource === 'mapillary' ? 'Mapillary' : 'Google'} a ${Math.round(offRouteMeters)} m` : coverageState === 'missing' ? 'tratto non coperto' : coverageState === 'searching' ? 'cerco foto' : routePreviewProviderLabel(effectiveRuntimeConfig)}
         </em>
       </div>
 
-      {(hasGoogleProvider(runtimeConfig) || hasMapillaryProvider(runtimeConfig)) && (
+      {(hasGoogleProvider(effectiveRuntimeConfig) || hasMapillaryProvider(effectiveRuntimeConfig)) && (
         <div className="street-view-status-strip" aria-label="Stato anteprima strada">
-          {hasGoogleProvider(runtimeConfig) && (
+          {hasGoogleProvider(effectiveRuntimeConfig) && (
             <div className="street-view-status-card">
               <span>Sorgente</span>
               <strong>Google Street View</strong>
               <small>{activeSource === 'google' ? 'vista principale' : 'pronto'}</small>
             </div>
           )}
-          {hasGoogleProvider(runtimeConfig) && (
+          {hasGoogleProvider(effectiveRuntimeConfig) && (
             <div className="street-view-status-card is-budget">
               <span>Budget mese</span>
               <strong>{remainingFreeEvents.toLocaleString('it-IT')} rimasti</strong>
               <meter min="0" max="100" value={googleUsagePercent} aria-label="Uso mensile Street View" />
             </div>
           )}
-          {hasMapillaryProvider(runtimeConfig) && (
+          {hasMapillaryProvider(effectiveRuntimeConfig) && (
             <div className="street-view-status-card is-backup">
               <span>Backup</span>
               <strong>Mapillary</strong>
-              <small>{prefersMapillaryProvider(runtimeConfig) ? 'sorgente gratuita' : 'solo se Google manca'}</small>
+              <small>{prefersMapillaryProvider(effectiveRuntimeConfig) ? 'sorgente gratuita' : 'solo se Google manca'}</small>
             </div>
           )}
         </div>
       )}
 
       <div className="street-view-frame">
-        <div ref={containerRef} className={`street-view-canvas${mapillaryImage ? ' is-hidden' : ''}`} />
+        <div ref={containerRef} className={`street-view-canvas${mapillaryImage || activeSource !== 'google' ? ' is-hidden' : ''}`} />
         {mapillaryImage && (
           <>
             <img className="street-view-mapillary-image" src={mapillaryImage.imageUrl} alt={`Anteprima Mapillary linea ${route.line}`} />
@@ -865,7 +912,14 @@ export function RouteStreetViewPlayer({ route }: Props) {
             <span>Mapillary non ha trovato immagini per questo punto e il fallback Google è fermo per evitare costi. Puoi proseguire sul percorso: il player continuerà a cercare foto Mapillary nei punti successivi.</span>
           </div>
         )}
-        {readyState === 'ready' && coverageState === 'missing' && (
+        {readyState === 'ready' && googleUnavailable && coverageState === 'missing' && !mapillaryImage && (
+          <div className="street-view-overlay">
+            <AlertTriangle size={22} />
+            <strong>Google non caricato</strong>
+            <span>La chiave Google è presente ma non viene autorizzata. Controlla in Google Cloud: Maps JavaScript API attiva, fatturazione attiva e restrizione dominio https://trailpress.github.io/*.</span>
+          </div>
+        )}
+        {readyState === 'ready' && coverageState === 'missing' && !googleUnavailable && (
           <div className="street-view-corner-warning">
             <AlertTriangle size={15} />
             <span>Nessuna foto frontale affidabile entro {Math.max(mapillarySearchRadiusMeters, panoramaSearchRadiusMeters)} m</span>
