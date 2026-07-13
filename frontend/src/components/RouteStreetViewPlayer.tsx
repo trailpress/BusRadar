@@ -106,6 +106,7 @@ declare global {
   interface Window {
     google?: GoogleMapsWindow;
     gm_authFailure?: () => void;
+    __busRadarGoogleMapsLoaded?: () => void;
     __busRadarGoogleMapsFailed?: boolean;
     __busRadarGoogleMapsPromise?: Promise<void>;
   }
@@ -129,6 +130,8 @@ const maxSpeedKmh = 60;
 const freeMonthlyDynamicStreetViewEvents = 5000;
 const usageStoragePrefix = 'busradar:street-view-usage';
 const googleMapsAuthFailureEvent = 'busradar:google-maps-auth-failure';
+const googleMapsCallbackName = '__busRadarGoogleMapsLoaded';
+const googleMapsLoadTimeoutMs = 15_000;
 
 const panoramaCache = new Map<string, PanoramaResult | null>();
 const rawPanoramaCache = new Map<string, Omit<PanoramaResult, 'progressDeltaMeters' | 'headingDeltaDegrees'> | null>();
@@ -280,26 +283,54 @@ function loadGoogleMaps(apiKey?: string) {
     const script = document.createElement('script');
     const previousAuthFailure = window.gm_authFailure;
     let settled = false;
+    let timeoutId: number | undefined;
+
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId) window.clearTimeout(timeoutId);
+      if (error) {
+        window.__busRadarGoogleMapsPromise = undefined;
+        reject(error);
+        return;
+      }
+      resolve();
+    };
 
     window.gm_authFailure = () => {
       window.__busRadarGoogleMapsFailed = true;
-      settled = true;
       previousAuthFailure?.();
       window.dispatchEvent(new Event(googleMapsAuthFailureEvent));
-      reject(new Error('google-maps-auth-failed'));
+      finish(new Error('google-maps-auth-failed'));
     };
 
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&auth_referrer_policy=origin`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      if (!settled && !window.__busRadarGoogleMapsFailed) resolve();
+    window.__busRadarGoogleMapsLoaded = () => {
+      if (!window.google?.maps) {
+        finish(new Error('google-maps-load-failed'));
+        return;
+      }
+      finish();
     };
+
+    const parameters = new URLSearchParams({
+      key: apiKey,
+      v: 'weekly',
+      loading: 'async',
+      callback: googleMapsCallbackName,
+      language: 'it',
+      region: 'IT',
+    });
+    script.dataset.busradarGoogleMaps = 'true';
+    script.src = `https://maps.googleapis.com/maps/api/js?${parameters.toString()}`;
+    script.async = true;
     script.onerror = () => {
       window.__busRadarGoogleMapsFailed = true;
       window.dispatchEvent(new Event(googleMapsAuthFailureEvent));
-      reject(new Error('google-maps-load-failed'));
+      finish(new Error('google-maps-load-failed'));
     };
+    timeoutId = window.setTimeout(() => {
+      finish(new Error('google-maps-timeout'));
+    }, googleMapsLoadTimeoutMs);
     document.head.append(script);
   });
 
@@ -605,7 +636,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
       };
     }
 
-    if (hasMapillaryProvider(effectiveRuntimeConfig) || hasGoogleProvider(effectiveRuntimeConfig)) {
+    if (hasMapillaryProvider(effectiveRuntimeConfig) && !hasGoogleProvider(effectiveRuntimeConfig)) {
       setReadyState('ready');
       return () => {
         cancelled = true;
@@ -642,7 +673,14 @@ export function RouteStreetViewPlayer({ route }: Props) {
       })
       .catch((error: Error) => {
         if (cancelled) return;
-        setReadyState(error.message === 'missing-api-key' ? 'missing-key' : 'error');
+        if (error.message !== 'missing-api-key') setGoogleUnavailable(true);
+        setReadyState(
+          error.message === 'missing-api-key'
+            ? 'missing-key'
+            : hasMapillaryProvider(runtimeConfig)
+              ? 'ready'
+              : 'error',
+        );
       });
 
     return () => {
