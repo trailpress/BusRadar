@@ -656,12 +656,12 @@ export function RouteStreetViewPlayer({ route }: Props) {
     requestIdRef.current = requestId;
 
     const showGoogleFrame = async () => {
-      if (!route || !currentFrame || !containerRef.current || !hasGoogleProvider(effectiveRuntimeConfig)) return false;
+      if (!route || !currentFrame || !containerRef.current || !hasGoogleProvider(effectiveRuntimeConfig)) return 'unavailable';
       if (googleCostBlocked) {
         setCoverageState('blocked');
         setPlaying(false);
         setActiveSource('google');
-        return true;
+        return 'handled';
       }
 
       try {
@@ -669,10 +669,10 @@ export function RouteStreetViewPlayer({ route }: Props) {
       } catch {
         setGoogleUnavailable(true);
         setActiveSource('none');
-        return false;
+        return 'unavailable';
       }
 
-      if (!containerRef.current || !window.google?.maps) return false;
+      if (!containerRef.current || !window.google?.maps) return 'unavailable';
       panoramaRef.current ??= new window.google.maps.StreetViewPanorama(containerRef.current, {
         addressControl: false,
         clickToGo: true,
@@ -689,8 +689,8 @@ export function RouteStreetViewPlayer({ route }: Props) {
       serviceRef.current ??= new window.google.maps.StreetViewService();
 
       const result = await findPanorama(serviceRef.current, route, frames, currentIndex);
-      if (cancelled || requestId !== requestIdRef.current || !panoramaRef.current) return true;
-      if (!result) return false;
+      if (cancelled || requestId !== requestIdRef.current || !panoramaRef.current) return 'handled';
+      if (!result) return 'missing';
 
       if (result.pano !== lastDisplayedPanoRef.current) {
         const nextUsage = reserveStreetViewEvent(readStreetViewUsage());
@@ -698,7 +698,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
           setUsage(readStreetViewUsage());
           setCoverageState('blocked');
           setPlaying(false);
-          return;
+          return 'handled';
         }
         setUsage(nextUsage);
         lastDisplayedPanoRef.current = result.pano;
@@ -711,7 +711,7 @@ export function RouteStreetViewPlayer({ route }: Props) {
       setMapillaryImage(undefined);
       setActiveSource('google');
       setCoverageState('covered');
-      return true;
+      return 'covered';
     };
 
     if (readyState !== 'ready' || !route || !currentFrame) return undefined;
@@ -720,9 +720,17 @@ export function RouteStreetViewPlayer({ route }: Props) {
 
     (async () => {
       if (prefersGoogleProvider(effectiveRuntimeConfig)) {
-        const googleCovered = await showGoogleFrame();
+        const googleState = await showGoogleFrame();
         if (cancelled || requestId !== requestIdRef.current) return;
-        if (googleCovered) return;
+        if (googleState !== 'unavailable') {
+          if (googleState === 'missing') {
+            setMapillaryImage(undefined);
+            setOffRouteMeters(undefined);
+            setActiveSource('google');
+            setCoverageState('missing');
+          }
+          return;
+        }
       }
 
       if (hasMapillaryProvider(effectiveRuntimeConfig)) {
@@ -738,9 +746,9 @@ export function RouteStreetViewPlayer({ route }: Props) {
       }
 
       if (!prefersGoogleProvider(effectiveRuntimeConfig)) {
-        const googleCovered = await showGoogleFrame();
+        const googleState = await showGoogleFrame();
         if (cancelled || requestId !== requestIdRef.current) return;
-        if (googleCovered) return;
+        if (googleState !== 'unavailable') return;
       }
 
       if (cancelled || requestId !== requestIdRef.current) return;

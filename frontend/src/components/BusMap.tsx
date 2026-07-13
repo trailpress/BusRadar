@@ -598,8 +598,11 @@ function renderStopArrivals(result: GttStopArrivalsResult) {
   return '<div class="stop-popup-source">Orario GTFS statico consultato</div><div class="arrival-list"><small>Nessuna corsa programmata nelle prossime 30 ore per questa palina e per il calendario di servizio attivo.</small></div>';
 }
 
-function renderVehiclePopup(vehicle: Vehicle) {
-  return `<div class="vehicle-tooltip"><strong>${escapeHtml(vehicleIdentifierLabel(vehicle))}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small></div>`;
+function renderVehiclePopup(vehicle: Vehicle, interactive = false) {
+  const action = interactive
+    ? `<button class="vehicle-tooltip-action" type="button" data-vehicle-detail="${escapeHtml(vehicle.vehicleId)}">Dettagli vettura</button>`
+    : '';
+  return `<div class="vehicle-tooltip"><strong>${escapeHtml(vehicleIdentifierLabel(vehicle))}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small>${action}</div>`;
 }
 
 function showStopPopup(
@@ -1498,7 +1501,27 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       hoverPopup.remove();
       vehicleClickPopupRef.current?.remove();
       vehicleClickPopupRef.current = undefined;
-      openVehicleDetail(vehicle.vehicleId, vehicle);
+      const position = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
+      const popup = new maplibregl.Popup({
+        className: 'vehicle-click-popup',
+        closeButton: true,
+        closeOnClick: true,
+        focusAfterOpen: false,
+        maxWidth: '280px',
+        offset: 18,
+      })
+        .setLngLat([position.lon, position.lat])
+        .setHTML(renderVehiclePopup(vehicle, true))
+        .addTo(map);
+      vehicleClickPopupRef.current = popup;
+      const popupElement = popup.getElement();
+      popupElement.addEventListener('click', (popupEvent) => {
+        const target = (popupEvent.target as HTMLElement | null)?.closest<HTMLElement>('[data-vehicle-detail]');
+        if (!target) return;
+        popupEvent.preventDefault();
+        popupEvent.stopPropagation();
+        openVehicleDetail(target.dataset.vehicleDetail, vehicle);
+      });
     };
     const handleStopClick = (event: MapMouseEvent) => {
       if (vehicleAtPoint(event)) return;
