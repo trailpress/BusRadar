@@ -1,6 +1,7 @@
 import maplibregl, { type GeoJSONSource, type LngLatBoundsLike, type MapMouseEvent } from 'maplibre-gl';
 import { LocateFixed, ZoomIn, ZoomOut } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
+import { createRoot } from 'react-dom/client';
 import { getCanonicalGtfsRoutesForLine, getGtfsRouteDirectionKey, getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopEntriesForRoute, gtfsNetwork, type GtfsRouteVariant, type GtfsStop } from '../data/gtfsNetwork';
 import { useGtfsNetwork } from '../data/useGtfsNetwork';
 import { fetchGttStopArrivalsInfo, type GttStopArrival, type GttStopArrivalsResult } from '../services/gttRealtime';
@@ -598,11 +599,31 @@ function renderStopArrivals(result: GttStopArrivalsResult) {
   return '<div class="stop-popup-source">Orario GTFS statico consultato</div><div class="arrival-list"><small>Nessuna corsa programmata nelle prossime 30 ore per questa palina e per il calendario di servizio attivo.</small></div>';
 }
 
-function renderVehiclePopup(vehicle: Vehicle, interactive = false) {
-  const action = interactive
-    ? `<button class="vehicle-tooltip-action" type="button" data-vehicle-detail="${escapeHtml(vehicle.vehicleId)}">Dettagli vettura</button>`
-    : '';
-  return `<div class="vehicle-tooltip"><strong>${escapeHtml(vehicleIdentifierLabel(vehicle))}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small>${action}</div>`;
+function renderVehiclePopup(vehicle: Vehicle) {
+  return `<div class="vehicle-tooltip"><strong>${escapeHtml(vehicleIdentifierLabel(vehicle))}</strong><span>Linea ${escapeHtml(vehicle.line)} · ${escapeHtml(trackingLabel(vehicle))}</span><small>${escapeHtml(vehicle.direction)}</small></div>`;
+}
+
+function InteractiveVehiclePopup({ vehicle, onOpen }: { vehicle: Vehicle; onOpen: () => void }) {
+  const containInteraction = (event: SyntheticEvent) => event.stopPropagation();
+  return (
+    <div className="vehicle-tooltip" onPointerDown={containInteraction} onTouchStart={containInteraction}>
+      <strong>{vehicleIdentifierLabel(vehicle)}</strong>
+      <span>Linea {vehicle.line} · {trackingLabel(vehicle)}</span>
+      <small>{vehicle.direction}</small>
+      <button
+        className="vehicle-tooltip-action"
+        type="button"
+        aria-label={`Apri dettagli ${vehicleIdentifierLabel(vehicle)}`}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onOpen();
+        }}
+      >
+        Dettagli vettura
+      </button>
+    </div>
+  );
 }
 
 function showStopPopup(
@@ -985,6 +1006,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const latestVehiclesRef = useRef<Vehicle[]>(vehicles);
   const visibleVehiclesRef = useRef<Vehicle[]>([]);
   const highlightedRoutesRef = useRef<GtfsRouteVariant[]>([]);
+  const onSelectVehicleRef = useRef(onSelectVehicle);
   const onSelectLineRef = useRef(onSelectLine);
   const stopPopupRef = useRef<maplibregl.Popup | undefined>(undefined);
   const vehicleClickPopupRef = useRef<maplibregl.Popup | undefined>(undefined);
@@ -1006,6 +1028,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const [locatingUser, setLocatingUser] = useState(false);
 
   latestVehiclesRef.current = vehicles;
+  onSelectVehicleRef.current = onSelectVehicle;
   onSelectLineRef.current = onSelectLine;
   selectedVehicleIdRef.current = selectedVehicleId;
   followedVehicleIdRef.current = followedVehicleId;
@@ -1016,7 +1039,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
     if (!vehicle) return false;
     vehicleClickPopupRef.current?.remove();
     vehicleClickPopupRef.current = undefined;
-    onSelectVehicle(vehicle);
+    onSelectVehicleRef.current(vehicle);
     return true;
   };
 
@@ -1502,25 +1525,36 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       vehicleClickPopupRef.current?.remove();
       vehicleClickPopupRef.current = undefined;
       const position = currentPositionsRef.current.get(vehicle.vehicleId) ?? vehicle;
+      const popupContent = document.createElement('div');
+      const popupRoot = createRoot(popupContent);
+      let popupRootMounted = true;
+      popupRoot.render(
+        <InteractiveVehiclePopup
+          vehicle={vehicle}
+          onOpen={() => openVehicleDetail(vehicle.vehicleId, vehicle)}
+        />,
+      );
       const popup = new maplibregl.Popup({
         className: 'vehicle-click-popup',
         closeButton: true,
-        closeOnClick: true,
+        closeOnClick: false,
         focusAfterOpen: false,
         maxWidth: '280px',
         offset: 18,
       })
         .setLngLat([position.lon, position.lat])
-        .setHTML(renderVehiclePopup(vehicle, true))
+        .setDOMContent(popupContent)
         .addTo(map);
       vehicleClickPopupRef.current = popup;
       const popupElement = popup.getElement();
-      popupElement.addEventListener('click', (popupEvent) => {
-        const target = (popupEvent.target as HTMLElement | null)?.closest<HTMLElement>('[data-vehicle-detail]');
-        if (!target) return;
-        popupEvent.preventDefault();
-        popupEvent.stopPropagation();
-        openVehicleDetail(target.dataset.vehicleDetail, vehicle);
+      const containPopupInteraction = (popupEvent: Event) => popupEvent.stopPropagation();
+      ['pointerdown', 'touchstart', 'touchmove', 'wheel', 'dblclick']
+        .forEach((eventName) => popupElement.addEventListener(eventName, containPopupInteraction, { passive: false }));
+      popup.on('close', () => {
+        if (vehicleClickPopupRef.current === popup) vehicleClickPopupRef.current = undefined;
+        if (!popupRootMounted) return;
+        popupRootMounted = false;
+        queueMicrotask(() => popupRoot.unmount());
       });
     };
     const handleStopClick = (event: MapMouseEvent) => {

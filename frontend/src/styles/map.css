@@ -61,6 +61,10 @@
   padding: 12px 12px 11px;
 }
 
+.maplibregl-popup.vehicle-click-popup .vehicle-tooltip {
+  pointer-events: auto;
+}
+
 .maplibregl-popup.stop-map-popup {
   z-index: 760;
   width: min(360px, calc(100vw - 24px));
