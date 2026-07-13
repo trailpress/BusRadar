@@ -9,7 +9,7 @@ BusRadar è una webapp standalone, mobile-first, che mostra mezzi GTT su mappa i
 - Backend: Supabase Edge Function solo per proxy realtime pubblico.
 - Feed realtime: GTT GTFS-RT via proxy.
 - Scraping: assente.
-- Versione attuale: v0.2 Live Transit Map realtime-ready.
+- Versione attuale: v0.2.31.
 
 ## Note legali
 
@@ -32,7 +32,7 @@ Il layer custom Diorama/landmark è stato rimosso: la versione attuale punta su 
 - `SimulationAdapter` resta nel codice come adapter locale di sviluppo, ma non viene usato dalla UI realtime.
 - `GTFSStaticAdapter` e `GTFSRealtimeAdapter` sono placeholder documentati.
 - Una futura integrazione GTFS/GTFS-RT va fatta solo con feed autorizzati, verifica tecnica e licenza compatibile.
-- La branch `realtime-spike` aggiunge script, env placeholder, proxy Supabase e checklist per validare GTFS statico/GTFS-RT. Vedi `README_REALTIME.md`.
+- Gli strumenti realtime includono script, placeholder ambiente, proxy Supabase e checklist per validare GTFS statico/GTFS-RT. Vedi `README_REALTIME.md`.
 
 ## Sviluppo
 
@@ -58,6 +58,19 @@ npm run verify:assets
 
 La verifica controlla che i cataloghi dati non puntino ad asset mancanti in `public/assets`.
 
+## Sviluppo cloud
+
+GitHub e' la fonte ufficiale del progetto. Codex Cloud o GitHub Codespaces possono aprire, modificare e verificare il repository senza utilizzare il Mac.
+
+Il flusso completo e la configurazione dell'ambiente sono descritti in [`docs/cloud-workflow.md`](docs/cloud-workflow.md).
+
+Il repository contiene inoltre:
+
+- `AGENTS.md`, con istruzioni persistenti per gli agenti cloud;
+- `.devcontainer/devcontainer.json`, per un workspace GitHub Codespaces riproducibile;
+- `.github/workflows/ci.yml`, per controllare ogni pull request;
+- `.github/workflows/deploy-pages.yml`, per pubblicare automaticamente da `main`.
+
 ## Deploy GitHub Pages
 
 URL prevista:
@@ -66,12 +79,9 @@ URL prevista:
 https://trailpress.github.io/BusRadar/
 ```
 
-Comando:
+La pubblicazione e' automatica: ogni modifica unita in `main` viene verificata, compilata e distribuita da GitHub Actions. Il comando locale `npm run deploy` resta disponibile solo come procedura di emergenza e non fa parte del flusso ordinario.
 
-```bash
-cd frontend
-npm run deploy
-```
+Le chiavi private non sono necessarie alla build e non devono essere aggiunte al repository. La configurazione della vista strada continua a essere fornita a runtime dalla funzione Supabase dedicata.
 
 ## Struttura
 

@@ -1,0 +1,12 @@
+{
+  "name": "BusRadar Cloud Workspace",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+  "postCreateCommand": "cd frontend && npm ci",
+  "forwardPorts": [5173],
+  "portsAttributes": {
+    "5173": {
+      "label": "BusRadar",
+      "onAutoForward": "notify"
+    }
+  }
+}
