@@ -66,8 +66,8 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'iveco-citelis-12m': {
     label: 'Irisbus/Iveco Citelis 12m',
-    detailAsset: 'assets/vehicles/detail/generated/iveco-citelis-12m-gtt-render-v2.png',
-    referenceNotes: 'Schede ufficiali UL01-UL02: serie 3000-3099 e 3300-3380, lunghezza 11.990 mm.',
+    detailAsset: 'assets/vehicles/detail/generated/iveco-citelis-12m-gtt-render-v3.png',
+    referenceNotes: 'Render v3 riallineato alla serie 3000: Irisbus Citelis 12.29 EEV, 3 porte, livrea GTT bianco/blu/gialla e solare spento.',
   },
   'iveco-eway-electric-12m': {
     label: 'Iveco E-Way elettrico 12m',

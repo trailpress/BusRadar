@@ -106,10 +106,10 @@ export const GTT_FLEET_CATALOG: GttFleetCluster[] = [
     length: '12 m',
     traction: 'diesel',
     livery: 'Urbana GTT bianco/blu con filetto giallo.',
-    asset: 'assets/vehicles/detail/generated/iveco-citelis-12m-gtt-render-v2.png',
+    asset: 'assets/vehicles/detail/generated/iveco-citelis-12m-gtt-render-v3.png',
     assetStatus: 'validated-render',
-    sourceNotes: 'Cluster urbano diesel 12m: Citelis 3000/3300. Render v2 corretto su forma Citelis/Irisbus e livrea urbana bianco-blu-giallo.',
-    renderPrompt: `${sharedRenderPrompt} Exact subject: Irisbus/Iveco Citelis 12m GTT Torino city bus, older rounded Irisbus/Citelis front, black window band, low-floor doors, white upper body, blue lower body, yellow side stripe, fleet number 3001.`,
+    sourceNotes: 'Serie 3000-3099 e 3300-3380: render v3 ricalibrato sulla serie 3000 reale, con frontale Irisbus Citelis, 3 porte e livrea GTT bianco/blu/gialla.',
+    renderPrompt: `${sharedRenderPrompt} Exact subject: Irisbus Citelis 12.29 EEV diesel 12m GTT Torino series 3000-3099, fleet 3001, three passenger doors, rounded Citelis front with small round Irisbus badge, black/off destination display, white/light silver upper body, deep blue lower skirt and bumper, thin yellow stripe, GTT logos and small eco decals.`,
   },
   {
     key: 'mercedes-conecto-12m',

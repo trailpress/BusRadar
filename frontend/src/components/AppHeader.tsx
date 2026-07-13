@@ -41,7 +41,7 @@ export function AppHeader({ search, onSearch, onSearchSubmit, searchLoading, sug
         </div>
         <div>
           <strong>BusRadar</strong>
-          <span>Torino · v0.2.21</span>
+          <span>Torino · v0.2.22</span>
         </div>
         <button className="live-pill" type="button" onClick={onRadar}>
           <Activity size={14} />
