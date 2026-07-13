@@ -23,6 +23,30 @@ export function bearingDegrees(a: LatLng, b: LatLng) {
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
+export function offsetPointMeters(point: LatLng, bearing: number, distance: number): LatLng {
+  if (!Number.isFinite(bearing) || !Number.isFinite(distance) || distance === 0) return point;
+
+  const angularDistance = distance / earthRadiusMeters;
+  const bearingRad = (bearing * Math.PI) / 180;
+  const latRad = (point.lat * Math.PI) / 180;
+  const lonRad = (point.lon * Math.PI) / 180;
+  const targetLat = Math.asin(
+    Math.sin(latRad) * Math.cos(angularDistance) +
+      Math.cos(latRad) * Math.sin(angularDistance) * Math.cos(bearingRad),
+  );
+  const targetLon =
+    lonRad +
+    Math.atan2(
+      Math.sin(bearingRad) * Math.sin(angularDistance) * Math.cos(latRad),
+      Math.cos(angularDistance) - Math.sin(latRad) * Math.sin(targetLat),
+    );
+
+  return {
+    lat: (targetLat * 180) / Math.PI,
+    lon: (targetLon * 180) / Math.PI,
+  };
+}
+
 export function interpolatePosition(a: LatLng, b: LatLng, progress: number): LatLng {
   const clamped = Math.min(1, Math.max(0, progress));
   return {
@@ -71,4 +95,59 @@ export function interpolatePathState(path: LatLng[], progress: number): { point:
 
 export function toLeafletPoint(point: LatLng): [number, number] {
   return [point.lat, point.lon];
+}
+
+export function routeProgressAtPoint(path: LatLng[], point: LatLng) {
+  if (path.length < 2) return undefined;
+
+  const metersPerDegreeLat = 111320;
+  const metersPerDegreeLon = 111320 * Math.cos((point.lat * Math.PI) / 180);
+  const segmentLengths = path.slice(0, -1).map((item, index) => distanceMeters(item, path[index + 1]));
+  const totalMeters = segmentLengths.reduce((sum, length) => sum + length, 0);
+  let traveledBefore = 0;
+  let best:
+    | {
+        distanceMeters: number;
+        traveledMeters: number;
+        remainingMeters: number;
+        bearing: number;
+        projectedPoint: LatLng;
+      }
+    | undefined;
+
+  for (let index = 0; index < path.length - 1; index += 1) {
+    const start = path[index];
+    const end = path[index + 1];
+    const ax = start.lon * metersPerDegreeLon;
+    const ay = start.lat * metersPerDegreeLat;
+    const bx = end.lon * metersPerDegreeLon;
+    const by = end.lat * metersPerDegreeLat;
+    const px = point.lon * metersPerDegreeLon;
+    const py = point.lat * metersPerDegreeLat;
+    const vx = bx - ax;
+    const vy = by - ay;
+    const wx = px - ax;
+    const wy = py - ay;
+    const segmentMeters = segmentLengths[index];
+    const segmentSquared = vx * vx + vy * vy;
+    const t = segmentSquared === 0 ? 0 : Math.min(1, Math.max(0, (wx * vx + wy * vy) / segmentSquared));
+    const projected = {
+      lat: start.lat + (end.lat - start.lat) * t,
+      lon: start.lon + (end.lon - start.lon) * t,
+    };
+    const offRouteMeters = distanceMeters(projected, point);
+    const traveledMeters = traveledBefore + segmentMeters * t;
+    const candidate = {
+      distanceMeters: offRouteMeters,
+      traveledMeters,
+      remainingMeters: Math.max(0, totalMeters - traveledMeters),
+      bearing: bearingDegrees(start, end),
+      projectedPoint: projected,
+    };
+
+    if (!best || candidate.distanceMeters < best.distanceMeters) best = candidate;
+    traveledBefore += segmentMeters;
+  }
+
+  return best;
 }

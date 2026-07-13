@@ -1,12 +1,13 @@
 import { ArrowLeft, BusFront, Crosshair, Info, Navigation, TrainFront } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useMemo, useState } from 'react';
-import { userPosition } from '../data/demoData';
+import type { LatLng } from '../types';
 import type { Vehicle } from '../types';
 import { bearingDegrees, distanceMeters } from '../utils/geo';
 import { formatDistance } from '../utils/format';
 import { LineBadge } from '../components/LineBadge';
 import { notify } from '../utils/notify';
+import { vehicleIdentifierLabel } from '../utils/vehicleIdentity';
 
 const radiusOptions = [
   { label: '500 m', value: 500 },
@@ -17,19 +18,23 @@ const radiusOptions = [
 
 type Props = {
   vehicles: Vehicle[];
+  userLocation: LatLng;
+  hasUserLocation: boolean;
+  onLocateUser: () => Promise<LatLng | undefined>;
   onSelectVehicle: (vehicle: Vehicle) => void;
   onBack: () => void;
 };
 
-export function RadarScreen({ vehicles, onSelectVehicle, onBack }: Props) {
+export function RadarScreen({ vehicles, userLocation, hasUserLocation, onLocateUser, onSelectVehicle, onBack }: Props) {
   const [radius, setRadius] = useState(1000);
+  const [locating, setLocating] = useState(false);
   const matches = useMemo(
     () =>
       vehicles
-        .map((vehicle) => ({ vehicle, distance: distanceMeters(userPosition, vehicle) }))
+        .map((vehicle) => ({ vehicle, distance: distanceMeters(userLocation, vehicle) }))
         .filter((item) => item.distance <= radius)
         .sort((a, b) => a.distance - b.distance),
-    [vehicles, radius],
+    [vehicles, userLocation, radius],
   );
 
   return (
@@ -41,13 +46,24 @@ export function RadarScreen({ vehicles, onSelectVehicle, onBack }: Props) {
         <div>
           <h1>Radar</h1>
         </div>
-        <button className="plain-icon" type="button" aria-label="Informazioni" onClick={() => notify('Radar demo: posizione utente e mezzi sono simulati')}>
+        <button className="plain-icon" type="button" aria-label="Informazioni" onClick={() => notify('Radar basato sui mezzi realtime disponibili')}>
           <Info size={18} />
         </button>
       </section>
 
       <section className="radar-panel">
-        <div className="radar-location"><Navigation size={14} /> Centro: La mia posizione</div>
+        <button
+          className="radar-location"
+          type="button"
+          disabled={locating}
+          onClick={() => {
+            setLocating(true);
+            void onLocateUser().finally(() => setLocating(false));
+          }}
+        >
+          <Navigation size={14} />
+          {locating ? 'Localizzazione in corso' : hasUserLocation ? 'Centro: la mia posizione' : 'Centro: Torino · usa la mia posizione'}
+        </button>
         <div className="radar-scope">
           <div className="radar-ring ring-1" />
           <div className="radar-ring ring-2" />
@@ -56,15 +72,19 @@ export function RadarScreen({ vehicles, onSelectVehicle, onBack }: Props) {
           <div className="radar-center">
             <Crosshair size={18} />
           </div>
-          {matches.slice(0, 10).map(({ vehicle, distance }) => {
-            const angle = bearingDegrees(userPosition, vehicle);
+          {matches.slice(0, 10).map(({ vehicle, distance }, index) => {
+            const angle = bearingDegrees(userLocation, vehicle);
             const normalized = Math.min(distance / radius, 1);
             const distancePx = 26 + normalized * 104;
             return (
               <button
                 key={vehicle.vehicleId}
                 className="radar-dot"
-                style={{ '--angle': `${angle}deg`, '--distance': `${distancePx}px` } as CSSProperties}
+                style={{
+                  '--angle': `${angle}deg`,
+                  '--distance': `${distancePx}px`,
+                  zIndex: 20 - index,
+                } as CSSProperties}
                 type="button"
                 onClick={() => onSelectVehicle(vehicle)}
                 aria-label={`Apri vettura ${vehicle.vehicleId}`}
@@ -84,7 +104,7 @@ export function RadarScreen({ vehicles, onSelectVehicle, onBack }: Props) {
       </section>
 
       <section className="list-section">
-        <button className="radar-summary" type="button" onClick={() => notify(`${matches.length} mezzi demo nel raggio selezionato`)}>
+        <button className="radar-summary" type="button" onClick={() => notify(`${matches.length} mezzi realtime nel raggio selezionato`)}>
           <span><i /> {matches.length} mezzi nel raggio di {radiusOptions.find((option) => option.value === radius)?.label}</span>
           <small>Aggiornato ora</small>
         </button>
@@ -94,7 +114,7 @@ export function RadarScreen({ vehicles, onSelectVehicle, onBack }: Props) {
               {vehicle.vehicleType === 'tram' ? <TrainFront size={18} /> : <BusFront size={18} />}
             </div>
             <div>
-              <strong>Vettura {vehicle.vehicleId}</strong>
+              <strong>{vehicleIdentifierLabel(vehicle)}</strong>
               <span>{formatDistance(distance)} · {vehicle.direction}</span>
             </div>
             <LineBadge line={vehicle.line} />

@@ -1,5 +1,7 @@
-import { lines } from '../data/demoData';
+import { gtfsNetwork } from '../data/gtfsNetwork';
+import { routeDisplayColor } from './routePalette';
 
 export function getLineColor(lineId: string) {
-  return lines.find((line) => line.id === lineId)?.color ?? '#2F7DFF';
+  const line = gtfsNetwork.lines.find((item) => item.id === lineId || item.routeId === lineId);
+  return routeDisplayColor(line?.id ?? lineId, line?.vehicleType);
 }

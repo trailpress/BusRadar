@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import type { Vehicle } from '../types';
 import { LineBadge } from '../components/LineBadge';
 import { SearchBox } from '../components/SearchBox';
+import { vehicleIdentifierShort } from '../utils/vehicleIdentity';
 
 type Props = {
   vehicles: Vehicle[];
@@ -25,6 +26,13 @@ export function VehiclesScreen({ vehicles, onSelectVehicle }: Props) {
         ),
     [vehicles, normalized, mode],
   );
+  const vehicleKind = (vehicle: Vehicle) => (
+    vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram'
+      ? 'Tram'
+      : `${vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus'}${
+        vehicle.vehicleLivery === 'interurban-blue' ? ' suburbano blu' : vehicle.vehicleLivery === 'electric-compact' ? ' elettrico' : ''
+      }`)
+  );
 
   return (
     <main className="screen panel-screen">
@@ -35,7 +43,7 @@ export function VehiclesScreen({ vehicles, onSelectVehicle }: Props) {
       </section>
       <SearchBox value={query} placeholder="Cerca vettura o numero" onChange={setQuery} />
       <div className="list-tabs">
-        <button className={mode === 'service' ? 'is-active' : ''} type="button" onClick={() => setMode('service')}>In servizio <span>{vehicles.length + 116}</span></button>
+        <button className={mode === 'service' ? 'is-active' : ''} type="button" onClick={() => setMode('service')}>In servizio <span>{vehicles.length}</span></button>
         <button className={mode === 'favorites' ? 'is-active' : ''} type="button" onClick={() => setMode('favorites')}>Preferite</button>
       </div>
       <section className="list-section">
@@ -45,8 +53,8 @@ export function VehiclesScreen({ vehicles, onSelectVehicle }: Props) {
               {vehicle.vehicleType === 'tram' ? <TrainFront size={18} /> : <BusFront size={18} />}
             </div>
             <div>
-              <strong>{vehicle.vehicleId}</strong>
-              <span>{vehicle.vehicleType === 'tram' ? 'Tram' : 'Bus'} · {vehicle.nextStop ?? vehicle.direction}</span>
+              <strong>{vehicleIdentifierShort(vehicle)}</strong>
+              <span>{vehicleKind(vehicle)} · {vehicle.nextStop ?? vehicle.direction}</span>
             </div>
             <LineBadge line={vehicle.line} />
             <div className="vehicle-speed">
