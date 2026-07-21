@@ -10,7 +10,7 @@ export type GttFleetCluster = {
   length: string;
   traction: 'diesel' | 'cng' | 'electric';
   livery: string;
-  asset: string;
+  asset?: string;
   assetStatus: FleetAssetStatus;
   sourceNotes: string;
   renderPrompt: string;
@@ -418,7 +418,6 @@ export const GTT_FLEET_CATALOG: GttFleetCluster[] = [
     length: 'n/d',
     traction: 'electric',
     livery: 'n/d',
-    asset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v3.png',
     assetStatus: 'needs-reference-render',
     sourceNotes: 'Il feed realtime identifica un tram, ma non fornisce una matricola compatibile con una serie GTT verificata.',
     renderPrompt: '',

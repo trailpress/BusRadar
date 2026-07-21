@@ -3,7 +3,7 @@ import { GTT_FLEET_CATALOG_BY_KEY, type GttFleetCluster } from './gttFleetCatalo
 
 type VehicleFleetProfile = {
   label: string;
-  detailAsset: string;
+  detailAsset?: string;
   referenceNotes: string;
   assetStatus?: GttFleetCluster['assetStatus'];
 };
@@ -31,7 +31,6 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'generic-tram': {
     label: 'Tram GTT (modello non identificato)',
-    detailAsset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v3.png',
     referenceNotes: 'Il feed ha classificato il veicolo come tram, ma il suo identificativo non corrisponde a una serie GTT verificata.',
     assetStatus: 'needs-reference-render',
   },
