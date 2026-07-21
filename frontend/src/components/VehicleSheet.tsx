@@ -31,10 +31,8 @@ export type VehicleHeadwayInfo = {
 
 function vehicleDetailImage(vehicle: Vehicle) {
   const base = import.meta.env.BASE_URL;
-  if (!vehicle.vehicleFleetKey || vehicle.vehicleFleetKey === 'generic-bus') {
-    return `${base}${vehicleFleetProfile('generic-bus').detailAsset}`;
-  }
-  return `${base}${vehicleFleetProfile(vehicle.vehicleFleetKey).detailAsset}`;
+  const profile = vehicleFleetProfile(vehicle.vehicleFleetKey);
+  return profile.detailAsset ? `${base}${profile.detailAsset}` : undefined;
 }
 
 function renderStatusLabel(status: ReturnType<typeof vehicleFleetProfile>['assetStatus']) {
@@ -44,7 +42,7 @@ function renderStatusLabel(status: ReturnType<typeof vehicleFleetProfile>['asset
 }
 
 function vehicleRenderStatusLabel(vehicle: Vehicle, status: ReturnType<typeof vehicleFleetProfile>['assetStatus']) {
-  if (vehicle.vehicleFleetKey === 'generic-bus') return 'modello non identificato';
+  if (vehicle.vehicleFleetKey === 'generic-bus' || vehicle.vehicleFleetKey === 'generic-tram') return 'modello non identificato';
   return renderStatusLabel(status);
 }
 
@@ -159,7 +157,7 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
   const detailImage = vehicleDetailImage(vehicle);
   const officialSpec = officialSpecForVehicle(vehicle);
   const showValidatedRender = fleetProfile.assetStatus === 'validated-render';
-  const showDetailImage = showValidatedRender || vehicle.vehicleFleetKey === 'generic-bus';
+  const showDetailImage = Boolean(detailImage) && (showValidatedRender || (vehicle.vehicleFleetKey === 'generic-bus' && vehicle.vehicleType === 'bus'));
   const fleetCardClass = ['official-fleet-card', officialSpec ? `official-fleet-card--${officialSpec.traction}` : ''].filter(Boolean).join(' ');
 
   return (
@@ -188,7 +186,7 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
       <VehicleServiceDisplay vehicle={vehicle} />
       <div className="bus-photo">
         <span className="vehicle-operator-mark" aria-label="Operatore GTT">GTT</span>
-        {showDetailImage ? (
+        {showDetailImage && detailImage ? (
           <div className="vehicle-render-stage">
             <img className="vehicle-render" src={detailImage} alt={`Rendering ${vehicleKind}`} />
           </div>

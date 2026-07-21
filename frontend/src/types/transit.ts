@@ -34,6 +34,7 @@ export type VehicleFleetKey =
   | 'iveco-crossway-line-cng-12m'
   | 'irisbus-arway-15m'
   | 'iveco-mago-granturismo-9m'
+  | 'generic-tram'
   | 'generic-bus';
 
 export type TransitVehicle = {

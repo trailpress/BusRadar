@@ -10,7 +10,7 @@ export type GttFleetCluster = {
   length: string;
   traction: 'diesel' | 'cng' | 'electric';
   livery: string;
-  asset: string;
+  asset?: string;
   assetStatus: FleetAssetStatus;
   sourceNotes: string;
   renderPrompt: string;
@@ -409,6 +409,18 @@ export const GTT_FLEET_CATALOG: GttFleetCluster[] = [
     assetStatus: 'validated-render',
     sourceNotes: 'Serie 8000 Hitachi: render v3 riallineato alle foto reali, con 5 casse, pantografo e livrea grigio/blu/giallo.',
     renderPrompt: `${sharedRenderPrompt} Exact subject: Turin GTT tram series 8000 Hitachi Rail, five-section monodirectional modern tram, compact rounded front, grey body with deep blue lower panels and yellow accents, pantograph, black/off destination display.`,
+  },
+  {
+    key: 'generic-tram',
+    family: 'tram',
+    label: 'Tram GTT (modello non identificato)',
+    fleetNumbers: [],
+    length: 'n/d',
+    traction: 'electric',
+    livery: 'n/d',
+    assetStatus: 'needs-reference-render',
+    sourceNotes: 'Il feed realtime identifica un tram, ma non fornisce una matricola compatibile con una serie GTT verificata.',
+    renderPrompt: '',
   },
   {
     key: 'generic-bus',
