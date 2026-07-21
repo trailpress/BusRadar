@@ -44,7 +44,7 @@ export function vehicleFleetKey(vehicleId: string | null, vehicleType: Vehicle['
     if (isVehicleNumberInRange(vehicleId, 5000, 5053)) return 'tram-serie-5000';
     if (isVehicleNumberInRange(vehicleId, 6000, 6054)) return 'tram-serie-6000';
     if (isVehicleNumberInRange(vehicleId, 8001, 8070)) return 'tram-serie-8000';
-    return 'tram-serie-5000';
+    return 'generic-tram';
   }
   if (isVehicleNumberInRange(vehicleId, 50, 57)) return 'byd-k7-electric-9m';
   if (isVehicleNumberInRange(vehicleId, 60, 81)) return 'indcar-eb6-electric-6m';
@@ -78,7 +78,7 @@ export function vehicleFleetKey(vehicleId: string | null, vehicleType: Vehicle['
 export function recognizedFleetNumber(vehicleId: string, vehicleType: Vehicle['vehicleType']) {
   if (!/^\d{1,4}$/.test(vehicleId)) return undefined;
   const key = vehicleFleetKey(vehicleId, vehicleType);
-  return key === 'generic-bus' ? undefined : vehicleId;
+  return key === 'generic-bus' || key === 'generic-tram' ? undefined : vehicleId;
 }
 
 export function vehicleLengthClass(vehicleId: string | null, vehicleType: Vehicle['vehicleType']): Vehicle['vehicleLengthClass'] {

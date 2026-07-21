@@ -29,6 +29,12 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
     detailAsset: 'assets/vehicles/detail/generated/tram-serie-8000-hitachi-gtt-render-v3.png',
     referenceNotes: 'Render v3 riallineato alle foto reali 8000: Hitachi a 5 casse, livrea grigio/blu/giallo e solare spento.',
   },
+  'generic-tram': {
+    label: 'Tram GTT (modello non identificato)',
+    detailAsset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v3.png',
+    referenceNotes: 'Il feed ha classificato il veicolo come tram, ma il suo identificativo non corrisponde a una serie GTT verificata.',
+    assetStatus: 'needs-reference-render',
+  },
   'byd-k7-electric-9m': {
     label: 'BYD K7 elettrico 8,8m',
     detailAsset: 'assets/vehicles/detail/generated/byd-k7-electric-9m-gtt-render-v3.png',
