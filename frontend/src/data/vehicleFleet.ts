@@ -16,8 +16,8 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'tram-serie-5000': {
     label: 'Tram serie 5000',
-    detailAsset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v3.png',
-    referenceNotes: 'Scheda ufficiale M4: TPR a 2 casse e 3 carrelli, 22.200 mm, 4 porte.',
+    detailAsset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v4.png',
+    referenceNotes: 'Render v4 riallineato alla vettura 5014: TPR a 2 casse e 3 carrelli, frontale squadrato e livrea grigio/blu/gialla.',
   },
   'tram-serie-6000': {
     label: 'Tram serie 6000 Cityway',

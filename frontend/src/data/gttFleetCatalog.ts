@@ -379,10 +379,10 @@ export const GTT_FLEET_CATALOG: GttFleetCluster[] = [
     length: '22 m',
     traction: 'electric',
     livery: 'GTT grigio/blu/giallo.',
-    asset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v3.png',
+    asset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v4.png',
     assetStatus: 'validated-render',
-    sourceNotes: 'Cluster tram articolato a due casse: 5000.',
-    renderPrompt: `${sharedRenderPrompt} Exact subject: Turin GTT tram series 5000, two-section articulated tram, partially low floor, grey body with blue and yellow GTT bands, pantograph, tram wheels and rails implied only by vehicle stance.`,
+    sourceNotes: 'Serie 5000: render v4 riallineato alla reference della vettura 5014, con frontale squadrato, due casse e livrea grigio/blu/gialla.',
+    renderPrompt: `${sharedRenderPrompt} Exact subject: Turin GTT tram series 5000, matching car 5014: boxy 1980s front with wide split windshield, rectangular headlights in the blue fascia, two articulated sections, three bogies, roof ventilation grilles, grey body with thin blue and yellow GTT bands, and a single pantograph. Do not modernize the front or add extra sections.`,
   },
   {
     key: 'tram-serie-6000',
