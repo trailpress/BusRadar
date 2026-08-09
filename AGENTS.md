@@ -24,10 +24,21 @@ For interface changes, also run the development server and verify the affected d
 ## Repository workflow
 
 - `main` is the source of truth and the only production deployment branch.
-- Create a short-lived `codex/*` branch for changes.
+- Create a short-lived working branch for changes, prefixed with the name of the agent that opens it: `codex/*` for Codex, `claude/*` for Claude Code.
 - Submit changes through a pull request and wait for `Verify BusRadar` to pass.
 - Do not edit or push generated files directly to `gh-pages`.
 - Merging into `main` triggers the GitHub Pages deployment automatically.
+
+## Multiple agents
+
+More than one agent works on this repository, in alternation rather than at the same time. `main` is the only handoff point between them.
+
+- Always start a new task from an up-to-date `main`, never from another agent's branch.
+- Read the recent history of `main` before planning a change, so that work already merged by another agent is not repeated or reverted.
+- Do not commit to, rebase or force-push a branch opened by another agent. If its pull request is still open and needs changes, say so and let the agent that owns it finish, or start a fresh branch from `main`.
+- Once a pull request is merged, its branch is finished. Follow-up work needs a new branch cut from the updated `main`.
+- Keep each pull request small enough to be reviewed and merged in one sitting. Long-lived branches are what makes parallel work conflict.
+- Record durable decisions in `AGENTS.md` or `docs/`, not only in a pull request description, because the next agent starts without the previous conversation.
 
 ## Security
 

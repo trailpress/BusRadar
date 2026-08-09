@@ -60,7 +60,9 @@ La verifica controlla che i cataloghi dati non puntino ad asset mancanti in `pub
 
 ## Sviluppo cloud
 
-GitHub e' la fonte ufficiale del progetto. Codex Cloud o GitHub Codespaces possono aprire, modificare e verificare il repository senza utilizzare il Mac.
+GitHub e' la fonte ufficiale del progetto. Codex Cloud, Claude Code sul web o GitHub Codespaces possono aprire, modificare e verificare il repository senza utilizzare il Mac.
+
+Gli agenti cloud lavorano in alternanza sullo stesso repository e si passano il lavoro attraverso `main`: le regole comuni sono in [`AGENTS.md`](AGENTS.md) e in [`docs/cloud-workflow.md`](docs/cloud-workflow.md).
 
 Il flusso completo e la configurazione dell'ambiente sono descritti in [`docs/cloud-workflow.md`](docs/cloud-workflow.md).
 
