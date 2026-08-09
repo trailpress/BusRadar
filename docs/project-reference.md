@@ -6,6 +6,7 @@ Gli altri documenti restano validi e più specifici:
 
 | documento | contenuto |
 | --- | --- |
+| [`docs/handoff.md`](handoff.md) | **da leggere per primo**: stato lasciato dall'agente precedente, lavoro in sospeso, verifiche mancanti |
 | [`AGENTS.md`](../AGENTS.md) | regole operative per gli agenti, controlli obbligatori, sicurezza |
 | [`docs/cloud-workflow.md`](cloud-workflow.md) | flusso GitHub, lavoro in tandem, uso da iPhone |
 | [`README.md`](../README.md) | presentazione del progetto e note legali |
