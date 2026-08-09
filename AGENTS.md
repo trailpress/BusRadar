@@ -2,6 +2,8 @@
 
 ## Start here
 
+This file is loaded automatically by Codex. Claude Code loads [`CLAUDE.md`](CLAUDE.md), which defers to this one, so both halves of the tandem work from the same instructions. Keep the rules here only: a second copy drifts, and the wrong copy is worse than none.
+
 Read [`docs/handoff.md`](docs/handoff.md) first. It is the note the previous agent left: what is already merged, what is waiting in an open pull request, which branch not to touch, and what could not be verified. Update it at the end of your turn, replacing the entry once it has been absorbed.
 
 Then read [`docs/project-reference.md`](docs/project-reference.md) before planning a change. It describes the architecture, the realtime data flow, where each kind of change belongs, the tuning constants behind the on-map motion, how to check the current state of the project, and the known inconsistencies that make parts of the repository misleading.
