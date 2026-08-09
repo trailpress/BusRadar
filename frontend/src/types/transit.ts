@@ -60,6 +60,7 @@ export type TransitVehicle = {
   // and why it was not projected when it was not. Shown in the vehicle sheet so
   // a lag reported on the map can be read off instead of guessed at.
   latencyCompensationMeters?: number;
+  latencyCompensationSeconds?: number;
   latencyCompensationSkipped?: 'non-agganciato' | 'troppo-lento' | 'campione-recente' | 'percorso-assente';
   routeMatchStatus?: 'on-route' | 'gps-only' | 'unmatched';
   routeVariantId?: string;

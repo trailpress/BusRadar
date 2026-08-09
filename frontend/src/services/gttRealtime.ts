@@ -117,6 +117,10 @@ let feedGeneratedAtMs: number | undefined;
 let tripUpdatesCache: { at: number; updates: GttTripUpdate[] } | undefined;
 let rawVehiclesCache: { at: number; vehicles: GttVehiclePosition[] } | undefined;
 const previousSamples = new Map<string, { lat: number; lon: number; timestampMs: number; speed: number }>();
+// Average pace over the recent past, per vehicle. The instantaneous speed of a
+// sample says how fast the vehicle was going at one instant; projecting a
+// minute of travel needs how fast it has been going.
+const recentSpeeds = new Map<string, number>();
 const previousRouteVariants = new Map<string, string>();
 const previousRoutePositions = new Map<string, { routeVariantId: string; meters: number; timestampMs: number }>();
 
@@ -490,7 +494,13 @@ function observedSpeed(vehicleId: string, vehicle: GttVehiclePosition) {
     speed,
   });
 
-  return { speed, source, bearing: observedBearing };
+  // Roughly eight samples of memory, which at a six second poll spans the delay
+  // being compensated for.
+  const previousAverage = recentSpeeds.get(vehicleId);
+  const recentSpeed = previousAverage == null ? speed : previousAverage * 0.75 + speed * 0.25;
+  recentSpeeds.set(vehicleId, recentSpeed);
+
+  return { speed, source, bearing: observedBearing, recentSpeed };
 }
 
 function bearingDelta(a?: number, b?: number) {
@@ -566,15 +576,34 @@ const LATENCY_COMPENSATION_CONFIDENCE = 0.9;
 // the length of its own playback.
 const LATENCY_COMPENSATION_LEAD_SECONDS = 3;
 
+// GTT stamps its vehicle positions as if they had just been measured. Observed
+// on the map, the same vehicles run about a minute behind, and the arithmetic
+// agrees: a marker recovering only 26 m at urban speed implies a declared age
+// of a few seconds, where a real minute would have called for 200 to 400 m.
+//
+// The delay is therefore real but undeclared, and no amount of reading the feed
+// can derive it: the data denies it exists. This is the floor we assume for it
+// instead, calibrated on the lag reported from the street. Raise it if vehicles
+// still trail, lower it if they start running ahead of themselves and stalling
+// at the point where the next sample catches up.
+const ASSUMED_UNDECLARED_FEED_DELAY_SECONDS = 50;
+
 function compensateFeedLatency(
   routeVariantId: string | undefined,
   point: { lat: number; lon: number },
   speedKmhValue: number,
   ageSeconds: number,
 ) {
+  // Dead reckoning over the better part of a minute has to use the pace held
+  // over that minute. Driven by the speed of the single sample, the projection
+  // swung between nothing and four hundred metres on the same vehicle as it
+  // pulled away from stops, and the marker moved in lurches.
   if (!routeVariantId) return { skipped: 'percorso-assente' as const };
-  if (ageSeconds < 4) return { skipped: 'campione-recente' as const };
-  if (speedKmhValue < 3 || speedKmhValue > 75) return { skipped: 'troppo-lento' as const };
+  // A sample the feed calls fresh is still assumed to carry the undeclared
+  // delay, so the age used here never drops below that floor.
+  const effectiveAgeSeconds = Math.max(ageSeconds, ASSUMED_UNDECLARED_FEED_DELAY_SECONDS);
+  if (effectiveAgeSeconds < 4) return { skipped: 'campione-recente' as const };
+  if (speedKmhValue < 1.5 || speedKmhValue > 75) return { skipped: 'troppo-lento' as const };
   const routeVariant = getGtfsRouteVariant(routeVariantId);
   if (!routeVariant || routeVariant.path.length < 2) return { skipped: 'percorso-assente' as const };
   const progress = routeProgressAtPoint(routeVariant.path, point);
@@ -586,7 +615,7 @@ function compensateFeedLatency(
   // age leaves a residual lag that the playback has to absorb later as an
   // unrealistic burst of speed, so cover the observed staleness instead.
   const compensationSeconds = Math.min(
-    ageSeconds + LATENCY_COMPENSATION_LEAD_SECONDS,
+    effectiveAgeSeconds + LATENCY_COMPENSATION_LEAD_SECONDS,
     MAX_LATENCY_COMPENSATION_SECONDS,
   );
   const advanceMeters = Math.min(
@@ -601,7 +630,12 @@ function compensateFeedLatency(
     Math.min(0.999999, (progress.traveledMeters + advanceMeters) / totalMeters),
   );
   return compensated
-    ? { point: compensated.point, bearing: compensated.bearing, meters: Math.round(advanceMeters) }
+    ? {
+        point: compensated.point,
+        bearing: compensated.bearing,
+        meters: Math.round(advanceMeters),
+        seconds: Math.round(compensationSeconds),
+      }
     : { skipped: 'percorso-assente' as const };
 }
 
@@ -662,7 +696,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttT
       ? 'vehicle.id'
       : 'vehicle.label'
     : 'feed-internal';
-  const { speed, source: speedSource, bearing: observedBearing } = observedSpeed(vehicleId || String(index), vehicle);
+  const { speed, source: speedSource, bearing: observedBearing, recentSpeed } = observedSpeed(vehicleId || String(index), vehicle);
   const rawPoint = { lat: vehicle.lat ?? 0, lon: vehicle.lon ?? 0 };
   const sampleTimestampMs = timestampMs(vehicle.timestamp);
   const ageSeconds = feedAgeSeconds(vehicle.timestamp);
@@ -680,7 +714,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttT
   const isSnappedToRoute = Boolean(estimate.snappedPoint && estimate.offRouteMeters != null && estimate.offRouteMeters <= snapLimitMeters);
   const displayPoint = isSnappedToRoute ? estimate.snappedPoint! : rawPoint;
   const latencyOutcome = isSnappedToRoute
-    ? compensateFeedLatency(estimate.routeVariantId, displayPoint, speed, ageSeconds)
+    ? compensateFeedLatency(estimate.routeVariantId, displayPoint, recentSpeed ?? speed, ageSeconds)
     : ({ skipped: 'non-agganciato' } as const);
   const latencyCompensation = 'point' in latencyOutcome ? latencyOutcome : undefined;
   const finalPoint = latencyCompensation?.point ?? displayPoint;
@@ -724,6 +758,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttT
     vehicleType,
     isReplacementService,
     latencyCompensationMeters: latencyCompensation?.meters,
+    latencyCompensationSeconds: latencyCompensation?.seconds,
     latencyCompensationSkipped: 'skipped' in latencyOutcome ? latencyOutcome.skipped : undefined,
     vehicleLivery,
     vehicleLengthClass: lengthClass,

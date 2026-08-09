@@ -64,7 +64,7 @@ Tutto in `frontend/src/services/gttRealtime.ts`, funzione `toVehicle`.
 3. **Aggancio alla shape** (`terminalEstimate`): tra le varianti GTFS della linea si sceglie quella che minimizza distanza dal punto e scarto di direzione, con un forte bonus di permanenza sulla shape già in uso. Il mezzo è considerato agganciato entro 55 m (70 m per gli extraurbani blu).
 4. **Compensazione della latenza** (`compensateFeedLatency`): se agganciato, il punto viene proiettato in avanti lungo la shape per recuperare l'età del campione. Vedi §4.
 
-   L'età si misura dal timestamp del veicolo, **con ricaduta sul timestamp dell'header del feed** quando il veicolo non ne porta uno. Non è un dettaglio: senza quella ricaduta un campione privo di timestamp viene creduto appena generato, la compensazione non si attiva del tutto perché agisce solo su un'età nota, e il marker resta indietro di un intero ciclo di feed.
+   L'età si misura dal timestamp del veicolo, **con ricaduta sul timestamp dell'header del feed** quando il veicolo non ne porta uno, e **con un pavimento** pari al ritardo che il feed non dichiara. Quest'ultimo è necessario perché GTT marca i campioni come appena misurati: la scheda mezzo mostrava un recupero di 26 m su una vettura visibilmente indietro di un minuto, e a 15 km/h quei 26 m implicano un'età dichiarata di 4 secondi contro i 55 reali. Il ritardo esiste ma non è deducibile dai dati, quindi va assunto. Non è un dettaglio: senza quella ricaduta un campione privo di timestamp viene creduto appena generato, la compensazione non si attiva del tutto perché agisce solo su un'età nota, e il marker resta indietro di un intero ciclo di feed.
 5. **Uscita**: posizione finale, bearing, progresso sulla linea, capolinea stimato, ETA, previsioni di fermata dai Trip Update.
 
 ### 2.1.1 Arrivi alle paline
@@ -150,6 +150,8 @@ Sono i numeri che decidono quanto il movimento appare realistico. Vanno cambiati
 | --- | --- | --- |
 | `MAX_LATENCY_COMPENSATION_SECONDS` | 75 s | quanta età del campione viene recuperata proiettando in avanti |
 | `LATENCY_COMPENSATION_LEAD_SECONDS` | 3 s | mira leggermente avanti, perché il marker raggiunge il bersaglio solo nei secondi successivi |
+| velocità usata per la proiezione | media mobile, non istantanea | proiettare un minuto di percorso con la velocità di un singolo istante faceva oscillare il recupero fra zero e 400 m sullo stesso mezzo, a ogni ripartenza da fermata |
+| `ASSUMED_UNDECLARED_FEED_DELAY_SECONDS` | 50 s | ritardo che il feed GTT **non dichiara**: i campioni arrivano marcati come appena misurati, ma la posizione è di circa un minuto prima. È l'unica costante tarata su un'osservazione dalla strada, non sui dati |
 | `MAX_LATENCY_COMPENSATION_METERS` | 700 m | tetto assoluto alla proiezione |
 | `LATENCY_COMPENSATION_CONFIDENCE` | 0,90 | margine contro l'overshoot: la stima assume velocità costante, il mezzo invece frena |
 | bonus di permanenza sulla shape | −95 entro 140 m | evita che andata e ritorno si scambino tra un campione e l'altro |
