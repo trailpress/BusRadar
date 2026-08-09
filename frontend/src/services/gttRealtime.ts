@@ -120,7 +120,14 @@ const previousSamples = new Map<string, { lat: number; lon: number; timestampMs:
 // Average pace over the recent past, per vehicle. The instantaneous speed of a
 // sample says how fast the vehicle was going at one instant; projecting a
 // minute of travel needs how fast it has been going.
-const recentSpeeds = new Map<string, number>();
+const recentSpeeds = new Map<string, { kmh: number; atMs: number }>();
+
+// The averaging window has to match the span the projection covers: the
+// question being answered is how far the vehicle went in the last minute, so
+// the average has to be over the last minute. Weighted by the real time between
+// samples rather than by their count, because the feed's own timestamps cannot
+// be trusted and the polling interval is not guaranteed.
+const SPEED_AVERAGE_WINDOW_SECONDS = 60;
 const previousRouteVariants = new Map<string, string>();
 const previousRoutePositions = new Map<string, { routeVariantId: string; meters: number; timestampMs: number }>();
 
@@ -494,11 +501,16 @@ function observedSpeed(vehicleId: string, vehicle: GttVehiclePosition) {
     speed,
   });
 
-  // Roughly eight samples of memory, which at a six second poll spans the delay
-  // being compensated for.
+  const now = Date.now();
   const previousAverage = recentSpeeds.get(vehicleId);
-  const recentSpeed = previousAverage == null ? speed : previousAverage * 0.75 + speed * 0.25;
-  recentSpeeds.set(vehicleId, recentSpeed);
+  const sinceLastSeconds = previousAverage ? Math.max(0, (now - previousAverage.atMs) / 1000) : 0;
+  // A gap longer than the window means the vehicle was not being watched, so
+  // the old average says nothing about it any more.
+  const weight = previousAverage
+    ? Math.min(1, Math.max(0.05, sinceLastSeconds / SPEED_AVERAGE_WINDOW_SECONDS))
+    : 1;
+  const recentSpeed = previousAverage ? previousAverage.kmh * (1 - weight) + speed * weight : speed;
+  recentSpeeds.set(vehicleId, { kmh: recentSpeed, atMs: now });
 
   return { speed, source, bearing: observedBearing, recentSpeed };
 }
@@ -582,11 +594,19 @@ const LATENCY_COMPENSATION_LEAD_SECONDS = 3;
 // of a few seconds, where a real minute would have called for 200 to 400 m.
 //
 // The delay is therefore real but undeclared, and no amount of reading the feed
-// can derive it: the data denies it exists. This is the floor we assume for it
-// instead, calibrated on the lag reported from the street. Raise it if vehicles
-// still trail, lower it if they start running ahead of themselves and stalling
-// at the point where the next sample catches up.
-const ASSUMED_UNDECLARED_FEED_DELAY_SECONDS = 50;
+// can derive it: the data denies it exists. This is the floor we assume for it.
+//
+// It covers only part of the delay on purpose. Projecting the whole of it was
+// tried and made the map worse: the projection assumes the vehicle holds its
+// recent pace, a city bus does not, and routeMotion refuses to move a marker
+// backwards. So every overshoot became a full frame with the marker standing
+// still while the real vehicle drove on, and the map read as more stuck and
+// further behind than with no compensation at all.
+//
+// Correcting part of the delay reduces the lag without buying it back in
+// stalls. Raise it if vehicles trail steadily; lower it if they start freezing
+// in place waiting for the next sample to reach them.
+const ASSUMED_UNDECLARED_FEED_DELAY_SECONDS = 25;
 
 function compensateFeedLatency(
   routeVariantId: string | undefined,
@@ -634,7 +654,7 @@ function compensateFeedLatency(
         point: compensated.point,
         bearing: compensated.bearing,
         meters: Math.round(advanceMeters),
-        seconds: Math.round(compensationSeconds),
+        seconds: Math.round(compensationSeconds * LATENCY_COMPENSATION_CONFIDENCE),
       }
     : { skipped: 'percorso-assente' as const };
 }
