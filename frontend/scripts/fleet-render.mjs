@@ -59,6 +59,32 @@ if (!process.env.OPENAI_API_KEY) {
   process.exit(1);
 }
 
+// The model has returned a cutout on a transparent background before, despite
+// being asked for an opaque one. Left alone, that becomes a ragged white fringe
+// the moment the render is shown on the dark card, which is exactly how the
+// tram 5000 asset went wrong. Composite whatever comes back onto the studio
+// background, and size it to the budget the app checks.
+const STUDIO_BACKGROUND = { r: 8, g: 8, b: 10 };
+
+async function finish(buffer) {
+  let sharp;
+  try {
+    sharp = (await import('sharp')).default;
+  } catch {
+    console.warn('sharp is not available: writing the image unprocessed. Check the background and the edges by eye.');
+    return buffer;
+  }
+
+  const { hasAlpha } = await sharp(buffer).metadata();
+  if (hasAlpha) console.log('The image came back with an alpha channel: flattening it onto the studio background.');
+
+  return sharp(buffer)
+    .flatten({ background: STUDIO_BACKGROUND })
+    .resize({ width: 1280, withoutEnlargement: true })
+    .webp({ quality: 85 })
+    .toBuffer();
+}
+
 const response = await fetch('https://api.openai.com/v1/images/generations', {
   method: 'POST',
   headers: {
@@ -85,7 +111,7 @@ const image = payload?.data?.[0]?.b64_json;
 if (!image) throw new Error('The image response carried no data.');
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-fs.writeFileSync(outputPath, Buffer.from(image, 'base64'));
+fs.writeFileSync(outputPath, await finish(Buffer.from(image, 'base64')));
 
 const sizeKb = Math.round(fs.statSync(outputPath).size / 1024);
 console.log(`Written ${outputPath} (${sizeKb} kB).`);

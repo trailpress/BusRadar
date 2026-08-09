@@ -225,7 +225,7 @@ I render sembrano una famiglia sola perché condividono `sharedRenderPrompt`, ch
 node scripts/fleet-render.mjs --cluster tram-serie-8000 --dry-run
 ```
 
-In cloud si usa il workflow **Generate a GTT fleet render**, dalla scheda Actions, indicando la chiave del cluster. Il workflow legge il prompt dal catalogo, genera, verifica la build e apre una pull request. Non c'è un prompt scritto nello YAML: è la ragione per cui un render nuovo nasce già coerente con quelli approvati.
+In cloud si usa il workflow **Generate a GTT fleet render**, dalla scheda Actions, indicando la chiave del cluster. Il repository non consente a GitHub Actions di aprire pull request, quindi il workflow pubblica il ramo e stampa il link per aprirla a mano; la si abilita da *Settings → Actions → General → Allow GitHub Actions to create and approve pull requests*. Il workflow legge il prompt dal catalogo, genera, verifica la build e apre una pull request. Non c'è un prompt scritto nello YAML: è la ragione per cui un render nuovo nasce già coerente con quelli approvati.
 
 ### Regole non negoziabili
 
