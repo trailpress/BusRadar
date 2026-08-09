@@ -3,6 +3,11 @@
 // to look at without touching what the app shows: a render is only validated by
 // a human comparing it to the sources on the cluster.
 //
+// The asset path lives in two files. `gttFleetCatalog.ts` carries it next to the
+// fleet numbers and the sources, and `vehicleFleet.ts` carries it again as the
+// `detailAsset` the vehicle sheet actually reads. Updating only the catalog
+// leaves the app showing the old render, so both move together.
+//
 // Usage: node scripts/fleet-render-promote.mjs --cluster <fleet-key>
 
 import fs from 'node:fs';
@@ -22,30 +27,66 @@ if (!fs.existsSync(path.join('public', assetPath))) {
 }
 
 const catalogPath = 'src/data/gttFleetCatalog.ts';
-const source = fs.readFileSync(catalogPath, 'utf8');
+const profilesPath = 'src/data/vehicleFleet.ts';
 
-// Each cluster is an object literal opening with its key, so the block runs
-// from that key to the start of the next one.
-const keyMarker = `key: '${clusterKey}',`;
-const start = source.indexOf(keyMarker);
-if (start < 0) {
+// Each entry opens with its key, so its block runs to the start of the next one.
+function blockRange(source, marker, nextMarker) {
+  const start = source.indexOf(marker);
+  if (start < 0) return undefined;
+  const next = source.indexOf(nextMarker, start + marker.length);
+  return { start, end: next < 0 ? source.length : next };
+}
+
+const supersededAssets = new Set();
+
+const catalog = fs.readFileSync(catalogPath, 'utf8');
+const catalogRange = blockRange(catalog, `key: '${clusterKey}',`, "    key: '");
+if (!catalogRange) {
   console.error(`Cluster ${clusterKey} not found in ${catalogPath}.`);
   process.exit(1);
 }
-const nextKey = source.indexOf("    key: '", start + keyMarker.length);
-const end = nextKey < 0 ? source.length : nextKey;
-const block = source.slice(start, end);
+const catalogBlock = catalog.slice(catalogRange.start, catalogRange.end);
+const catalogPrevious = catalogBlock.match(/ {4}asset: '([^']*)',/)?.[1];
+if (catalogPrevious) supersededAssets.add(catalogPrevious);
 
-let updated = block;
-updated = updated.includes('    asset: ')
-  ? updated.replace(/ {4}asset: '[^']*',/, `    asset: '${assetPath}',`)
-  : updated.replace(/( {4}assetStatus: )/, `    asset: '${assetPath}',\n$1`);
-updated = updated.replace(/ {4}assetStatus: '[^']*',/, "    assetStatus: 'validated-render',");
-
-if (updated === block) {
-  console.error(`Nothing changed for ${clusterKey}: check the catalog formatting.`);
+let catalogUpdated = catalogBlock.includes('    asset: ')
+  ? catalogBlock.replace(/ {4}asset: '[^']*',/, `    asset: '${assetPath}',`)
+  : catalogBlock.replace(/( {4}assetStatus: )/, `    asset: '${assetPath}',\n$1`);
+catalogUpdated = catalogUpdated.replace(/ {4}assetStatus: '[^']*',/, "    assetStatus: 'validated-render',");
+if (catalogUpdated === catalogBlock) {
+  console.error(`Nothing changed for ${clusterKey} in ${catalogPath}: check the formatting.`);
   process.exit(1);
 }
+const nextCatalog = catalog.slice(0, catalogRange.start) + catalogUpdated + catalog.slice(catalogRange.end);
+fs.writeFileSync(catalogPath, nextCatalog);
 
-fs.writeFileSync(catalogPath, source.slice(0, start) + updated + source.slice(end));
-console.log(`${clusterKey} now points at ${assetPath} and is marked validated-render.`);
+const profiles = fs.readFileSync(profilesPath, 'utf8');
+const profileRange = blockRange(profiles, `'${clusterKey}': {`, "  '");
+let nextProfiles = profiles;
+if (profileRange) {
+  const profileBlock = profiles.slice(profileRange.start, profileRange.end);
+  const profilePrevious = profileBlock.match(/ {4}detailAsset: '([^']*)',/)?.[1];
+  if (profilePrevious) supersededAssets.add(profilePrevious);
+  const profileUpdated = profileBlock.includes('    detailAsset: ')
+    ? profileBlock.replace(/ {4}detailAsset: '[^']*',/, `    detailAsset: '${assetPath}',`)
+    : profileBlock.replace(/( {4}referenceNotes: )/, `    detailAsset: '${assetPath}',\n$1`);
+  nextProfiles = profiles.slice(0, profileRange.start) + profileUpdated + profiles.slice(profileRange.end);
+  fs.writeFileSync(profilesPath, nextProfiles);
+} else {
+  console.warn(`No profile for ${clusterKey} in ${profilesPath}: the vehicle sheet will keep its current image.`);
+}
+
+console.log(`${clusterKey} now points at ${assetPath} in both the catalog and the fleet profiles.`);
+
+// A render nothing points at fails npm run verify:assets, and clusters do share
+// files, so only drop one neither file claims any more.
+for (const superseded of supersededAssets) {
+  if (superseded === assetPath) continue;
+  if (!superseded.startsWith('assets/vehicles/detail/generated/')) continue;
+  if (nextCatalog.includes(`'${superseded}'`) || nextProfiles.includes(`'${superseded}'`)) {
+    console.log(`Kept ${superseded}: something still points at it.`);
+    continue;
+  }
+  fs.rmSync(path.join('public', superseded), { force: true });
+  console.log(`Removed the superseded ${superseded}.`);
+}
