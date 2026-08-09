@@ -106,7 +106,7 @@ BusRadar/
 ├── .github/workflows/
 │   ├── ci.yml                   Verify BusRadar, su ogni pull request
 │   ├── deploy-pages.yml         build e pubblicazione, su push in main
-│   └── generate-tram-serie-5000-render.yml   render flotta, manuale
+│   └── generate-fleet-render.yml   render flotta, manuale per cluster
 ├── .devcontainer/               workspace GitHub Codespaces
 ├── supabase/functions/
 │   ├── gtt-realtime/            proxy GTFS-RT pubblico
