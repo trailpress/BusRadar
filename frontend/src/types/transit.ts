@@ -56,6 +56,11 @@ export type TransitVehicle = {
   // True when the vehicle type disagrees with the line's, which is what a bus
   // replacing a tram service looks like in the feed.
   isReplacementService?: boolean;
+  // How far the marker was projected forward to cover the age of the sample,
+  // and why it was not projected when it was not. Shown in the vehicle sheet so
+  // a lag reported on the map can be read off instead of guessed at.
+  latencyCompensationMeters?: number;
+  latencyCompensationSkipped?: 'non-agganciato' | 'troppo-lento' | 'campione-recente' | 'percorso-assente';
   routeMatchStatus?: 'on-route' | 'gps-only' | 'unmatched';
   routeVariantId?: string;
   shapeId?: string;

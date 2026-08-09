@@ -572,14 +572,16 @@ function compensateFeedLatency(
   speedKmhValue: number,
   ageSeconds: number,
 ) {
-  if (!routeVariantId || speedKmhValue < 3 || speedKmhValue > 75 || ageSeconds < 4) return undefined;
+  if (!routeVariantId) return { skipped: 'percorso-assente' as const };
+  if (ageSeconds < 4) return { skipped: 'campione-recente' as const };
+  if (speedKmhValue < 3 || speedKmhValue > 75) return { skipped: 'troppo-lento' as const };
   const routeVariant = getGtfsRouteVariant(routeVariantId);
-  if (!routeVariant || routeVariant.path.length < 2) return undefined;
+  if (!routeVariant || routeVariant.path.length < 2) return { skipped: 'percorso-assente' as const };
   const progress = routeProgressAtPoint(routeVariant.path, point);
-  if (!progress) return undefined;
+  if (!progress) return { skipped: 'percorso-assente' as const };
 
   const totalMeters = progress.traveledMeters + progress.remainingMeters;
-  if (totalMeters <= 0) return undefined;
+  if (totalMeters <= 0) return { skipped: 'percorso-assente' as const };
   // The GTT feed is regularly one minute old. Compensating only a part of that
   // age leaves a residual lag that the playback has to absorb later as an
   // unrealistic burst of speed, so cover the observed staleness instead.
@@ -593,12 +595,14 @@ function compensateFeedLatency(
     // Dead reckoning may not push a vehicle past its own terminus.
     Math.max(0, progress.remainingMeters - 5),
   );
-  if (advanceMeters < 8) return undefined;
+  if (advanceMeters < 8) return { skipped: 'troppo-lento' as const };
   const compensated = interpolatePathState(
     routeVariant.path,
     Math.min(0.999999, (progress.traveledMeters + advanceMeters) / totalMeters),
   );
-  return compensated ? { point: compensated.point, bearing: compensated.bearing } : undefined;
+  return compensated
+    ? { point: compensated.point, bearing: compensated.bearing, meters: Math.round(advanceMeters) }
+    : { skipped: 'percorso-assente' as const };
 }
 
 function hasNumericCoordinate(vehicle: GttVehiclePosition): vehicle is GttVehiclePosition & { lat: number; lon: number } {
@@ -675,9 +679,10 @@ function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttT
   const snapLimitMeters = vehicleLivery === 'interurban-blue' ? 70 : 55;
   const isSnappedToRoute = Boolean(estimate.snappedPoint && estimate.offRouteMeters != null && estimate.offRouteMeters <= snapLimitMeters);
   const displayPoint = isSnappedToRoute ? estimate.snappedPoint! : rawPoint;
-  const latencyCompensation = isSnappedToRoute
+  const latencyOutcome = isSnappedToRoute
     ? compensateFeedLatency(estimate.routeVariantId, displayPoint, speed, ageSeconds)
-    : undefined;
+    : ({ skipped: 'non-agganciato' } as const);
+  const latencyCompensation = 'point' in latencyOutcome ? latencyOutcome : undefined;
   const finalPoint = latencyCompensation?.point ?? displayPoint;
   const finalRouteProgress = (() => {
     if (!isSnappedToRoute || !estimate.routeVariantId) return undefined;
@@ -718,6 +723,8 @@ function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttT
     routeShortName: line,
     vehicleType,
     isReplacementService,
+    latencyCompensationMeters: latencyCompensation?.meters,
+    latencyCompensationSkipped: 'skipped' in latencyOutcome ? latencyOutcome.skipped : undefined,
     vehicleLivery,
     vehicleLengthClass: lengthClass,
     vehicleFleetLabel: fleetNumber

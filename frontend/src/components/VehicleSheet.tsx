@@ -102,6 +102,30 @@ function renderAvailabilityText(status: ReturnType<typeof vehicleFleetProfile>['
   return 'Render 3D da produrre';
 }
 
+// A lag seen on the map is impossible to act on as an impression. These two
+// lines turn it into numbers: how old the sample is, and whether the marker was
+// projected forward to cover that age or why it was not.
+function sampleAgeText(vehicle: Vehicle) {
+  const age = vehicle.feedAgeSeconds;
+  if (age == null || !Number.isFinite(age)) return vehicle.updatedAt;
+  return age < 60 ? `${vehicle.updatedAt} · ${age} s fa` : `${vehicle.updatedAt} · ${Math.round(age / 60)} min fa`;
+}
+
+const latencySkipReason: Record<NonNullable<Vehicle['latencyCompensationSkipped']>, string> = {
+  'non-agganciato': 'non applicata: mezzo fuori dal tracciato',
+  'troppo-lento': 'non applicata: mezzo fermo o troppo lento',
+  'campione-recente': 'non necessaria: campione recente',
+  'percorso-assente': 'non applicata: percorso non disponibile',
+};
+
+function latencyText(vehicle: Vehicle) {
+  if (vehicle.latencyCompensationMeters != null) {
+    return `Recupero ritardo feed: ${vehicle.latencyCompensationMeters} m avanti`;
+  }
+  const reason = vehicle.latencyCompensationSkipped;
+  return `Recupero ritardo feed: ${reason ? latencySkipReason[reason] : 'non disponibile'}`;
+}
+
 function routeTrackingText(vehicle: Vehicle) {
   if (vehicle.routeMatchStatus === 'on-route') return 'Tracciamento GTT: posizione agganciata al percorso';
   if (vehicle.routeMatchStatus === 'gps-only') {
@@ -212,7 +236,7 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
           {vehicle.realtimeEntityId && vehicle.realtimeEntityId !== vehicle.vehicleId ? ` · entity: ${vehicle.realtimeEntityId}` : ''}
           {vehicle.tripId ? ` · trip: ${vehicle.tripId}` : ''}
         </span>
-        <span>{routeTrackingText(vehicle)}</span>
+        <span>{routeTrackingText(vehicle)} · {latencyText(vehicle)}</span>
       </div>
       <div className={fleetCardClass} aria-label="Specifiche ufficiali del mezzo">
         <div className="official-fleet-copy">
@@ -259,7 +283,7 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
         </div>
         <div>
           <Clock3 size={16} />
-          <strong>{vehicle.updatedAt}</strong>
+          <strong>{sampleAgeText(vehicle)}</strong>
           <span>Ultimo update</span>
         </div>
         <div className="heading-metric">
