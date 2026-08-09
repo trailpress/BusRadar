@@ -53,6 +53,9 @@ export type TransitVehicle = {
   vehicleLivery?: VehicleLivery;
   vehicleFleetLabel?: string;
   vehicleFleetKey?: VehicleFleetKey;
+  // True when the vehicle type disagrees with the line's, which is what a bus
+  // replacing a tram service looks like in the feed.
+  isReplacementService?: boolean;
   routeMatchStatus?: 'on-route' | 'gps-only' | 'unmatched';
   routeVariantId?: string;
   shapeId?: string;

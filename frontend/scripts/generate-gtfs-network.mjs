@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { STOP_SCHEDULE_BUCKETS, writeStopSchedule } from './stop-schedule.mjs';
 
 const gtfsDir = process.env.GTFS_STATIC_DIR;
 
@@ -199,7 +200,8 @@ const stopById = new Map(
 );
 
 const stopTimesByTrip = new Map();
-const tripStopIndex = {};
+// stopId -> [[serviceId, routeId, line, seconds], ...], the form the browser reads.
+const stopScheduleByStop = new Map();
 for (const stopTime of stopTimes) {
   const trip = tripsById.get(stopTime.trip_id);
   if (!trip) continue;
@@ -208,19 +210,11 @@ for (const stopTime of stopTimes) {
   const stop = stopById.get(stopTime.stop_id);
   if (stop && !stop.lines.includes(shortName)) stop.lines.push(shortName);
 
-  const tripIndex = tripStopIndex[stopTime.trip_id] ?? {
-    routeId: trip.route_id,
-    line: shortName,
-    serviceId: trip.service_id,
-    stops: [],
-  };
-  tripIndex.stops.push([
-    Number(stopTime.stop_sequence),
-    stopTime.stop_id,
-    gtfsTimeToSeconds(stopTime.departure_time) ?? gtfsTimeToSeconds(stopTime.arrival_time) ?? -1,
-    gtfsTimeToSeconds(stopTime.arrival_time) ?? gtfsTimeToSeconds(stopTime.departure_time) ?? -1,
-  ]);
-  tripStopIndex[stopTime.trip_id] = tripIndex;
+  const seconds = gtfsTimeToSeconds(stopTime.departure_time) ?? gtfsTimeToSeconds(stopTime.arrival_time) ?? -1;
+  if (stopTime.stop_id && seconds >= 0) {
+    if (!stopScheduleByStop.has(stopTime.stop_id)) stopScheduleByStop.set(stopTime.stop_id, []);
+    stopScheduleByStop.get(stopTime.stop_id).push([trip.service_id, trip.route_id, shortName, seconds]);
+  }
 
   const selected = selectedTrips.some((item) => item.trip_id === stopTime.trip_id);
   if (!selected) continue;
@@ -261,8 +255,9 @@ const networkRoutes = selectedTrips
   })
   .filter((route) => route.path.length > 1);
 
-for (const trip of Object.values(tripStopIndex)) {
-  trip.stops.sort((a, b) => a[0] - b[0]);
+// The stop panels read these in time order.
+for (const entries of stopScheduleByStop.values()) {
+  entries.sort((a, b) => a[3] - b[3]);
 }
 
 const networkStops = [...stopById.values()]
@@ -329,14 +324,12 @@ fs.writeFileSync(
   path.join(process.cwd(), 'public/assets/gtfs-network.json'),
   JSON.stringify(payload),
 );
-fs.writeFileSync(
-  path.join(process.cwd(), 'public/assets/gtfs-stop-times.json'),
-  JSON.stringify({
-    generatedAt: payload.generatedAt,
-    source: 'GTT GTFS static stop_times.txt',
-    calendar: serviceIndex,
-    trips: tripStopIndex,
-  }),
-);
+const stopSchedule = writeStopSchedule(process.cwd(), {
+  generatedAt: payload.generatedAt,
+  source: 'GTT GTFS static stop_times.txt',
+  calendar: serviceIndex,
+  byStop: stopScheduleByStop,
+});
 
 console.log(`Generated ${networkLines.length} lines, ${networkRoutes.length} route variants, ${networkStops.length} stops`);
+console.log(`Stop schedule: ${stopScheduleByStop.size} stops in ${STOP_SCHEDULE_BUCKETS} buckets, largest ${Math.round(stopSchedule.largestBucketBytes / 1024)} kB, calendar ${Math.round(stopSchedule.calendarBytes / 1024)} kB.`);

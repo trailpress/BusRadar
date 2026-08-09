@@ -181,6 +181,11 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
         <div>
           <strong>{identifierLabel}</strong>
           <span>Linea {vehicle.routeShortName || vehicle.line} · {vehicleKind}</span>
+          {vehicle.isReplacementService ? (
+            <span className="vehicle-replacement-note">
+              {vehicle.vehicleType === 'bus' ? 'Bus in servizio su linea tranviaria' : 'Tram in servizio su linea bus'}
+            </span>
+          ) : null}
         </div>
       </div>
       <VehicleServiceDisplay vehicle={vehicle} />

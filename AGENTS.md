@@ -1,5 +1,11 @@
 # BusRadar agent instructions
 
+## Start here
+
+Read [`docs/handoff.md`](docs/handoff.md) first. It is the note the previous agent left: what is already merged, what is waiting in an open pull request, which branch not to touch, and what could not be verified. Update it at the end of your turn, replacing the entry once it has been absorbed.
+
+Then read [`docs/project-reference.md`](docs/project-reference.md) before planning a change. It describes the architecture, the realtime data flow, where each kind of change belongs, the tuning constants behind the on-map motion, how to check the current state of the project, and the known inconsistencies that make parts of the repository misleading.
+
 ## Project layout
 
 - The application is in `frontend/`.
@@ -27,7 +33,7 @@ For interface changes, also run the development server and verify the affected d
 - Create a short-lived working branch for changes, prefixed with the name of the agent that opens it: `codex/*` for Codex, `claude/*` for Claude Code.
 - Submit changes through a pull request and wait for `Verify BusRadar` to pass.
 - Committing, pushing a working branch and opening its pull request are pre-authorised once the required checks pass. Do not ask for permission on each of those steps.
-- Merging is a human decision and is never done by an agent, because it publishes the site.
+- Merging publishes the site, so an agent merges only when the owner asks for it, and never on its own initiative. Check that `Verify BusRadar` passed and that the pull request is conflict free before merging.
 - Do not edit or push generated files directly to `gh-pages`.
 - Merging into `main` triggers the GitHub Pages deployment automatically.
 

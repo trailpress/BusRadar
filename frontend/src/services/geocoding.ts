@@ -25,7 +25,20 @@ const geocoderUrl = import.meta.env.VITE_GEOCODER_URL ?? 'https://nominatim.open
 const cacheKey = 'busradar-geocoding-v2';
 const suggestionsCacheKey = 'busradar-geocoding-suggestions-v1';
 const torinoCenter = { lat: 45.0706, lon: 7.6867 };
+// Both caches live in localStorage, which is shared and small. Without a cap
+// they grew by one entry per distinct query and eventually threw on write,
+// silently, leaving the search uncached from then on.
+const maxCacheEntries = 120;
 let lastRequestAt = 0;
+
+function cappedCache<T>(cache: Record<string, T>, key: string, value: T) {
+  const next = { ...cache, [key]: value };
+  const keys = Object.keys(next);
+  if (keys.length <= maxCacheEntries) return next;
+  // Insertion order is preserved for string keys, so the oldest go first.
+  for (const staleKey of keys.slice(0, keys.length - maxCacheEntries)) delete next[staleKey];
+  return next;
+}
 
 function readCache() {
   try {
@@ -126,8 +139,7 @@ export async function geocodeTransitSuggestions(query: string, bias?: LatLng): P
     }))
     .filter((result) => Number.isFinite(result.lat) && Number.isFinite(result.lon))
     .slice(0, 5);
-  suggestionsCache[normalized] = resolved;
-  writeSuggestionsCache(suggestionsCache);
+  writeSuggestionsCache(cappedCache(suggestionsCache, normalized, resolved));
   return resolved;
 }
 
@@ -141,7 +153,6 @@ export async function geocodeTransitArea(query: string, bias?: LatLng): Promise<
 
   const [resolved] = await geocodeTransitSuggestions(query, bias);
   if (!resolved) return undefined;
-  cache[normalized] = resolved;
-  writeCache(cache);
+  writeCache(cappedCache(cache, normalized, resolved));
   return resolved;
 }

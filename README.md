@@ -64,6 +64,8 @@ GitHub e' la fonte ufficiale del progetto. Codex Cloud, Claude Code sul web o Gi
 
 Gli agenti cloud lavorano in alternanza sullo stesso repository e si passano il lavoro attraverso `main`: le regole comuni sono in [`AGENTS.md`](AGENTS.md) e in [`docs/cloud-workflow.md`](docs/cloud-workflow.md).
 
+Il punto di partenza per capire com'e' fatto il progetto e in che stato si trova e' [`docs/project-reference.md`](docs/project-reference.md).
+
 Il flusso completo e la configurazione dell'ambiente sono descritti in [`docs/cloud-workflow.md`](docs/cloud-workflow.md).
 
 Il repository contiene inoltre:

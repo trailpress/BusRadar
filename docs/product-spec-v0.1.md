@@ -1,5 +1,13 @@
 # BusRadar Product Specification v0.1
 
+> **Documento storico. Non descrive lo stato attuale del progetto.**
+>
+> Questa è la specifica con cui BusRadar è nato: demo con dati simulati, mappa Leaflet, nessun backend e nessun dato GTT reale. Il progetto ha superato tutti e tre i vincoli: oggi usa MapLibre, il feed GTFS-RT reale di GTT tramite proxy Supabase e il GTFS statico GTT per linee, tracciati e fermate.
+>
+> Resta qui come documento d'origine, utile per capire da dove parte il prodotto e quali principi sono stati mantenuti (mobile-first, niente scraping, niente endpoint privati, nessun riferimento che faccia sembrare BusRadar ufficiale GTT).
+>
+> Per lo stato attuale vedi [`project-reference.md`](project-reference.md).
+
 BusRadar è una webapp mobile-first standalone per visualizzare autobus urbani su mappa, con esperienza ispirata a un "FlightRadar dei bus".
 
 Il progetto è separato da Turni Smart.
