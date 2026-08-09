@@ -1,6 +1,6 @@
 import type { Vehicle } from '../types';
 import { getGtfsLine, getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, loadGtfsNetwork } from '../data/gtfsNetwork';
-import { recognizedFleetNumber, vehicleFleetKey, vehicleFleetLabel, vehicleLengthClass, vehicleLiveryForVehicle } from '../data/vehicleFleetRules';
+import { recognizedFleetNumber, vehicleFleetKey, vehicleFleetLabel, vehicleLengthClass, vehicleLiveryForVehicle, vehicleTypeForFleetNumber } from '../data/vehicleFleetRules';
 import { bearingDegrees, distanceMeters, interpolatePathState, routeProgressAtPoint } from '../utils/geo';
 import { fetchStopSchedule, type StopScheduleCalendar, type StopScheduleEntry } from './stopSchedule';
 
@@ -572,8 +572,12 @@ function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttT
   const routeId = vehicle.routeId || 'GTT';
   const line = lineNameForRoute(routeId);
   const gtfsLine = getGtfsLine(line);
-  const vehicleType = vehicleTypeForRoute(routeId);
   const vehicleId = normalizeVehicleId(vehicle.vehicleId) || normalizeVehicleId(vehicle.vehicleLabel ?? null);
+  // The route says what the service is, the fleet number says what the vehicle
+  // is. They disagree when a bus replaces a tram, and then the vehicle wins.
+  const routeVehicleType = vehicleTypeForRoute(routeId);
+  const vehicleType = vehicleTypeForFleetNumber(vehicleId) ?? routeVehicleType;
+  const isReplacementService = vehicleType !== routeVehicleType;
   const fleetNumber = recognizedFleetNumber(vehicleId, vehicleType);
   const fleetIdentifier = fleetNumber ?? null;
   const vehicleLivery = vehicleLiveryForVehicle(routeId, line, fleetIdentifier);
@@ -643,6 +647,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttT
     routeId: `gtt-${routeId}`,
     routeShortName: line,
     vehicleType,
+    isReplacementService,
     vehicleLivery,
     vehicleLengthClass: lengthClass,
     vehicleFleetLabel: fleetNumber

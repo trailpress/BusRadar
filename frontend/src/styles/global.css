@@ -886,6 +886,18 @@ button {
   font-size: 12px;
 }
 
+.vehicle-replacement-note {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 2px 7px;
+  border: 1px solid rgba(255, 176, 46, 0.42);
+  border-radius: 999px;
+  background: rgba(255, 176, 46, 0.12);
+  color: #ffc046;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .vehicle-service-display {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

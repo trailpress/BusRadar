@@ -75,6 +75,23 @@ export function vehicleFleetKey(vehicleId: string | null, vehicleType: Vehicle['
   return 'generic-bus';
 }
 
+// GTT runs buses on tram lines whenever a tram service is suspended, and the
+// line's GTFS route type then describes the service rather than the vehicle. A
+// substituting bus was typed as a tram, matched no tram series and fell back to
+// the one cluster without a render, losing its model, its specifications and
+// its own render in the process.
+//
+// The fleet numbering makes this recoverable: no number belongs to both a tram
+// and a bus cluster, so a recognised number identifies the type on its own. The
+// line still decides whenever the number means nothing to us.
+export function vehicleTypeForFleetNumber(vehicleId: string | null): Vehicle['vehicleType'] | undefined {
+  if (!vehicleId || !/^\d{1,4}$/.test(vehicleId)) return undefined;
+  const isTram = vehicleFleetKey(vehicleId, 'tram') !== 'generic-tram';
+  const isBus = vehicleFleetKey(vehicleId, 'bus') !== 'generic-bus';
+  if (isTram === isBus) return undefined;
+  return isTram ? 'tram' : 'bus';
+}
+
 export function recognizedFleetNumber(vehicleId: string, vehicleType: Vehicle['vehicleType']) {
   if (!/^\d{1,4}$/.test(vehicleId)) return undefined;
   const key = vehicleFleetKey(vehicleId, vehicleType);

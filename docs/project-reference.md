@@ -196,7 +196,39 @@ Il dataset porta la propria finestra di validità. `npm run verify:routes` la co
 
 ---
 
-## 6. Comandi e verifiche
+## 6. Render della flotta
+
+Ogni mezzo riconosciuto ha un render nella scheda di dettaglio. Il catalogo è `frontend/src/data/gttFleetCatalog.ts`: un cluster per modello, con matricole, livrea, fonti di verifica e prompt di generazione.
+
+Stato: **31 cluster su 32 hanno il render validato**. L'unico senza è `generic-tram`, e lo è di proposito.
+
+### Cosa determina il modello
+
+Il tipo del mezzo viene dalla **matricola**, non dalla linea. La linea dice che servizio è, la matricola dice che mezzo è, e le due cose divergono quando un bus sostituisce un tram. Nessuna matricola appartiene sia a un cluster tram sia a uno bus, quindi il numero decide da solo; la linea resta il ripiego per le matricole sconosciute. Quando i due divergono il mezzo viene marcato come servizio sostitutivo e la scheda lo dichiara.
+
+Prima di questa regola un bus in sostituzione su una linea tranviaria diventava un tram non identificabile e perdeva modello, scheda tecnica e render, pur avendone uno già pronto.
+
+### Come si produce un render allineato agli altri
+
+I render sembrano una famiglia sola perché condividono `sharedRenderPrompt`, che fissa camera, scala, sfondo studio, riflesso e inquadratura. Ogni cluster aggiunge solo il soggetto verificato, la livrea, i vincoli e la lista degli errori da evitare.
+
+```bash
+# mostra il prompt senza generare nulla
+node scripts/fleet-render.mjs --cluster tram-serie-8000 --dry-run
+```
+
+In cloud si usa il workflow **Generate a GTT fleet render**, dalla scheda Actions, indicando la chiave del cluster. Il workflow legge il prompt dal catalogo, genera, verifica la build e apre una pull request. Non c'è un prompt scritto nello YAML: è la ragione per cui un render nuovo nasce già coerente con quelli approvati.
+
+### Regole non negoziabili
+
+- Un render non si assegna senza aver confrontato modello, serie e livrea con le fonti indicate in `sourceNotes`. È una regola di `AGENTS.md`.
+- Se un render generato non corrisponde, si corregge il prompt nel catalogo e si rigenera. Non si ritocca il file a mano: la prossima rigenerazione perderebbe la correzione.
+- I render stanno in WebP entro 400 kB. `npm run verify:assets` fallisce se un file sfora o se resta nella cartella senza essere referenziato: è così che 40 MB di versioni superate erano rimasti nel repository.
+- `generic-tram` resta senza render. Quando una matricola finisce lì significa che non sappiamo che mezzo sia, e disegnare un tram generico mostrerebbe un mezzo inesistente. Se le matricole che ci finiscono appartengono a una serie reale, va aggiunta la serie in `vehicleFleetRules.ts`, non prodotto un render.
+
+---
+
+## 7. Comandi e verifiche
 
 Tutti da `frontend/`.
 
@@ -227,7 +259,7 @@ Per una modifica all'interfaccia, `npm run dev` e controllo delle viste desktop 
 
 ---
 
-## 7. Realtime, ambienti e deploy
+## 8. Realtime, ambienti e deploy
 
 **In sviluppo** `vite.config.ts` espone `/api/gtt/realtime`, che scarica il feed GTT server-side con `curl` (Node fetch ha problemi di DNS con quell'host IIS legacy) e lo decodifica.
 
@@ -239,7 +271,7 @@ La funzione `route-preview-config` fornisce a runtime le chiavi della vista stra
 
 ---
 
-## 8. Sicurezza
+## 9. Sicurezza
 
 - Mai committare chiavi API, token, password, URL di feed privati o file `.env`.
 - Mai mettere valori privati in variabili `VITE_*`: finiscono nel bundle visibile nel browser.
@@ -249,7 +281,7 @@ La funzione `route-preview-config` fornisce a runtime le chiavi della vista stra
 
 ---
 
-## 9. Incoerenze note e debito tecnico
+## 10. Incoerenze note e debito tecnico
 
 Da conoscere prima di fidarsi di quello che si legge nel repository.
 
@@ -261,7 +293,7 @@ Da conoscere prima di fidarsi di quello che si legge nel repository.
 
 ---
 
-## 10. Checklist per una modifica
+## 11. Checklist per una modifica
 
 1. Parti da `main` aggiornato e leggi gli ultimi commit: un altro agente potrebbe aver già fatto il lavoro.
 2. Apri un ramo con il tuo prefisso, `codex/*` o `claude/*`.
