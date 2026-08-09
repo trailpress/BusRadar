@@ -80,6 +80,10 @@ Gli orari programmati arrivano invece dai bucket per fermata descritti in §5, d
 
 Il pannello di una palina non deve mai dipendere dal realtime per mostrare l'orario: gli orari programmati sono un asset locale e restano disponibili anche con il proxy irraggiungibile.
 
+**Cosa si mostra, e cosa no.** Un pannello risponde a «cosa passa adesso da qui», non espone l'orario completo. Le corse programmate vengono quindi prese da una finestra di **90 minuti**, con un massimo di **3 per linea**, così una linea ad alta frequenza non occupa tutti i posti e le linee notturne non compaiono accanto a un arrivo fra sette minuti. Se una sola linea serve la palina il limite si rilassa fino a 8 corse. Se nella finestra non passa nulla si mostrano le prime 4 corse successive, perché a servizio fermo l'orario di ripresa vale più di un pannello vuoto.
+
+Gli orari del giorno dopo vanno etichettati. Il GTFS scrive i servizi notturni come `27:49`, non come «domani 03:49», quindi il giorno non si deduce dallo scostamento di data: va confrontata la data risultante con quella odierna.
+
 ### 2.2 Dal `Vehicle` al movimento sulla mappa
 
 Tutto in `frontend/src/components/BusMap.tsx`.

@@ -208,6 +208,13 @@ function serviceRunsToday(serviceId: string | undefined, calendar: StopScheduleC
   return dayKey >= service.startDate && dayKey <= service.endDate && service.days[date.getDay()] === 1;
 }
 
+// A stop panel answers "what comes next here", so departures are taken from a
+// window around now rather than from the whole 30 hour horizon the dataset
+// covers, and no single line may fill it.
+const NEAR_DEPARTURE_WINDOW_MINUTES = 90;
+const MAX_DEPARTURES_PER_LINE = 3;
+const MIN_DEPARTURES_SHOWN = 8;
+
 function scheduledStopArrivals(
   entries: StopScheduleEntry[],
   allowedRouteIds: string[],
@@ -229,59 +236,95 @@ function scheduledStopArrivals(
   // service repeats across most entries of a stop.
   const runsByServiceAndDay = new Map<string, boolean>();
 
-  const candidates = entries
-    .flatMap((entry) => {
-      const normalizedRouteId = normalizeRouteName(entry.line || entry.routeId);
-      if (allowed.size > 0 && !allowed.has(entry.routeId) && !allowed.has(normalizedRouteId)) return [];
+  const candidates: GttStopArrival[] = [];
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    const normalizedRouteId = normalizeRouteName(entry.line || entry.routeId);
+    if (allowed.size > 0 && !allowed.has(entry.routeId) && !allowed.has(normalizedRouteId)) continue;
 
-      return serviceDays.flatMap(({ date, dayOffset }) => {
-        const cacheKey = `${entry.serviceId}:${dayOffset}`;
-        let runs = runsByServiceAndDay.get(cacheKey);
-        if (runs == null) {
-          runs = serviceRunsToday(entry.serviceId, calendar, date);
-          runsByServiceAndDay.set(cacheKey, runs);
-        }
-        if (!runs) return [];
+    for (const { date, dayOffset } of serviceDays) {
+      const cacheKey = `${entry.serviceId}:${dayOffset}`;
+      let runs = runsByServiceAndDay.get(cacheKey);
+      if (runs == null) {
+        runs = serviceRunsToday(entry.serviceId, calendar, date);
+        runsByServiceAndDay.set(cacheKey, runs);
+      }
+      if (!runs) continue;
 
-        const absoluteSeconds = dayOffset * 86400 + entry.seconds;
-        if (absoluteSeconds < secondsNow || absoluteSeconds > maxHorizonSeconds) return [];
+      const absoluteSeconds = dayOffset * 86400 + entry.seconds;
+      if (absoluteSeconds < secondsNow || absoluteSeconds > maxHorizonSeconds) continue;
 
-        const time = new Date(now);
-        time.setHours(0, 0, 0, 0);
-        time.setSeconds(absoluteSeconds);
+      // The same departure is often written under more than one service
+      // calendar, and a few appear twice under the same one. Identical
+      // departures are one departure.
+      const identity = `${entry.serviceId}:${entry.routeId}:${entry.seconds}:${dayOffset}`;
+      if (seen.has(identity)) continue;
+      seen.add(identity);
 
-        return [{
-          routeId: entry.routeId,
-          line: normalizedRouteId,
-          // The schedule is indexed by stop, so a trip appears once per call at
-          // this stop. Departure time and route identify it well enough for the
-          // duplicate check downstream.
-          tripId: `${entry.serviceId}:${entry.routeId}:${entry.seconds}`,
-          timeLabel: time.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
-          minutes: Math.max(0, Math.round((absoluteSeconds - secondsNow) / 60)),
-          source: 'scheduled' as const,
-          delaySeconds: undefined,
-          vehicleId: undefined,
-        }];
+      const time = new Date(now);
+      time.setHours(0, 0, 0, 0);
+      time.setSeconds(absoluteSeconds);
+      const clock = time.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+      // A night service is written as 27:49 rather than as tomorrow 03:49, so
+      // the day cannot be read off the offset: compare the resulting dates.
+      const isAnotherDay = localGtfsDate(time) !== localGtfsDate(now);
+
+      candidates.push({
+        routeId: entry.routeId,
+        line: normalizedRouteId,
+        tripId: identity,
+        // A departure on another day has to say so, otherwise 05:01 reads as
+        // five in the morning today and the panel looks made up.
+        timeLabel: isAnotherDay ? `domani ${clock}` : clock,
+        minutes: Math.max(0, Math.round((absoluteSeconds - secondsNow) / 60)),
+        source: 'scheduled' as const,
+        delaySeconds: undefined,
+        vehicleId: undefined,
       });
-    })
-    .sort((a, b) => a.minutes - b.minutes);
-
-  const earliestByLine = new Map<string, GttStopArrival>();
-  candidates.forEach((arrival) => {
-    if (!earliestByLine.has(arrival.line)) earliestByLine.set(arrival.line, arrival);
-  });
-  const selected = [...earliestByLine.values()];
-  const selectedTrips = new Set(selected.map((arrival) => `${arrival.tripId}:${arrival.timeLabel}`));
-  candidates.forEach((arrival) => {
-    if (selected.length >= 16) return;
-    const key = `${arrival.tripId}:${arrival.timeLabel}`;
-    if (!selectedTrips.has(key)) {
-      selected.push(arrival);
-      selectedTrips.add(key);
     }
-  });
-  return selected.sort((a, b) => a.minutes - b.minutes).slice(0, 16);
+  }
+  candidates.sort((a, b) => a.minutes - b.minutes);
+
+  // What a stop panel is for is the next departures, not the whole timetable.
+  // Taking the first departure of every line served here filled the list with
+  // night services nineteen hours away, shown next to arrivals seven minutes
+  // out; and one line every five minutes took every slot on its own.
+  const selected: GttStopArrival[] = [];
+  const perLine = new Map<string, number>();
+  for (const arrival of candidates) {
+    if (arrival.minutes > NEAR_DEPARTURE_WINDOW_MINUTES) break;
+    const shown = perLine.get(arrival.line) ?? 0;
+    if (shown >= MAX_DEPARTURES_PER_LINE) continue;
+    perLine.set(arrival.line, shown + 1);
+    selected.push(arrival);
+    if (selected.length >= 16) break;
+  }
+
+  // A stop served by a single frequent line would otherwise show three
+  // departures and stop there, so the per line cap is relaxed until the panel
+  // has a useful number of them.
+  if (selected.length < MIN_DEPARTURES_SHOWN) {
+    const already = new Set(selected.map((arrival) => arrival.tripId));
+    for (const arrival of candidates) {
+      if (selected.length >= MIN_DEPARTURES_SHOWN) break;
+      if (arrival.minutes > NEAR_DEPARTURE_WINDOW_MINUTES) break;
+      if (already.has(arrival.tripId)) continue;
+      already.add(arrival.tripId);
+      selected.push(arrival);
+    }
+  }
+
+  // Outside service hours nothing falls in the window, and an empty panel says
+  // less than the time service resumes.
+  if (selected.length === 0) {
+    const firstByLine = new Map<string, GttStopArrival>();
+    for (const arrival of candidates) {
+      if (!firstByLine.has(arrival.line)) firstByLine.set(arrival.line, arrival);
+    }
+    selected.push(...[...firstByLine.values()].sort((a, b) => a.minutes - b.minutes).slice(0, 4));
+  }
+
+  return selected.sort((a, b) => a.minutes - b.minutes);
 }
 
 export async function fetchGttStopArrivals(
