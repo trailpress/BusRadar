@@ -12,16 +12,18 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 
 | | |
 | --- | --- |
-| ramo di lavoro | `claude/tandem-codex-workflow-v1nntw` |
-| pull request aperta | **#6**, verde, **non unita** |
-| già unito in `main` | PR #5 |
-| deploy | l'ultimo deploy di `main` è andato a buon fine |
+| pull request aperte | **nessuna** |
+| ultimo merge in `main` | PR #6 |
+| ramo `claude/tandem-codex-workflow-v1nntw` | interamente unito, libero |
+| deploy | pubblicato da `main` dopo il merge |
 
-> ⚠️ **Finché la #6 è aperta, non toccare quel ramo.** È la regola in `AGENTS.md`: un agente non commita, non rebasa e non forza il push sul ramo di un altro. Se serve intervenire su quel lavoro, attendere il merge e ripartire da `main` aggiornato.
+Non c'è lavoro in sospeso e nessun ramo da evitare. Chi riprende parte da `main` aggiornato con un ramo nuovo del proprio prefisso.
 
-### Già unito in `main` (PR #5)
+### Cosa è cambiato in questo turno
 
-**Movimento dei mezzi sulla mappa.** Il feed GTT arriva vecchio di circa un minuto e quel ritardo veniva assorbito al momento del playback, con tre effetti visibili:
+Tutto quanto segue è **già in produzione**.
+
+**Movimento dei mezzi sulla mappa** (PR #5). Il feed GTT arriva vecchio di circa un minuto e quel ritardo veniva assorbito al momento del playback, con tre effetti visibili:
 
 - accelerazione irreale: un salto lungo veniva compresso in 18 secondi, rendendo un bus a 100 km/h. Ora la durata dipende dalla distanza e non supera mai una velocità plausibile;
 - marcia indietro: compensazione della latenza troppo corta, aggancio alla shape che si ribaltava tra andata e ritorno, e nessuna protezione dal rumore GPS per i mezzi non agganciati;
@@ -29,14 +31,13 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 
 Le costanti che regolano tutto questo sono elencate in `project-reference.md` §4. **Vanno cambiate una alla volta**: sono in equilibrio tra loro.
 
-### In attesa di merge (PR #6)
+**Orari delle paline** (PR #6). L'ordinale `stop_sequence` veniva accettato *in alternativa* all'id fermata, non come ripiego. Su un campione di 300 paline il 65% degli arrivi candidati apparteneva a un'altra fermata. Ora l'id decide, anche in negativo.
 
-Quattro interventi. Se la #6 è già stata unita quando leggi, considera questa sezione storia.
+**Peso all'avvio** (PR #6). Gli orari programmati erano un file unico da 42 MB scaricato da ogni visitatore, per circa 107 MB di heap. Ora sono indicizzati per fermata in 256 bucket: calendario condiviso da ~460 kB più un bucket da massimo ~210 kB. Heap 121,6 → 46,7 MB, traffico 53,6 → 12,8 MB, primo paint 792 → 334 ms.
 
-1. **Orari delle paline agganciati alla fermata sbagliata.** L'ordinale `stop_sequence` veniva accettato *in alternativa* all'id fermata, non come ripiego. Su un campione di 300 paline il 65% degli arrivi candidati apparteneva a un'altra fermata. Ora l'id decide, anche in negativo.
-2. **Gli orari programmati non sono più un file unico.** Erano 42 MB scaricati da ogni visitatore e circa 107 MB di heap. Ora sono indicizzati per fermata in 256 bucket: calendario condiviso da ~460 kB più un bucket da massimo ~210 kB. Heap 121,6 → 46,7 MB, traffico 53,6 → 12,8 MB.
-3. **Tipo del mezzo dedotto dalla matricola.** Un bus che sostituisce un tram veniva tipizzato dalla linea, falliva il riconoscimento e finiva su `generic-tram`, l'unico cluster senza render. Ora decide la matricola quando è inequivocabile, con la linea come ripiego.
-4. **Render della flotta**: da PNG 2048px a WebP 1280px (74,5 → 1,9 MB), rimossi 115,4 MB di versioni superate, workflow di generazione parametrizzato sulla chiave del cluster.
+**Identificazione della flotta** (PR #6). Un bus che sostituisce un tram veniva tipizzato dalla linea, falliva il riconoscimento e finiva su `generic-tram`, l'unico cluster senza render. Ora il tipo lo decide la matricola quando è inequivocabile, con la linea come ripiego, e la sostituzione viene dichiarata nella scheda.
+
+**Render della flotta** (PR #6). Da PNG 2048px a WebP 1280px: 74,5 → 1,9 MB, e una scheda mezzo scarica ~50 kB invece di ~2,6 MB. Rimossi 115,4 MB di versioni superate. Il workflow di generazione è ora unico e parametrizzato sulla chiave del cluster.
 
 ### Convenzioni introdotte, da rispettare
 
@@ -54,7 +55,7 @@ Se il tuo ambiente ha accesso a internet, queste sono le verifiche che valgono d
 
 1. **Il feed GTFS-RT risponde ancora?** `https://percorsieorari.gtt.to.it/das_gtfsrt/vehicle_position.aspx` e `trip_update.aspx`, e la Edge Function `gtt-realtime` che li espone.
 2. **Esiste un GTFS statico più recente?** Quello incorporato è stato generato il **2026-07-12** (feed 20260711). GTT ripubblica periodicamente: se c'è una versione nuova, rigenerare con `npm run gtfs:generate` e aggiornare `docs/gtfs-static-validation.md`.
-3. **Le tre correzioni visibili**, sull'app dopo il merge: i mezzi non accelerano più in modo innaturale e non tornano indietro; una palina mostra orari che coincidono con quelli ufficiali GTT; la vettura 817 sulla linea 16 mostra «Irisbus Citelis 18m» con il suo render e la nota di servizio sostitutivo, invece di «modello non identificato».
+3. **Le tre correzioni visibili**, sul sito pubblicato: i mezzi non accelerano più in modo innaturale e non tornano indietro; una palina mostra orari che coincidono con quelli ufficiali GTT; la vettura 817 sulla linea 16 mostra «Irisbus Citelis 18m» con il suo render e la nota di servizio sostitutivo, invece di «modello non identificato».
 
 ### Se cerchi il prossimo lavoro
 
