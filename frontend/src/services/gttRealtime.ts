@@ -490,7 +490,12 @@ function terminalEstimate(
         score:
           progress.distanceMeters +
           bearingDelta(preferredBearing, progress.bearing) * 0.9 -
-          (route.id === previousRouteVariantId && progress.distanceMeters < 90 ? 35 : 0),
+          // Outbound and return shapes of the same line run a few metres apart,
+          // so a marginally better score on the opposite shape used to flip the
+          // match between samples and teleport the marker backwards along the
+          // other direction. Stay on the shape already in use unless the vehicle
+          // clearly left it.
+          (route.id === previousRouteVariantId && progress.distanceMeters < 140 ? 95 : 0),
       };
     })
     .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate))
@@ -519,6 +524,14 @@ function terminalEstimate(
   };
 }
 
+// Dead reckoning assumes a constant speed, while a city vehicle brakes, queues
+// and dwells at stops. Advancing the full theoretical distance would routinely
+// overshoot and force the next sample to drag the marker backwards, so keep a
+// confidence margin and hard caps on how far ahead a marker may be projected.
+const MAX_LATENCY_COMPENSATION_SECONDS = 75;
+const MAX_LATENCY_COMPENSATION_METERS = 700;
+const LATENCY_COMPENSATION_CONFIDENCE = 0.85;
+
 function compensateFeedLatency(
   routeVariantId: string | undefined,
   point: { lat: number; lon: number },
@@ -533,8 +546,16 @@ function compensateFeedLatency(
 
   const totalMeters = progress.traveledMeters + progress.remainingMeters;
   if (totalMeters <= 0) return undefined;
-  const compensationSeconds = Math.min(ageSeconds, 45);
-  const advanceMeters = Math.min(420, (speedKmhValue / 3.6) * compensationSeconds);
+  // The GTT feed is regularly one minute old. Compensating only a part of that
+  // age leaves a residual lag that the playback has to absorb later as an
+  // unrealistic burst of speed, so cover the observed staleness instead.
+  const compensationSeconds = Math.min(ageSeconds, MAX_LATENCY_COMPENSATION_SECONDS);
+  const advanceMeters = Math.min(
+    MAX_LATENCY_COMPENSATION_METERS,
+    (speedKmhValue / 3.6) * compensationSeconds * LATENCY_COMPENSATION_CONFIDENCE,
+    // Dead reckoning may not push a vehicle past its own terminus.
+    Math.max(0, progress.remainingMeters - 5),
+  );
   if (advanceMeters < 8) return undefined;
   const compensated = interpolatePathState(
     routeVariant.path,

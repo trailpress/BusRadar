@@ -358,14 +358,42 @@ function vehicleFeedKey(vehicle: Vehicle) {
   ].join('|');
 }
 
+// Ceiling for how fast a marker may be played back. A marker that fell behind
+// is allowed a small catch-up margin over the speed the vehicle actually holds,
+// but never enough to read as a sprint: replaying a stale sample at three times
+// the real speed is what makes the motion look artificial.
+function maxPlaybackSpeedMps(vehicle: Vehicle, speedMps: number) {
+  const typeCeiling = vehicle.vehicleType === 'tram' ? 13.9 : 15.3;
+  return clamp(Math.max(speedMps * 1.35, 5.5), 2.8, typeCeiling);
+}
+
 function vehiclePlaybackDurationMs(vehicle: Vehicle, previousFrame: VehicleFrame | undefined, meters: number, speedMps: number, now: number) {
   const feedDeltaMs = previousFrame?.vehicle.feedTimestampMs && vehicle.feedTimestampMs
     ? Math.max(0, vehicle.feedTimestampMs - previousFrame.vehicle.feedTimestampMs)
     : 0;
-  if (feedDeltaMs >= 4_000) return clamp(feedDeltaMs * 1.08, 5_500, 18_000);
-  if (meters < 1.5) return 1_600;
-  const frameAgeMs = previousFrame ? Math.max(0, now - previousFrame.startedAt) : 0;
-  return Math.max(vehicleMovementDurationMs(meters, speedMps), clamp(frameAgeMs * 0.75, 4_500, 12_000));
+  const baseDurationMs = (() => {
+    if (feedDeltaMs >= 4_000) return clamp(feedDeltaMs * 1.08, 5_500, 18_000);
+    if (meters < 1.5) return 1_600;
+    const frameAgeMs = previousFrame ? Math.max(0, now - previousFrame.startedAt) : 0;
+    return Math.max(vehicleMovementDurationMs(meters, speedMps), clamp(frameAgeMs * 0.75, 4_500, 12_000));
+  })();
+  // A stalled feed delivers a long gap in a single sample. Covering that
+  // distance within the gap alone would compress a minute of travel into a few
+  // seconds, so let the distance set its own floor on the duration.
+  const realisticDurationMs = (meters / maxPlaybackSpeedMps(vehicle, speedMps)) * 1000;
+  return Math.max(baseDurationMs, realisticDurationMs);
+}
+
+// Distance between the badge centre and the direction arrow, in ems of the
+// arrow text size, matching the fixed offset the arrow layer used before.
+const ARROW_OFFSET_EMS = 1.24;
+
+// A vehicle matched to a shape has a heading taken from the route geometry, and
+// a moving vehicle has one derived from its own displacement. Outside those two
+// cases the heading falls back to zero, which used to point every idle marker
+// north regardless of how it was parked.
+function hasReliableHeading(vehicle: Vehicle) {
+  return vehicle.routeMatchStatus === 'on-route' || vehicle.speed >= 3;
 }
 
 function vehiclesToGeoJson(
@@ -441,6 +469,7 @@ function vehiclesToGeoJson(
       const displayPosition = displayPositions.get(vehicle.vehicleId) ?? position;
       const selected = vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId;
       const bearing = snapped?.bearing ?? vehicle.bearing;
+      const bearingRadians = (bearing * Math.PI) / 180;
       return {
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [displayPosition.lon, displayPosition.lat] },
@@ -454,6 +483,14 @@ function vehiclesToGeoJson(
           textColor: routeDisplayTextColor(vehicle.line, vehicle.vehicleType),
           bearing,
           arrowBearing: bearing,
+          // Carry the arrow around the badge so it always leads the vehicle in
+          // the direction of travel. A fixed offset above the badge made a
+          // southbound arrow point back at its own badge.
+          arrowOffset: [
+            Math.sin(bearingRadians) * ARROW_OFFSET_EMS,
+            -Math.cos(bearingRadians) * ARROW_OFFSET_EMS,
+          ],
+          showArrow: hasReliableHeading(vehicle),
           spriteBearing: bearing - 90,
           icon: vehicleIconName(vehicle),
           selected,
@@ -825,10 +862,11 @@ function installTransitLayers(map: maplibregl.Map) {
     id: 'vehicle-badge-arrows',
     type: 'symbol',
     source: 'vehicles',
+    filter: ['==', ['get', 'showArrow'], true],
     layout: {
       'text-field': '▲',
       'text-size': ['interpolate', ['linear'], ['zoom'], 7.4, 6.2, 8.8, 7.2, 11, 8.2, 14, 8.8, 18, 7.8, 20, 7],
-      'text-offset': [0, -1.24],
+      'text-offset': ['array', 'number', 2, ['get', 'arrowOffset']],
       'text-rotate': ['get', 'arrowBearing'],
       'text-rotation-alignment': 'viewport',
       'text-allow-overlap': true,
@@ -1246,8 +1284,15 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         currentPositionsRef.current.set(vehicle.vehicleId, next);
       }
       const meters = new maplibregl.LngLat(previous.lon, previous.lat).distanceTo(new maplibregl.LngLat(next.lon, next.lat));
-      const isPlausibleUpdate = meters <= 420;
+      // Kept above the latency compensation range, otherwise a legitimately
+      // projected sample would be discarded as a teleport and snap the marker.
+      const isPlausibleUpdate = meters <= 900;
       const motion = isPlausibleUpdate ? routeMotion(vehicle, previous, next, vehicleRouteProgressRef.current.get(vehicle.vehicleId)) : undefined;
+      // Vehicles matched to a shape are kept monotonic by routeMotion. Those
+      // without a shape animate point to point, where GPS noise around a
+      // standing vehicle reads as the marker drifting backwards, so hold the
+      // displayed position until the movement is real.
+      const isPositionJitter = !motion && meters < 12 && vehicle.speed < 3;
       const secondsSinceUpdate = previousFrame
         ? clamp((now - previousFrame.startedAt) / 1000, 3, 24)
         : 6;
@@ -1267,10 +1312,10 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       vehicleFeedSamplesRef.current.set(vehicle.vehicleId, { key: feedKey, receivedAt: now });
       vehicleFramesRef.current.set(vehicle.vehicleId, {
         from: isPlausibleUpdate ? previous : next,
-        to: next,
+        to: isPositionJitter ? previous : next,
         startedAt: isPlausibleUpdate ? now : now - 1,
         vehicle,
-        meters: isPlausibleUpdate ? meters : 0,
+        meters: isPlausibleUpdate && !isPositionJitter ? meters : 0,
         durationMs,
         routeSpeedMps,
         ...motion,
