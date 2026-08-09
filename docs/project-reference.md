@@ -63,6 +63,8 @@ Tutto in `frontend/src/services/gttRealtime.ts`, funzione `toVehicle`.
 2. **Velocità** (`observedSpeed`): si preferisce la velocità del feed; se assente si calcola dallo spostamento tra due campioni, accettando solo intervalli tra 5 e 180 s e velocità sotto 90 km/h.
 3. **Aggancio alla shape** (`terminalEstimate`): tra le varianti GTFS della linea si sceglie quella che minimizza distanza dal punto e scarto di direzione, con un forte bonus di permanenza sulla shape già in uso. Il mezzo è considerato agganciato entro 55 m (70 m per gli extraurbani blu).
 4. **Compensazione della latenza** (`compensateFeedLatency`): se agganciato, il punto viene proiettato in avanti lungo la shape per recuperare l'età del campione. Vedi §4.
+
+   L'età si misura dal timestamp del veicolo, **con ricaduta sul timestamp dell'header del feed** quando il veicolo non ne porta uno. Non è un dettaglio: senza quella ricaduta un campione privo di timestamp viene creduto appena generato, la compensazione non si attiva del tutto perché agisce solo su un'età nota, e il marker resta indietro di un intero ciclo di feed.
 5. **Uscita**: posizione finale, bearing, progresso sulla linea, capolinea stimato, ETA, previsioni di fermata dai Trip Update.
 
 ### 2.1.1 Arrivi alle paline
@@ -147,8 +149,9 @@ Sono i numeri che decidono quanto il movimento appare realistico. Vanno cambiati
 | costante o soglia | valore | effetto |
 | --- | --- | --- |
 | `MAX_LATENCY_COMPENSATION_SECONDS` | 75 s | quanta età del campione viene recuperata proiettando in avanti |
+| `LATENCY_COMPENSATION_LEAD_SECONDS` | 3 s | mira leggermente avanti, perché il marker raggiunge il bersaglio solo nei secondi successivi |
 | `MAX_LATENCY_COMPENSATION_METERS` | 700 m | tetto assoluto alla proiezione |
-| `LATENCY_COMPENSATION_CONFIDENCE` | 0,85 | margine contro l'overshoot: la stima assume velocità costante, il mezzo invece frena |
+| `LATENCY_COMPENSATION_CONFIDENCE` | 0,90 | margine contro l'overshoot: la stima assume velocità costante, il mezzo invece frena |
 | bonus di permanenza sulla shape | −95 entro 140 m | evita che andata e ritorno si scambino tra un campione e l'altro |
 | `snapLimitMeters` | 55 m, 70 m extraurbani | oltre questa distanza il mezzo non è agganciato alla shape |
 | soglia velocità per la compensazione | 3–75 km/h | fuori da questa fascia non si proietta |

@@ -18,11 +18,16 @@ type GttVehiclePosition = {
   timestamp: string | null;
 };
 
+type GttFeedHeader = {
+  timestamp?: string | number | null;
+};
+
 type GttVehiclesResponse = {
   status: 'ok' | string;
   entityCount?: number;
   vehiclePositionCount?: number;
   checkedAt?: string;
+  header?: GttFeedHeader;
   vehicles?: GttVehiclePosition[];
   error?: string;
 };
@@ -105,6 +110,10 @@ function vehicleTypeForRoute(routeId: string): Vehicle['vehicleType'] {
   return getGtfsLine(lineName)?.vehicleType ?? (tramRoutes.has(routeName) ? 'tram' : 'bus');
 }
 
+// When GTT generated the feed we are currently showing. A vehicle position
+// cannot be fresher than the feed that carries it, so this is the floor for the
+// age of every sample in it.
+let feedGeneratedAtMs: number | undefined;
 let tripUpdatesCache: { at: number; updates: GttTripUpdate[] } | undefined;
 let rawVehiclesCache: { at: number; vehicles: GttVehiclePosition[] } | undefined;
 const previousSamples = new Map<string, { lat: number; lon: number; timestampMs: number; speed: number }>();
@@ -431,9 +440,18 @@ function speedKmh(speedMetersPerSecond: number | null) {
   return Math.max(0, Math.round((speedMetersPerSecond ?? 0) * 3.6));
 }
 
-function timestampMs(timestamp: string | null) {
+function epochSecondsToMs(timestamp: string | number | null | undefined) {
   const seconds = Number(timestamp);
-  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : Date.now();
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : undefined;
+}
+
+// Not every GTT vehicle carries its own timestamp. Treating a sample with no
+// timestamp as if it had just been produced said the position was current when
+// it was a minute old, and the latency compensation, which only acts on a known
+// age, then did nothing at all: the marker stayed a full feed behind. Fall back
+// to the moment the feed itself was generated.
+function timestampMs(timestamp: string | null) {
+  return epochSecondsToMs(timestamp) ?? feedGeneratedAtMs ?? Date.now();
 }
 
 function feedAgeSeconds(timestamp: string | null) {
@@ -540,7 +558,13 @@ function terminalEstimate(
 // confidence margin and hard caps on how far ahead a marker may be projected.
 const MAX_LATENCY_COMPENSATION_SECONDS = 75;
 const MAX_LATENCY_COMPENSATION_METERS = 700;
-const LATENCY_COMPENSATION_CONFIDENCE = 0.85;
+const LATENCY_COMPENSATION_CONFIDENCE = 0.9;
+// The projection targets the position the vehicle held when the sample was
+// fetched, but the marker only reaches that point over the seconds that follow,
+// and the next sample is another poll away. Aiming slightly ahead keeps the
+// marker level with the vehicle across the interval instead of trailing it by
+// the length of its own playback.
+const LATENCY_COMPENSATION_LEAD_SECONDS = 3;
 
 function compensateFeedLatency(
   routeVariantId: string | undefined,
@@ -559,7 +583,10 @@ function compensateFeedLatency(
   // The GTT feed is regularly one minute old. Compensating only a part of that
   // age leaves a residual lag that the playback has to absorb later as an
   // unrealistic burst of speed, so cover the observed staleness instead.
-  const compensationSeconds = Math.min(ageSeconds, MAX_LATENCY_COMPENSATION_SECONDS);
+  const compensationSeconds = Math.min(
+    ageSeconds + LATENCY_COMPENSATION_LEAD_SECONDS,
+    MAX_LATENCY_COMPENSATION_SECONDS,
+  );
   const advanceMeters = Math.min(
     MAX_LATENCY_COMPENSATION_METERS,
     (speedKmhValue / 3.6) * compensationSeconds * LATENCY_COMPENSATION_CONFIDENCE,
@@ -751,6 +778,8 @@ export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | 
 
   const payload = (await response.json()) as GttVehiclesResponse;
   if (payload.status !== 'ok' || !Array.isArray(payload.vehicles)) return undefined;
+
+  feedGeneratedAtMs = epochSecondsToMs(payload.header?.timestamp);
 
   const identifiableVehicles = payload.vehicles.filter((vehicle) => vehicle.vehicleId || vehicle.vehicleLabel);
   const inCoverageVehicles = identifiableVehicles.filter(isValidGttCoverageCoordinate);
