@@ -150,6 +150,7 @@ Sono i numeri che decidono quanto il movimento appare realistico. Vanno cambiati
 | --- | --- | --- |
 | `MAX_LATENCY_COMPENSATION_SECONDS` | 75 s | quanta età del campione viene recuperata proiettando in avanti |
 | `LATENCY_COMPENSATION_LEAD_SECONDS` | 3 s | mira leggermente avanti, perché il marker raggiunge il bersaglio solo nei secondi successivi |
+| `SPEED_AVERAGE_WINDOW_SECONDS` | 60 s | finestra della media di velocità, allineata al ritardo compensato e pesata sul tempo reale tra i campioni, non sul loro numero |
 | velocità usata per la proiezione | media mobile, non istantanea | proiettare un minuto di percorso con la velocità di un singolo istante faceva oscillare il recupero fra zero e 400 m sullo stesso mezzo, a ogni ripartenza da fermata |
 | `ASSUMED_UNDECLARED_FEED_DELAY_SECONDS` | 50 s | ritardo che il feed GTT **non dichiara**: i campioni arrivano marcati come appena misurati, ma la posizione è di circa un minuto prima. È l'unica costante tarata su un'osservazione dalla strada, non sui dati |
 | `MAX_LATENCY_COMPENSATION_METERS` | 700 m | tetto assoluto alla proiezione |
