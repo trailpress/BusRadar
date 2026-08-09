@@ -2,6 +2,7 @@ import type { Vehicle } from '../types';
 import { getGtfsLine, getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, loadGtfsNetwork } from '../data/gtfsNetwork';
 import { recognizedFleetNumber, vehicleFleetKey, vehicleFleetLabel, vehicleLengthClass, vehicleLiveryForVehicle } from '../data/vehicleFleetRules';
 import { bearingDegrees, distanceMeters, interpolatePathState, routeProgressAtPoint } from '../utils/geo';
+import { fetchStopSchedule, type StopScheduleCalendar, type StopScheduleEntry } from './stopSchedule';
 
 type GttVehiclePosition = {
   entityId?: string | null;
@@ -75,23 +76,6 @@ export type GttStopArrivalsResult = {
   scheduledCount: number;
 };
 
-type StopTimeIndex = {
-  calendar?: {
-    services: Record<string, {
-      startDate: string;
-      endDate: string;
-      days: number[];
-    }>;
-    exceptions: Record<string, Record<string, number>>;
-  };
-  trips: Record<string, {
-    routeId: string;
-    line: string;
-    serviceId?: string;
-    stops: Array<[number, string, number?, number?]>;
-  }>;
-};
-
 export const GTT_REALTIME_API_BASE =
   import.meta.env.VITE_REALTIME_API_BASE ?? 'https://mtuwzlbxhmpnqpaahity.supabase.co/functions/v1/gtt-realtime';
 const vehicleSnapshotCacheKey = 'busradar:last-valid-vehicle-snapshot';
@@ -123,42 +107,23 @@ function vehicleTypeForRoute(routeId: string): Vehicle['vehicleType'] {
 
 let tripUpdatesCache: { at: number; updates: GttTripUpdate[] } | undefined;
 let rawVehiclesCache: { at: number; vehicles: GttVehiclePosition[] } | undefined;
-let stopTimeIndexCache: Promise<StopTimeIndex | undefined> | undefined;
 const previousSamples = new Map<string, { lat: number; lon: number; timestampMs: number; speed: number }>();
 const previousRouteVariants = new Map<string, string>();
 const previousRoutePositions = new Map<string, { routeVariantId: string; meters: number; timestampMs: number }>();
 
-function scheduledPredictionTimeMs(seconds: number, delaySeconds: number, now: number) {
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
-  const candidates = [-1, 0, 1].map((dayOffset) => (
-    startOfToday.getTime() + dayOffset * 86_400_000 + (seconds + delaySeconds) * 1000
-  ));
-  return candidates
-    .filter((time) => time >= now - 60_000 && time <= now + 3 * 60 * 60_000)
-    .sort((a, b) => a - b)[0];
-}
-
-function realtimeStopPredictions(update?: GttTripUpdate, stopTimeIndex?: StopTimeIndex): Vehicle['stopPredictions'] {
+// These predictions feed the headway estimate between two vehicles of the same
+// line, which compares the times they announce for the stops they share. Only
+// the feed's own values are used: the identifiers just have to be consistent
+// between the two vehicles, so a sequence number stands in when no stop id is
+// given.
+function realtimeStopPredictions(update?: GttTripUpdate): Vehicle['stopPredictions'] {
   if (!update) return undefined;
   const now = Date.now();
-  const staticTrip = update.tripId ? stopTimeIndex?.trips[update.tripId] : undefined;
   const predictions = update.stopTimeUpdates
     .map((stop) => {
       const seconds = Number(stop.arrivalTime ?? stop.departureTime ?? 0);
-      const staticStop = stop.stopSequence == null
-        ? undefined
-        : staticTrip?.stops.find(([sequence]) => sequence === stop.stopSequence);
-      const stopId = stop.stopId || staticStop?.[1] || (stop.stopSequence != null ? `sequence:${stop.stopSequence}` : undefined);
-      const scheduledSeconds = staticStop
-        ? (staticStop[3] != null && staticStop[3] >= 0 ? staticStop[3] : staticStop[2])
-        : undefined;
-      const delaySeconds = stop.arrivalDelay ?? stop.departureDelay ?? 0;
-      const arrivalTimeMs = Number.isFinite(seconds) && seconds > 0
-        ? seconds * 1000
-        : scheduledSeconds != null && scheduledSeconds >= 0
-          ? scheduledPredictionTimeMs(scheduledSeconds, delaySeconds, now)
-          : undefined;
+      const stopId = stop.stopId || (stop.stopSequence != null ? `sequence:${stop.stopSequence}` : undefined);
+      const arrivalTimeMs = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : undefined;
       if (!stopId || arrivalTimeMs == null) return undefined;
       return {
         stopId,
@@ -223,13 +188,6 @@ async function fetchTripUpdates() {
   return updates;
 }
 
-function fetchStopTimeIndex() {
-  stopTimeIndexCache ??= fetch(`${import.meta.env.BASE_URL}assets/gtfs-stop-times.json`)
-    .then((response) => (response.ok ? response.json() as Promise<StopTimeIndex> : undefined))
-    .catch(() => undefined);
-  return stopTimeIndexCache;
-}
-
 function localGtfsDate(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -237,25 +195,25 @@ function localGtfsDate(date: Date) {
   return `${year}${month}${day}`;
 }
 
-function serviceRunsToday(serviceId: string | undefined, index: StopTimeIndex | undefined, date: Date) {
-  if (!serviceId || !index?.calendar) return true;
+function serviceRunsToday(serviceId: string | undefined, calendar: StopScheduleCalendar | undefined, date: Date) {
+  if (!serviceId || !calendar) return true;
 
   const dayKey = localGtfsDate(date);
-  const exception = index.calendar.exceptions[dayKey]?.[serviceId];
+  const exception = calendar.exceptions[dayKey]?.[serviceId];
   if (exception === 1) return true;
   if (exception === 2) return false;
 
-  const service = index.calendar.services[serviceId];
+  const service = calendar.services[serviceId];
   if (!service) return true;
   return dayKey >= service.startDate && dayKey <= service.endDate && service.days[date.getDay()] === 1;
 }
 
 function scheduledStopArrivals(
-  stopId: string,
+  entries: StopScheduleEntry[],
   allowedRouteIds: string[],
-  stopTimeIndex: StopTimeIndex | undefined,
+  calendar: StopScheduleCalendar | undefined,
 ): GttStopArrival[] {
-  if (!stopTimeIndex) return [];
+  if (entries.length === 0) return [];
 
   const now = new Date();
   const secondsNow = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
@@ -267,46 +225,44 @@ function scheduledStopArrivals(
     date.setDate(date.getDate() + dayOffset);
     return { date, dayOffset };
   });
+  // The calendar answer only depends on the service and the day, and the same
+  // service repeats across most entries of a stop.
+  const runsByServiceAndDay = new Map<string, boolean>();
 
-  const candidates = Object.entries(stopTimeIndex.trips)
-    .flatMap(([tripId, trip]) => {
-      const normalizedRouteId = normalizeRouteName(trip.line || trip.routeId);
-      if (allowed.size > 0 && !allowed.has(trip.routeId) && !allowed.has(normalizedRouteId)) return [];
-
-      // Every static stop time carries its own stop id, so the stop is always
-      // resolvable here. Accepting an entry because its ordinal matched one of
-      // the positions this stop occupies elsewhere on the line pulled in the
-      // stops of the opposite direction and of the other variants.
-      const stopEntries = trip.stops.filter(([, staticStopId]) => staticStopId === stopId);
+  const candidates = entries
+    .flatMap((entry) => {
+      const normalizedRouteId = normalizeRouteName(entry.line || entry.routeId);
+      if (allowed.size > 0 && !allowed.has(entry.routeId) && !allowed.has(normalizedRouteId)) return [];
 
       return serviceDays.flatMap(({ date, dayOffset }) => {
-        if (!serviceRunsToday(trip.serviceId, stopTimeIndex, date)) return [];
+        const cacheKey = `${entry.serviceId}:${dayOffset}`;
+        let runs = runsByServiceAndDay.get(cacheKey);
+        if (runs == null) {
+          runs = serviceRunsToday(entry.serviceId, calendar, date);
+          runsByServiceAndDay.set(cacheKey, runs);
+        }
+        if (!runs) return [];
 
-        return stopEntries
-          .map(([sequence, , departureSeconds = -1, arrivalSeconds = -1]) => {
-            const tripSeconds = departureSeconds >= 0 ? departureSeconds : arrivalSeconds;
-            if (tripSeconds < 0) return undefined;
-            const absoluteSeconds = dayOffset * 86400 + tripSeconds;
-            if (absoluteSeconds < secondsNow || absoluteSeconds > maxHorizonSeconds) return undefined;
+        const absoluteSeconds = dayOffset * 86400 + entry.seconds;
+        if (absoluteSeconds < secondsNow || absoluteSeconds > maxHorizonSeconds) return [];
 
-            const minutes = Math.max(0, Math.round((absoluteSeconds - secondsNow) / 60));
-            const time = new Date(now);
-            time.setHours(0, 0, 0, 0);
-            time.setSeconds(absoluteSeconds);
+        const time = new Date(now);
+        time.setHours(0, 0, 0, 0);
+        time.setSeconds(absoluteSeconds);
 
-            return {
-              routeId: trip.routeId,
-              line: normalizedRouteId,
-              tripId,
-              timeLabel: time.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
-              minutes,
-              source: 'scheduled' as const,
-              delaySeconds: undefined,
-              vehicleId: undefined,
-              sequence,
-            };
-          })
-          .filter((arrival): arrival is NonNullable<typeof arrival> => Boolean(arrival));
+        return [{
+          routeId: entry.routeId,
+          line: normalizedRouteId,
+          // The schedule is indexed by stop, so a trip appears once per call at
+          // this stop. Departure time and route identify it well enough for the
+          // duplicate check downstream.
+          tripId: `${entry.serviceId}:${entry.routeId}:${entry.seconds}`,
+          timeLabel: time.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
+          minutes: Math.max(0, Math.round((absoluteSeconds - secondsNow) / 60)),
+          source: 'scheduled' as const,
+          delaySeconds: undefined,
+          vehicleId: undefined,
+        }];
       });
     })
     .sort((a, b) => a.minutes - b.minutes);
@@ -342,7 +298,15 @@ export async function fetchGttStopArrivalsInfo(
   allowedRouteIds: string[] = [],
   stopSequencesByRoute: Record<string, number[]> = {},
 ): Promise<GttStopArrivalsResult> {
-  const [updates, rawVehicles, stopTimeIndex] = await Promise.all([fetchTripUpdates(), fetchRawVehicles(), fetchStopTimeIndex()]);
+  // The scheduled timetable is a local asset and stays available while the
+  // realtime proxy is unreachable. Letting a feed failure reject here hid the
+  // timetable too, and the stop panel fell back to "passaggi non caricabili"
+  // even though it had everything it needed to show the scheduled departures.
+  const [updates, rawVehicles, schedule] = await Promise.all([
+    fetchTripUpdates().catch(() => []),
+    fetchRawVehicles().catch(() => []),
+    fetchStopSchedule(stopId),
+  ]);
   const now = Date.now();
   const allowed = new Set(allowedRouteIds.flatMap((routeId) => [routeId, normalizeRouteName(routeId)]));
   const routeByVehicle = new Map(rawVehicles.map((vehicle) => [vehicle.vehicleId, vehicle.routeId]).filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1])));
@@ -350,9 +314,8 @@ export async function fetchGttStopArrivalsInfo(
   const realtimeArrivals = updates
     .flatMap((trip) => {
       const routeId = trip.routeId || routeByVehicle.get(trip.vehicleId ?? '') || '';
-      const staticTrip = trip.tripId ? stopTimeIndex?.trips[trip.tripId] : undefined;
-      const resolvedRouteId = routeId || staticTrip?.routeId || '';
-      const normalizedRouteId = normalizeRouteName(staticTrip?.line || resolvedRouteId);
+      const resolvedRouteId = routeId;
+      const normalizedRouteId = normalizeRouteName(resolvedRouteId);
       const sequenceSet = new Set([
         ...(stopSequencesByRoute[resolvedRouteId] ?? []),
         ...(stopSequencesByRoute[normalizedRouteId] ?? []),
@@ -366,8 +329,6 @@ export async function fetchGttStopArrivalsInfo(
           // through its ordinal.
           if (stopUpdate.stopId) return stopUpdate.stopId === stopId;
           if (stopUpdate.stopSequence == null) return false;
-          const staticStopId = staticTrip?.stops.find(([sequence]) => sequence === stopUpdate.stopSequence)?.[1];
-          if (staticStopId) return staticStopId === stopId;
           // Nothing resolves this sequence to a stop, so the ordinal is the
           // only signal left. It stays a last resort rather than an
           // alternative, because a position is shared by every variant of the
@@ -397,7 +358,7 @@ export async function fetchGttStopArrivalsInfo(
     .sort((a, b) => a.minutes - b.minutes)
     .slice(0, 8);
 
-  const scheduledArrivals = scheduledStopArrivals(stopId, allowedRouteIds, stopTimeIndex);
+  const scheduledArrivals = scheduledStopArrivals(schedule.entries, allowedRouteIds, schedule.calendar);
   const realtimeLines = new Set(realtimeArrivals.map((arrival) => arrival.line));
   const scheduledFallbacks = scheduledArrivals.filter((arrival) => !realtimeLines.has(arrival.line));
   const arrivals = [...realtimeArrivals, ...scheduledFallbacks]
@@ -593,9 +554,9 @@ function isValidGttCoverageCoordinate(vehicle: GttVehiclePosition) {
   );
 }
 
-function toVehicleSafely(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttTripUpdate, stopTimeIndex?: StopTimeIndex) {
+function toVehicleSafely(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttTripUpdate) {
   try {
-    return toVehicle(vehicle, index, tripUpdate, stopTimeIndex);
+    return toVehicle(vehicle, index, tripUpdate);
   } catch (error) {
     console.warn('[BusRadar] Veicolo GTFS-RT ignorato durante la trasformazione', {
       vehicleId: vehicle.vehicleId,
@@ -607,7 +568,7 @@ function toVehicleSafely(vehicle: GttVehiclePosition, index: number, tripUpdate?
   }
 }
 
-function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttTripUpdate, stopTimeIndex?: StopTimeIndex): Vehicle {
+function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttTripUpdate): Vehicle {
   const routeId = vehicle.routeId || 'GTT';
   const line = lineNameForRoute(routeId);
   const gtfsLine = getGtfsLine(line);
@@ -696,7 +657,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttT
     offRouteMeters: estimate.offRouteMeters,
     routePositionMeters: stablePositionMeters,
     routeLengthMeters,
-    stopPredictions: realtimeStopPredictions(tripUpdate, stopTimeIndex),
+    stopPredictions: realtimeStopPredictions(tripUpdate),
     lat: finalPoint.lat,
     lon: finalPoint.lon,
     bearing: isSnappedToRoute
@@ -727,15 +688,13 @@ function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttT
 export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | undefined> {
   let response: Response;
   try {
-    const [vehicleResponse, , tripUpdates, stopTimeIndex] = await Promise.all([
+    const [vehicleResponse, , tripUpdates] = await Promise.all([
       fetch(`${GTT_REALTIME_API_BASE}/vehicles`),
       loadGtfsNetwork().catch(() => undefined),
       fetchTripUpdates().catch(() => []),
-      fetchStopTimeIndex(),
     ]);
     response = vehicleResponse;
     tripUpdatesCache = { at: Date.now(), updates: tripUpdates };
-    stopTimeIndexCache = Promise.resolve(stopTimeIndex);
   } catch {
     return undefined;
   }
@@ -751,7 +710,6 @@ export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | 
     ? inCoverageVehicles
     : identifiableVehicles.filter(hasNumericCoordinate);
   const updates = tripUpdatesCache?.updates ?? [];
-  const stopTimeIndex = await fetchStopTimeIndex();
   const updateByTrip = new Map(updates.filter((update) => update.tripId).map((update) => [update.tripId!, update]));
   const updateByVehicle = new Map(updates.flatMap((update) => {
     const ids = [update.vehicleId, update.vehicleLabel].map((id) => normalizeVehicleId(id ?? null)).filter(Boolean);
@@ -761,7 +719,7 @@ export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | 
     .map((vehicle, index) => {
       const vehicleId = normalizeVehicleId(vehicle.vehicleId) || normalizeVehicleId(vehicle.vehicleLabel ?? null);
       const update = (vehicle.tripId ? updateByTrip.get(vehicle.tripId) : undefined) ?? updateByVehicle.get(vehicleId);
-      return toVehicleSafely(vehicle, index, update, stopTimeIndex);
+      return toVehicleSafely(vehicle, index, update);
     })
     .filter((vehicle): vehicle is Vehicle => Boolean(vehicle));
   if (vehicles.length === 0) {

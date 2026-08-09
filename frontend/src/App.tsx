@@ -5,6 +5,7 @@ import { getGtfsLine, getGtfsRouteDirectionKey, getGtfsRouteVariant, gtfsNetwork
 import { useGtfsNetwork } from './data/useGtfsNetwork';
 import { geocodeTransitArea, geocodeTransitSuggestions, type GeocodingResult } from './services/geocoding';
 import { fetchGttRealtimeVehicles } from './services/gttRealtime';
+import { prefetchStopScheduleCalendar } from './services/stopSchedule';
 import type { LatLng, Stop, TabKey, TransitLine, Vehicle } from './types';
 import { distanceMeters } from './utils/geo';
 import { notify } from './utils/notify';
@@ -306,9 +307,17 @@ function App() {
 
     void loadRealtimeVehicles();
 
+    // The service calendar is shared by every stop and small enough to warm
+    // while the browser is idle, so the first stop panel does not wait for it.
+    const idle = window.requestIdleCallback
+      ? window.requestIdleCallback(() => prefetchStopScheduleCalendar(), { timeout: 15_000 })
+      : window.setTimeout(prefetchStopScheduleCalendar, 6_000);
+
     return () => {
       cancelled = true;
       window.clearTimeout(refreshTimer);
+      if (window.cancelIdleCallback) window.cancelIdleCallback(idle);
+      else window.clearTimeout(idle);
     };
   }, []);
 

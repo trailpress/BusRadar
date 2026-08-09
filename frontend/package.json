@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "realtime:spike": "node scripts/realtime-spike.mjs",
     "gtfs:generate": "node scripts/generate-gtfs-network.mjs",
+    "gtfs:shard": "node --max-old-space-size=6144 scripts/shard-stop-times.mjs",
     "deploy": "npm run build && gh-pages -d dist --dotfiles --add"
   },
   "dependencies": {

@@ -71,12 +71,13 @@ Gli arrivi mostrati toccando una palina vengono da `fetchGttStopArrivalsInfo`, c
 L'aggancio di un orario alla palina giusta segue una gerarchia precisa, e va rispettata:
 
 1. Se l'aggiornamento porta un `stopId` esplicito, quello decide, **anche in negativo**: un id diverso significa un'altra fermata.
-2. Altrimenti si risolve la `stopSequence` sul trip statico e si confronta l'id ottenuto.
-3. Solo se nulla risolve la sequenza si può ricadere sull'ordinale.
+2. Solo se manca l'id si può ricadere sull'ordinale (`stopSequence`).
 
-Il terzo passo è un ripiego, mai un'alternativa ai primi due. Una palina occupa in media 1,29 posizioni diverse sulla stessa linea, e fino a 9 nei casi peggiori, perché le sequenze di tutte le varianti e di entrambe le direzioni finiscono sotto la stessa chiave. Trattare l'ordinale come prova di identità faceva comparire alla palina gli orari di altre fermate della stessa linea.
+Il secondo passo è un ripiego, mai un'alternativa al primo. Una palina occupa in media 1,29 posizioni diverse sulla stessa linea, e fino a 9 nei casi peggiori, perché le sequenze di tutte le varianti e di entrambe le direzioni finiscono sotto la stessa chiave. Trattare l'ordinale come prova di identità faceva comparire alla palina gli orari di altre fermate della stessa linea.
 
-Gli orari programmati passano poi dal calendario di servizio (`serviceRunsToday`): senza quel filtro la stessa corsa comparirebbe più volte, una per ogni calendario che la definisce.
+Gli orari programmati arrivano invece dai bucket per fermata descritti in §5, dove l'id fermata è l'unica chiave: lì il ripiego sull'ordinale non serve e non esiste. Passano poi dal calendario di servizio (`serviceRunsToday`): senza quel filtro la stessa corsa comparirebbe più volte, una per ogni calendario che la definisce.
+
+Il pannello di una palina non deve mai dipendere dal realtime per mostrare l'orario: gli orari programmati sono un asset locale e restano disponibili anche con il proxy irraggiungibile.
 
 ### 2.2 Dal `Vehicle` al movimento sulla mappa
 
@@ -174,11 +175,22 @@ cd frontend
 GTFS_STATIC_DIR=/percorso/gtfs/estratto npm run gtfs:generate
 ```
 
-Produce `public/assets/gtfs-network.json` (linee, varianti, shapes, fermate) e `public/assets/gtfs-stop-times.json` (indice degli orari programmati).
+Produce `public/assets/gtfs-network.json` (linee, varianti, shapes, fermate) e `public/assets/stop-schedule/` (orari programmati indicizzati per fermata).
+
+Gli orari programmati **non** sono un file unico. La sorgente GTFS è organizzata per corsa, quindi rispondere a «cosa passa da questa palina» richiederebbe l'intero dataset nel browser: 42 MB di traffico e circa 107 MB di heap, pagati da ogni visitatore. Il dataset è quindi riorganizzato per fermata e diviso in 256 bucket:
+
+- `stop-schedule/calendar.json`, circa 460 kB, condiviso da tutte le paline;
+- `stop-schedule/<bucket>.json`, al massimo circa 210 kB, uno solo per palina aperta.
+
+Il bucket si ricava dall'id fermata con un hash FNV-1a, definito in `scripts/stop-schedule.mjs` e rispecchiato in `src/services/stopSchedule.ts`. **Le due implementazioni devono restare identiche**, altrimenti una palina chiede il bucket sbagliato e risulta senza corse.
+
+Se serve ricostruire i bucket da un vecchio file monolitico, senza rileggere la sorgente GTFS, c'è `npm run gtfs:shard`.
 
 Stato attuale, verificato da `npm run verify:routes`: **223 linee, 894 direzioni, 894 varianti GTFS**, nessuna direzione sostituita da un duplicato più corto.
 
-I due dataset pesano circa **6 MB** e **42 MB**. Sono entrambi versionati nel repository. Vanno rigenerati solo quando GTT pubblica un feed nuovo, e la rigenerazione va accompagnata da un aggiornamento di `docs/gtfs-static-validation.md`.
+La rete pesa circa **6 MB** e viene caricata all'avvio; l'insieme dei bucket pesa circa **25 MB** nel repository, ma il browser ne scarica uno solo per volta. Tutto è versionato. I dataset vanno rigenerati solo quando GTT pubblica un feed nuovo, e la rigenerazione va accompagnata da un aggiornamento di `docs/gtfs-static-validation.md`.
+
+Il dataset porta la propria finestra di validità. `npm run verify:routes` la controlla: fallisce se è scaduta e avvisa nei 30 giorni precedenti. Alla scadenza nessun servizio risulterebbe in calendario e gli orari sparirebbero dalle paline senza che l'interfaccia spieghi perché.
 
 > ⚠️ Non sostituire mai geometrie GTFS verificate con coordinate inventate. È una regola esplicita di `AGENTS.md`.
 
@@ -241,12 +253,11 @@ La funzione `route-preview-config` fornisce a runtime le chiavi della vista stra
 
 Da conoscere prima di fidarsi di quello che si legge nel repository.
 
-1. **`docs/product-spec-v0.1.md` è storico.** Descrive Leaflet, dati simulati e nessun backend. Il progetto usa MapLibre, dati GTT reali e due Edge Function. Va letto come documento d'origine, non come stato attuale.
-2. **`frontend/.env.example` è disallineato.** Dice che «la UI di produzione usa ancora `SimulationAdapter`»: non è più vero, la UI realtime passa da `gttRealtime.ts`. `SimulationAdapter` resta solo come adapter locale di sviluppo.
-3. **`gtfs-stop-times.json` pesa 42 MB e viene scaricato al primo polling**, dentro la stessa `Promise.all` che recupera i mezzi. Blocca quindi il primo rendering dei veicoli, non solo le previsioni di fermata. È il candidato più ovvio per un intervento di performance.
-4. **Il chunk `RouteDirectionSelector` supera 1 MB** e la build lo segnala a ogni esecuzione. L'avviso è atteso, non è una regressione.
-5. **La versione applicativa è scritta a mano in due punti**, `src/components/AppHeader.tsx` e `src/screens/MoreScreen.tsx`. Vanno aggiornati insieme, altrimenti l'app mostra due versioni diverse.
-6. **L'overlay HTML dei marker è disattivato.** `syncVehicleOverlay` nasconde tutto e ignora i parametri: l'unico rendering attivo dei mezzi passa dai layer MapLibre. Non aggiungere logica all'overlay pensando che sia visibile.
+1. **`docs/product-spec-v0.1.md` è storico.** Descrive Leaflet, dati simulati e nessun backend. Il progetto usa MapLibre, dati GTT reali e due Edge Function. Il documento porta ora un avviso in testa e va letto come documento d'origine.
+2. **La finestra degli orari programmati è di 30 ore.** Una palina poco servita mostra quindi corse del giorno successivo, distinguibili solo dai minuti mancanti e non da un'etichetta di data.
+3. **Il chunk `RouteDirectionSelector` supera 1 MB** e la build lo segnala a ogni esecuzione. L'avviso è atteso, non è una regressione.
+4. **La versione applicativa è scritta a mano in due punti**, `src/components/AppHeader.tsx` e `src/screens/MoreScreen.tsx`. Vanno aggiornati insieme, altrimenti l'app mostra due versioni diverse.
+5. **L'overlay HTML dei marker è disattivato.** `syncVehicleOverlay` nasconde tutto e ignora i parametri: l'unico rendering attivo dei mezzi passa dai layer MapLibre. Non aggiungere logica all'overlay pensando che sia visibile.
 
 ---
 

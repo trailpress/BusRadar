@@ -63,6 +63,34 @@ if (line1510Branches.size < 4) {
   errors.push('Linea 1510: non vengono riconosciuti tutti i rami Torino, Cumiana e Pinerolo');
 }
 
+// The static dataset carries its own validity window. Once it lapses, every
+// service is out of calendar and the scheduled arrivals silently disappear from
+// the stop panels, with nothing in the interface explaining why. Fail the build
+// on an expired dataset and warn while the expiry is close.
+const stopScheduleCalendar = JSON.parse(fs.readFileSync(new URL('../public/assets/stop-schedule/calendar.json', import.meta.url), 'utf8'));
+const services = Object.values(stopScheduleCalendar.services ?? {});
+if (services.length === 0) {
+  errors.push('Calendario di servizio assente da stop-schedule/calendar.json');
+} else {
+  const today = new Date();
+  const asGtfsDate = (date) => `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+  const todayKey = asGtfsDate(today);
+  const lastDay = services.map((service) => service.endDate).sort().at(-1);
+  const activeToday = services.filter((service) => todayKey >= service.startDate && todayKey <= service.endDate).length;
+
+  if (todayKey > lastDay) {
+    errors.push(`Dataset GTFS scaduto il ${lastDay}: rigenerare con npm run gtfs:generate e aggiornare docs/gtfs-static-validation.md`);
+  } else if (activeToday === 0) {
+    errors.push(`Nessun servizio attivo oggi (${todayKey}) nel dataset GTFS: verificare il calendario`);
+  } else {
+    const daysLeft = Math.round((new Date(`${lastDay.slice(0, 4)}-${lastDay.slice(4, 6)}-${lastDay.slice(6, 8)}`) - today) / 86_400_000);
+    console.log(`GTFS dataset valid until ${lastDay} (${daysLeft} days left, ${activeToday} services active today).`);
+    if (daysLeft <= 30) {
+      console.warn(`WARNING: the GTFS dataset expires in ${daysLeft} days. Regenerate it before it lapses.`);
+    }
+  }
+}
+
 if (errors.length > 0) {
   console.error(errors.join('\n'));
   process.exit(1);
