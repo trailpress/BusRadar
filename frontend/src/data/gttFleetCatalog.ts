@@ -379,9 +379,9 @@ export const GTT_FLEET_CATALOG: GttFleetCluster[] = [
     length: '22 m',
     traction: 'electric',
     livery: 'GTT grigio/blu/giallo.',
-    asset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v4.webp',
+    asset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v5.webp',
     assetStatus: 'validated-render',
-    sourceNotes: 'Serie 5000: render v4 riallineato alla reference della vettura 5014, con frontale squadrato, due casse e livrea grigio/blu/gialla.',
+    sourceNotes: 'Serie 5000: render v4 riallineato alla reference della vettura 5014, con frontale squadrato, due casse e livrea grigio/blu/gialla. Il file generato portava un canale alpha sfumato sull\'intero soggetto; appiattirlo sul bianco aveva prodotto uno sfondo chiaro fuori scala rispetto agli altri render. L\'RGB sotto l\'alpha era gia il render su fondo scuro, quindi l\'alpha va scartato, non appiattito.',
     renderPrompt: `${sharedRenderPrompt} Exact subject: Turin GTT tram series 5000, matching car 5014: boxy 1980s front with wide split windshield, rectangular headlights in the blue fascia, two articulated sections, three bogies, roof ventilation grilles, grey body with thin blue and yellow GTT bands, and a single pantograph. Do not modernize the front or add extra sections.`,
   },
   {

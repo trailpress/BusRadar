@@ -80,6 +80,10 @@ Gli orari programmati arrivano invece dai bucket per fermata descritti in §5, d
 
 Il pannello di una palina non deve mai dipendere dal realtime per mostrare l'orario: gli orari programmati sono un asset locale e restano disponibili anche con il proxy irraggiungibile.
 
+**Cosa si mostra, e cosa no.** Un pannello risponde a «cosa passa adesso da qui», non espone l'orario completo. Le corse programmate vengono quindi prese da una finestra di **90 minuti**, con un massimo di **3 per linea**, così una linea ad alta frequenza non occupa tutti i posti e le linee notturne non compaiono accanto a un arrivo fra sette minuti. Se una sola linea serve la palina il limite si rilassa fino a 8 corse. Se nella finestra non passa nulla si mostrano le prime 4 corse successive, perché a servizio fermo l'orario di ripresa vale più di un pannello vuoto.
+
+Gli orari del giorno dopo vanno etichettati. Il GTFS scrive i servizi notturni come `27:49`, non come «domani 03:49», quindi il giorno non si deduce dallo scostamento di data: va confrontata la data risultante con quella odierna.
+
 ### 2.2 Dal `Vehicle` al movimento sulla mappa
 
 Tutto in `frontend/src/components/BusMap.tsx`.
@@ -102,7 +106,7 @@ BusRadar/
 ├── .github/workflows/
 │   ├── ci.yml                   Verify BusRadar, su ogni pull request
 │   ├── deploy-pages.yml         build e pubblicazione, su push in main
-│   └── generate-tram-serie-5000-render.yml   render flotta, manuale
+│   └── generate-fleet-render.yml   render flotta, manuale per cluster
 ├── .devcontainer/               workspace GitHub Codespaces
 ├── supabase/functions/
 │   ├── gtt-realtime/            proxy GTFS-RT pubblico
@@ -224,6 +228,8 @@ In cloud si usa il workflow **Generate a GTT fleet render**, dalla scheda Action
 
 - Un render non si assegna senza aver confrontato modello, serie e livrea con le fonti indicate in `sourceNotes`. È una regola di `AGENTS.md`.
 - Se un render generato non corrisponde, si corregge il prompt nel catalogo e si rigenera. Non si ritocca il file a mano: la prossima rigenerazione perderebbe la correzione.
+- **Se un render generato arriva con un canale alpha, va scartato, non appiattito sul bianco.** L'RGB sottostante è già l'immagine su fondo scuro. È successo alla serie 5000: l'alpha sfumato sul soggetto è stato risolto appiattendo su bianco, e quel render è rimasto l'unico con lo sfondo chiaro in mezzo a ventinove studio scuri.
+- **Sostituendo il contenuto di un render, cambiare anche il nome del file.** Gli asset in `public/` vengono serviti a URL stabile, senza hash: se il nome resta uguale, browser e CDN continuano a servire la versione vecchia e la correzione non si vede. Per questo il render della serie 5000 è passato da `-v4` a `-v5`.
 - I render stanno in WebP entro 400 kB. `npm run verify:assets` fallisce se un file sfora o se resta nella cartella senza essere referenziato: è così che 40 MB di versioni superate erano rimasti nel repository.
 - `generic-tram` resta senza render. Quando una matricola finisce lì significa che non sappiamo che mezzo sia, e disegnare un tram generico mostrerebbe un mezzo inesistente. Se le matricole che ci finiscono appartengono a una serie reale, va aggiunta la serie in `vehicleFleetRules.ts`, non prodotto un render.
 
