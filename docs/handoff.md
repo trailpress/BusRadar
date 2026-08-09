@@ -13,7 +13,7 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 | | |
 | --- | --- |
 | pull request aperte | **nessuna** |
-| ultimo merge in `main` | PR #6 |
+| ultimo merge in `main` | PR #11 |
 | ramo `claude/tandem-codex-workflow-v1nntw` | interamente unito, libero |
 | deploy | pubblicato da `main` dopo il merge |
 
@@ -61,5 +61,4 @@ Se il tuo ambiente ha accesso a internet, queste sono le verifiche che valgono d
 
 - Il chunk `RouteDirectionSelector` supera 1 MB e la build lo segnala a ogni esecuzione.
 - La versione applicativa è scritta a mano in `AppHeader.tsx` e `MoreScreen.tsx` e va aggiornata in entrambi.
-- La finestra degli orari programmati è di 30 ore, quindi una palina poco servita mostra corse del giorno dopo senza etichetta di data.
 - Le sprite dei mezzi sulla mappa (`public/assets/vehicles/*.png`) sono rimaste PNG: circa 660 kB che si potrebbero ridurre come è stato fatto per i render di dettaglio.
