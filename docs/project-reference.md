@@ -152,14 +152,27 @@ Sono i numeri che decidono quanto il movimento appare realistico. Vanno cambiati
 | `LATENCY_COMPENSATION_LEAD_SECONDS` | 3 s | mira leggermente avanti, perché il marker raggiunge il bersaglio solo nei secondi successivi |
 | `SPEED_AVERAGE_WINDOW_SECONDS` | 60 s | finestra della media di velocità, allineata al ritardo compensato e pesata sul tempo reale tra i campioni, non sul loro numero |
 | velocità usata per la proiezione | media mobile, non istantanea | proiettare un minuto di percorso con la velocità di un singolo istante faceva oscillare il recupero fra zero e 400 m sullo stesso mezzo, a ogni ripartenza da fermata |
-| `ASSUMED_UNDECLARED_FEED_DELAY_SECONDS` | 25 s | ritardo che il feed GTT **non dichiara**: i campioni arrivano marcati come appena misurati, ma la posizione è di circa un minuto prima. È l'unica costante tarata su un'osservazione dalla strada, non sui dati |
+| `ASSUMED_UNDECLARED_FEED_DELAY_SECONDS` | 35 s | ritardo che il feed GTT **non dichiara**: i campioni arrivano marcati come appena misurati, ma la posizione è di circa un minuto prima. È l'unica costante tarata su un'osservazione dalla strada, non sui dati — vedi la tabella qui sotto |
 | `MAX_LATENCY_COMPENSATION_METERS` | 700 m | tetto assoluto alla proiezione |
 | `LATENCY_COMPENSATION_CONFIDENCE` | 0,90 | margine contro l'overshoot: la stima assume velocità costante, il mezzo invece frena |
 | bonus di permanenza sulla shape | −95 entro 140 m | evita che andata e ritorno si scambino tra un campione e l'altro |
 | `snapLimitMeters` | 55 m, 70 m extraurbani | oltre questa distanza il mezzo non è agganciato alla shape |
-| soglia velocità per la compensazione | 3–75 km/h | fuori da questa fascia non si proietta |
+| soglia velocità per la compensazione | 1,5–75 km/h | fuori da questa fascia non si proietta |
 
 La compensazione è limitata anche dalla distanza residua al capolinea: un mezzo non viene mai proiettato oltre la fine della sua corsa.
+
+#### Taratura del ritardo non dichiarato
+
+Il feed non dice quanto è vecchio: i campioni arrivano marcati come appena misurati. Il valore va quindi trovato guardando la mappa accanto alla strada, un passo alla volta. Quello che si è visto finora:
+
+| pavimento | recuperati | osservato sulla mappa |
+| --- | --- | --- |
+| 0 s | 3 s | in ritardo di tutto il minuto |
+| 25 s | 25 s | in ritardo di 30-35 s, movimento fluido |
+| 35 s | 34 s | **valore attuale** |
+| 50 s | 48 s | marker che si bloccano: peggio che non compensare affatto |
+
+Il blocco a 50 s non è un caso limite ma il meccanismo stesso: se la proiezione supera la posizione vera, la soglia di marcia indietro in `routeMotion` tiene fermo il marker finché il mezzo reale non lo raggiunge. **Proiettare troppo costa più che proiettare poco.** Se ricompaiono gli stalli, si torna a 25 s e si cambia modello di animazione invece di continuare a spostare la costante.
 
 ### In `components/BusMap.tsx`
 
