@@ -606,7 +606,18 @@ const LATENCY_COMPENSATION_LEAD_SECONDS = 3;
 // Correcting part of the delay reduces the lag without buying it back in
 // stalls. Raise it if vehicles trail steadily; lower it if they start freezing
 // in place waiting for the next sample to reach them.
-const ASSUMED_UNDECLARED_FEED_DELAY_SECONDS = 25;
+//
+// Calibrated from the street rather than from the data, one step at a time:
+//
+//   floor   recovered   observed on the map
+//     0 s        3 s    behind by the full minute
+//    25 s       25 s    behind by 30-35 s, motion smooth
+//    50 s       48 s    markers freezing, worse than no compensation at all
+//
+// Those readings put the real delay near a minute and the usable ceiling
+// somewhere below 50 s. This is the next step between the value that worked
+// and the one that did not.
+const ASSUMED_UNDECLARED_FEED_DELAY_SECONDS = 35;
 
 function compensateFeedLatency(
   routeVariantId: string | undefined,

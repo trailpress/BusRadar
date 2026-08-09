@@ -13,7 +13,7 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 | | |
 | --- | --- |
 | pull request aperte | **nessuna** |
-| ultimo merge in `main` | PR #11 |
+| ultimo merge in `main` | PR #16 |
 | ramo `claude/tandem-codex-workflow-v1nntw` | interamente unito, libero |
 | deploy | pubblicato da `main` dopo il merge |
 
@@ -26,6 +26,8 @@ Tutto quanto segue è **già in produzione**.
 **Movimento dei mezzi.** Il feed GTT arriva vecchio di circa un minuto. Tre effetti visibili, tutti corretti: un salto lungo veniva compresso in 18 secondi e rendeva un bus a 100 km/h; la compensazione della latenza era troppo corta e l'aggancio alla shape si ribaltava tra andata e ritorno, facendo tornare indietro i mezzi; la freccia direzionale stava sopra il badge con offset fisso e puntava verso il badge stesso quando il mezzo andava a sud.
 
 Soprattutto: **l'età del campione si misura dal timestamp del veicolo con ricaduta sull'header del feed**. Senza quella ricaduta un campione privo di timestamp veniva creduto appena generato e la compensazione non si attivava affatto, lasciando il marker indietro di un intero ciclo. Le costanti stanno in `project-reference.md` §4 e **vanno cambiate una alla volta**.
+
+**Il ritardo del feed è ancora in taratura.** GTT consegna campioni marcati come appena misurati mentre la posizione è di circa un minuto prima, quindi il ritardo non si legge dai dati: si stima con `ASSUMED_UNDECLARED_FEED_DELAY_SECONDS` e si verifica guardando la mappa dalla strada. La tabella dei valori già provati è in `project-reference.md` §4. Due cose apprese: proiettare troppo è peggio che proiettare poco, perché ogni sorpasso della posizione vera diventa un marker fermo; e la scheda del mezzo ora mostra età del campione, metri e secondi recuperati e il motivo di un'eventuale rinuncia, così il passo successivo si decide su numeri letti sul posto invece che a stima.
 
 **Orari delle paline.** Due interventi distinti. L'ordinale `stop_sequence` veniva accettato in alternativa all'id fermata: su 300 paline il 65% degli arrivi apparteneva a un'altra fermata. E la selezione mostrava la prima corsa di ogni linea, riempiendo l'elenco di notturni a 19 ore di distanza accanto ad arrivi imminenti. Ora: finestra di 90 minuti, massimo 3 corse per linea, rilassato a 8 se la palina è servita da una linea sola, e il giorno diverso scritto a parole.
 
