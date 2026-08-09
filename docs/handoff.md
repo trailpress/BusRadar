@@ -13,7 +13,7 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 | | |
 | --- | --- |
 | pull request aperte | **nessuna** |
-| ultimo merge in `main` | PR #6 |
+| ultimo merge in `main` | PR #11 |
 | ramo `claude/tandem-codex-workflow-v1nntw` | interamente unito, libero |
 | deploy | pubblicato da `main` dopo il merge |
 
@@ -23,21 +23,17 @@ Non c'è lavoro in sospeso e nessun ramo da evitare. Chi riprende parte da `main
 
 Tutto quanto segue è **già in produzione**.
 
-**Movimento dei mezzi sulla mappa** (PR #5). Il feed GTT arriva vecchio di circa un minuto e quel ritardo veniva assorbito al momento del playback, con tre effetti visibili:
+**Movimento dei mezzi.** Il feed GTT arriva vecchio di circa un minuto. Tre effetti visibili, tutti corretti: un salto lungo veniva compresso in 18 secondi e rendeva un bus a 100 km/h; la compensazione della latenza era troppo corta e l'aggancio alla shape si ribaltava tra andata e ritorno, facendo tornare indietro i mezzi; la freccia direzionale stava sopra il badge con offset fisso e puntava verso il badge stesso quando il mezzo andava a sud.
 
-- accelerazione irreale: un salto lungo veniva compresso in 18 secondi, rendendo un bus a 100 km/h. Ora la durata dipende dalla distanza e non supera mai una velocità plausibile;
-- marcia indietro: compensazione della latenza troppo corta, aggancio alla shape che si ribaltava tra andata e ritorno, e nessuna protezione dal rumore GPS per i mezzi non agganciati;
-- freccia direzionale con offset fisso sopra il badge: ora gira attorno al badge e precede il mezzo, e sparisce quando la direzione non è affidabile.
+Soprattutto: **l'età del campione si misura dal timestamp del veicolo con ricaduta sull'header del feed**. Senza quella ricaduta un campione privo di timestamp veniva creduto appena generato e la compensazione non si attivava affatto, lasciando il marker indietro di un intero ciclo. Le costanti stanno in `project-reference.md` §4 e **vanno cambiate una alla volta**.
 
-Le costanti che regolano tutto questo sono elencate in `project-reference.md` §4. **Vanno cambiate una alla volta**: sono in equilibrio tra loro.
+**Orari delle paline.** Due interventi distinti. L'ordinale `stop_sequence` veniva accettato in alternativa all'id fermata: su 300 paline il 65% degli arrivi apparteneva a un'altra fermata. E la selezione mostrava la prima corsa di ogni linea, riempiendo l'elenco di notturni a 19 ore di distanza accanto ad arrivi imminenti. Ora: finestra di 90 minuti, massimo 3 corse per linea, rilassato a 8 se la palina è servita da una linea sola, e il giorno diverso scritto a parole.
 
-**Orari delle paline** (PR #6). L'ordinale `stop_sequence` veniva accettato *in alternativa* all'id fermata, non come ripiego. Su un campione di 300 paline il 65% degli arrivi candidati apparteneva a un'altra fermata. Ora l'id decide, anche in negativo.
+**Peso all'avvio.** Gli orari programmati erano un file unico da 42 MB scaricato da ogni visitatore. Ora sono indicizzati per fermata in 256 bucket: heap 121,6 → 46,7 MB, traffico 53,6 → 12,8 MB, primo paint 792 → 334 ms.
 
-**Peso all'avvio** (PR #6). Gli orari programmati erano un file unico da 42 MB scaricato da ogni visitatore, per circa 107 MB di heap. Ora sono indicizzati per fermata in 256 bucket: calendario condiviso da ~460 kB più un bucket da massimo ~210 kB. Heap 121,6 → 46,7 MB, traffico 53,6 → 12,8 MB, primo paint 792 → 334 ms.
+**Identificazione della flotta.** Il tipo del mezzo lo decide la matricola quando è inequivocabile, con la linea come ripiego: un bus che sostituisce un tram non diventa più un tram inesistente, e la scheda dichiara la sostituzione.
 
-**Identificazione della flotta** (PR #6). Un bus che sostituisce un tram veniva tipizzato dalla linea, falliva il riconoscimento e finiva su `generic-tram`, l'unico cluster senza render. Ora il tipo lo decide la matricola quando è inequivocabile, con la linea come ripiego, e la sostituzione viene dichiarata nella scheda.
-
-**Render della flotta** (PR #6). Da PNG 2048px a WebP 1280px: 74,5 → 1,9 MB, e una scheda mezzo scarica ~50 kB invece di ~2,6 MB. Rimossi 115,4 MB di versioni superate. Il workflow di generazione è ora unico e parametrizzato sulla chiave del cluster.
+**Render della flotta.** Da PNG 2048px a WebP 1280px: 74,5 → 1,9 MB, rimossi 115,4 MB di versioni superate. Il render della serie 5000 è stato **rigenerato**: il precedente aveva bordi frastagliati già nella sorgente, nascosti finché il fondo era bianco.
 
 ### Convenzioni introdotte, da rispettare
 
@@ -45,6 +41,10 @@ Le costanti che regolano tutto questo sono elencate in `project-reference.md` §
 - **Il prompt dei render vive nel catalogo**, non nel workflow. Se un render non va bene si corregge `renderPrompt` in `gttFleetCatalog.ts` e si rigenera; non si ritocca il file, la rigenerazione perderebbe la correzione.
 - **I render stanno entro 400 kB e devono essere referenziati.** `npm run verify:assets` fallisce altrimenti.
 - **`generic-tram` resta senza render di proposito.** Se le matricole che ci finiscono appartengono a una serie reale, si aggiunge la serie in `vehicleFleetRules.ts`.
+- **Il percorso di un render è scritto in due file**: `gttFleetCatalog.ts` e `vehicleFleet.ts`. L'interfaccia legge il secondo. Spostarne uno solo significa dichiarare validato un render che l'app non mostra.
+- **Sostituendo il contenuto di un asset, cambiare anche il nome del file.** `public/` viene servito a URL stabile, senza hash: a parità di nome la cache continua a restituire la versione vecchia.
+- **Un render che arriva con canale alpha va appiattito sul fondo studio**, non lasciato passare e non appiattito sul bianco. Lo script di generazione ora lo fa da sé.
+- **GitHub Actions non può aprire pull request in questo repository.** Il workflow dei render pubblica il ramo e stampa il link; si abilita da *Settings → Actions → General*.
 - **`npm run verify:routes` controlla la scadenza del dataset GTFS**: fallisce se è scaduto, avvisa negli ultimi 30 giorni. Attualmente valido fino al **20261231**.
 
 ### Cosa non è stato verificato, e serve qualcuno con rete aperta
@@ -61,5 +61,4 @@ Se il tuo ambiente ha accesso a internet, queste sono le verifiche che valgono d
 
 - Il chunk `RouteDirectionSelector` supera 1 MB e la build lo segnala a ogni esecuzione.
 - La versione applicativa è scritta a mano in `AppHeader.tsx` e `MoreScreen.tsx` e va aggiornata in entrambi.
-- La finestra degli orari programmati è di 30 ore, quindi una palina poco servita mostra corse del giorno dopo senza etichetta di data.
 - Le sprite dei mezzi sulla mappa (`public/assets/vehicles/*.png`) sono rimaste PNG: circa 660 kB che si potrebbero ridurre come è stato fatto per i render di dettaglio.
