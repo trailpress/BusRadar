@@ -1,5 +1,5 @@
 import type { Vehicle } from '../types';
-import { getGtfsLine, getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, loadGtfsNetwork } from '../data/gtfsNetwork';
+import { getGtfsLine, getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopsForRoute, loadGtfsNetwork, type GtfsRouteVariant } from '../data/gtfsNetwork';
 import { recognizedFleetNumber, vehicleFleetKey, vehicleFleetLabel, vehicleLengthClass, vehicleLiveryForVehicle, vehicleTypeForFleetNumber } from '../data/vehicleFleetRules';
 import { bearingDegrees, distanceMeters, interpolatePathState, routeProgressAtPoint } from '../utils/geo';
 import { fetchStopSchedule, type StopScheduleCalendar, type StopScheduleEntry } from './stopSchedule';
@@ -506,6 +506,11 @@ function observedSpeed(vehicleId: string, vehicle: GttVehiclePosition) {
   const sinceLastSeconds = previousAverage ? Math.max(0, (now - previousAverage.atMs) / 1000) : 0;
   // A gap longer than the window means the vehicle was not being watched, so
   // the old average says nothing about it any more.
+  // Deliberately symmetric. Letting a slowdown into the average faster than a
+  // pickup looks obviously right and measures worse: the average already counts
+  // the samples taken while the vehicle stood at its stops, so reacting to a
+  // slowdown a second time charges the same halt twice and leaves every marker
+  // trailing.
   const weight = previousAverage
     ? Math.min(1, Math.max(0.05, sinceLastSeconds / SPEED_AVERAGE_WINDOW_SECONDS))
     : 1;
@@ -612,49 +617,195 @@ const LATENCY_COMPENSATION_LEAD_SECONDS = 3;
 //   floor   recovered   observed on the map
 //     0 s        3 s    behind by the full minute
 //    25 s       25 s    behind by 30-35 s, motion smooth
+//    35 s       34 s    catching up in one jump, then waiting past the stop
 //    50 s       48 s    markers freezing, worse than no compensation at all
 //
-// Those readings put the real delay near a minute and the usable ceiling
-// somewhere below 50 s. This is the next step between the value that worked
-// and the one that did not.
+// Those readings put the real delay near a minute. The failures above 25 s were
+// not the amount but the shape of the projection: it ran the vehicle through
+// stops it was serving, and it changed by a hundred metres between one sample
+// and the next. Both are addressed below, by spending the projection on a route
+// with stops on it and by limiting how fast the correction may change.
 const ASSUMED_UNDECLARED_FEED_DELAY_SECONDS = 35;
 
+// A city vehicle does not spend the whole delay moving: it opens its doors.
+// Projecting a bus that is serving a stop straight through it put the marker a
+// hundred metres down the road, where it stood waiting for the real vehicle to
+// arrive. Charging the projection for the stops it crosses keeps it on the near
+// side of them, which is where the vehicle is.
+const STOP_DWELL_SECONDS = 15;
+
+// How much of the vehicle's own speed the correction may spend on changing
+// itself. The marker therefore moves between 0,65x and 1,35x the speed of the
+// vehicle it represents: never backwards, never in a lurch, and the same
+// recovery margin the playback in BusMap already allows itself.
+const LATENCY_ADJUST_FRACTION = 0.35;
+
+// Where the stops of a route sit along its shape, in metres from the start.
+// Computed once per variant: the projection needs it on every sample.
+const routeStopDistances = new Map<string, number[]>();
+// How far ahead of the feed each vehicle is currently being drawn.
+const publishedAdvances = new Map<string, { meters: number; atMs: number }>();
+
+function stopDistancesAlongRoute(routeVariant: GtfsRouteVariant) {
+  const cached = routeStopDistances.get(routeVariant.id);
+  if (cached) return cached;
+
+  // Deliberately not routeProgressAtPoint once per stop: that helper measures
+  // the whole shape on every call, and a route of forty stops over two thousand
+  // points would pay for the shape forty times over. The shape is measured once
+  // here and every stop is projected onto it in flat metres.
+  const path = routeVariant.path;
+  const distances: number[] = [];
+  if (path.length >= 2) {
+    const metersPerDegreeLat = 111320;
+    const metersPerDegreeLon = 111320 * Math.cos((path[0].lat * Math.PI) / 180);
+    const cumulative = [0];
+    for (let index = 0; index < path.length - 1; index += 1) {
+      cumulative.push(cumulative[index] + distanceMeters(path[index], path[index + 1]));
+    }
+
+    for (const stop of getGtfsStopsForRoute(routeVariant)) {
+      const px = stop.lon * metersPerDegreeLon;
+      const py = stop.lat * metersPerDegreeLat;
+      let bestOffRouteSquared = Number.POSITIVE_INFINITY;
+      let bestMeters = 0;
+      for (let index = 0; index < path.length - 1; index += 1) {
+        const ax = path[index].lon * metersPerDegreeLon;
+        const ay = path[index].lat * metersPerDegreeLat;
+        const vx = path[index + 1].lon * metersPerDegreeLon - ax;
+        const vy = path[index + 1].lat * metersPerDegreeLat - ay;
+        const segmentSquared = vx * vx + vy * vy;
+        const t = segmentSquared === 0 ? 0 : Math.min(1, Math.max(0, ((px - ax) * vx + (py - ay) * vy) / segmentSquared));
+        const dx = ax + vx * t - px;
+        const dy = ay + vy * t - py;
+        const offRouteSquared = dx * dx + dy * dy;
+        if (offRouteSquared < bestOffRouteSquared) {
+          bestOffRouteSquared = offRouteSquared;
+          bestMeters = cumulative[index] + (cumulative[index + 1] - cumulative[index]) * t;
+        }
+      }
+      // A stop that does not sit on the shape belongs to some other branch:
+      // charging a dwell for it would slow the projection for no reason.
+      if (bestOffRouteSquared <= 120 * 120) distances.push(bestMeters);
+    }
+    distances.sort((a, b) => a - b);
+  }
+
+  routeStopDistances.set(routeVariant.id, distances);
+  return distances;
+}
+
+// Walk the route forward for the seconds being recovered, stopping the clock at
+// every stop on the way. When the seconds run out at a stop, the vehicle is
+// left there rather than beyond it.
+function positionAfterSeconds(
+  stopDistances: number[],
+  fromMeters: number,
+  seconds: number,
+  speedMetersPerSecond: number,
+) {
+  let remainingSeconds = seconds;
+  let position = fromMeters;
+  for (const stopMeters of stopDistances) {
+    if (stopMeters <= position) continue;
+    const secondsToStop = (stopMeters - position) / speedMetersPerSecond;
+    if (secondsToStop >= remainingSeconds) break;
+    remainingSeconds -= secondsToStop + STOP_DWELL_SECONDS;
+    position = stopMeters;
+    if (remainingSeconds <= 0) return position;
+  }
+  return position + remainingSeconds * speedMetersPerSecond;
+}
+
+// Whatever the outcome, the marker is drawn where the correction says it is:
+// leaving a stale value behind would let the next sample resume from a lead the
+// vehicle no longer has, and that discontinuity is what reads as a lurch.
+function recordAdvance(vehicleId: string, meters: number) {
+  publishedAdvances.set(vehicleId, { meters, atMs: Date.now() });
+  return meters;
+}
+
 function compensateFeedLatency(
+  vehicleId: string,
   routeVariantId: string | undefined,
   point: { lat: number; lon: number },
   speedKmhValue: number,
   ageSeconds: number,
+  isSnappedToRoute: boolean,
 ) {
   // Dead reckoning over the better part of a minute has to use the pace held
   // over that minute. Driven by the speed of the single sample, the projection
   // swung between nothing and four hundred metres on the same vehicle as it
   // pulled away from stops, and the marker moved in lurches.
-  if (!routeVariantId) return { skipped: 'percorso-assente' as const };
+  if (!isSnappedToRoute) {
+    recordAdvance(vehicleId, 0);
+    return { skipped: 'non-agganciato' as const };
+  }
+  if (!routeVariantId) {
+    recordAdvance(vehicleId, 0);
+    return { skipped: 'percorso-assente' as const };
+  }
   // A sample the feed calls fresh is still assumed to carry the undeclared
   // delay, so the age used here never drops below that floor.
   const effectiveAgeSeconds = Math.max(ageSeconds, ASSUMED_UNDECLARED_FEED_DELAY_SECONDS);
-  if (effectiveAgeSeconds < 4) return { skipped: 'campione-recente' as const };
-  if (speedKmhValue < 1.5 || speedKmhValue > 75) return { skipped: 'troppo-lento' as const };
+  if (effectiveAgeSeconds < 4) {
+    recordAdvance(vehicleId, 0);
+    return { skipped: 'campione-recente' as const };
+  }
+  if (speedKmhValue < 1.5 || speedKmhValue > 75) {
+    recordAdvance(vehicleId, 0);
+    return { skipped: 'troppo-lento' as const };
+  }
   const routeVariant = getGtfsRouteVariant(routeVariantId);
-  if (!routeVariant || routeVariant.path.length < 2) return { skipped: 'percorso-assente' as const };
-  const progress = routeProgressAtPoint(routeVariant.path, point);
-  if (!progress) return { skipped: 'percorso-assente' as const };
+  const progress = routeVariant && routeVariant.path.length >= 2
+    ? routeProgressAtPoint(routeVariant.path, point)
+    : undefined;
+  const totalMeters = progress ? progress.traveledMeters + progress.remainingMeters : 0;
+  if (!routeVariant || !progress || totalMeters <= 0) {
+    recordAdvance(vehicleId, 0);
+    return { skipped: 'percorso-assente' as const };
+  }
 
-  const totalMeters = progress.traveledMeters + progress.remainingMeters;
-  if (totalMeters <= 0) return { skipped: 'percorso-assente' as const };
+  const speedMetersPerSecond = speedKmhValue / 3.6;
   // The GTT feed is regularly one minute old. Compensating only a part of that
   // age leaves a residual lag that the playback has to absorb later as an
   // unrealistic burst of speed, so cover the observed staleness instead.
   const compensationSeconds = Math.min(
     effectiveAgeSeconds + LATENCY_COMPENSATION_LEAD_SECONDS,
     MAX_LATENCY_COMPENSATION_SECONDS,
-  );
-  const advanceMeters = Math.min(
+  ) * LATENCY_COMPENSATION_CONFIDENCE;
+  const projectedMeters = positionAfterSeconds(
+    stopDistancesAlongRoute(routeVariant),
+    progress.traveledMeters,
+    compensationSeconds,
+    speedMetersPerSecond,
+  ) - progress.traveledMeters;
+  const targetMeters = Math.min(
     MAX_LATENCY_COMPENSATION_METERS,
-    (speedKmhValue / 3.6) * compensationSeconds * LATENCY_COMPENSATION_CONFIDENCE,
+    projectedMeters,
     // Dead reckoning may not push a vehicle past its own terminus.
     Math.max(0, progress.remainingMeters - 5),
   );
+
+  // The correction is allowed to change only by a fraction of the ground the
+  // vehicle itself covers in the meantime. A marker may therefore gain on the
+  // vehicle or give ground back to it, but only at the pace of the traffic it
+  // is drawn in — it can no longer close half a minute in a single frame and
+  // then stand waiting for reality to catch up.
+  const previous = publishedAdvances.get(vehicleId);
+  const sinceLastSeconds = previous ? (Date.now() - previous.atMs) / 1000 : 0;
+  // A vehicle out of sight for longer than the window has no lead worth
+  // carrying over, and the first sighting of one has nothing to be continuous
+  // with: both take the projection as it comes.
+  const allowedChangeMeters =
+    previous && sinceLastSeconds > 0 && sinceLastSeconds <= 120
+      ? LATENCY_ADJUST_FRACTION * speedMetersPerSecond * sinceLastSeconds
+      : Number.POSITIVE_INFINITY;
+  const advanceMeters = Math.min(
+    (previous?.meters ?? 0) + allowedChangeMeters,
+    Math.max((previous?.meters ?? 0) - allowedChangeMeters, targetMeters),
+  );
+  recordAdvance(vehicleId, advanceMeters);
   if (advanceMeters < 8) return { skipped: 'troppo-lento' as const };
   const compensated = interpolatePathState(
     routeVariant.path,
@@ -665,7 +816,9 @@ function compensateFeedLatency(
         point: compensated.point,
         bearing: compensated.bearing,
         meters: Math.round(advanceMeters),
-        seconds: Math.round(compensationSeconds * LATENCY_COMPENSATION_CONFIDENCE),
+        // Report the delay actually recovered, which after the stops and the
+        // rate limit is not the delay we set out to recover.
+        seconds: Math.round(advanceMeters / speedMetersPerSecond),
       }
     : { skipped: 'percorso-assente' as const };
 }
@@ -744,9 +897,14 @@ function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttT
   const snapLimitMeters = vehicleLivery === 'interurban-blue' ? 70 : 55;
   const isSnappedToRoute = Boolean(estimate.snappedPoint && estimate.offRouteMeters != null && estimate.offRouteMeters <= snapLimitMeters);
   const displayPoint = isSnappedToRoute ? estimate.snappedPoint! : rawPoint;
-  const latencyOutcome = isSnappedToRoute
-    ? compensateFeedLatency(estimate.routeVariantId, displayPoint, recentSpeed ?? speed, ageSeconds)
-    : ({ skipped: 'non-agganciato' } as const);
+  const latencyOutcome = compensateFeedLatency(
+    vehicleId || String(index),
+    estimate.routeVariantId,
+    displayPoint,
+    recentSpeed ?? speed,
+    ageSeconds,
+    isSnappedToRoute,
+  );
   const latencyCompensation = 'point' in latencyOutcome ? latencyOutcome : undefined;
   const finalPoint = latencyCompensation?.point ?? displayPoint;
   const finalRouteProgress = (() => {

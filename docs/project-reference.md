@@ -150,7 +150,9 @@ Sono i numeri che decidono quanto il movimento appare realistico. Vanno cambiati
 | --- | --- | --- |
 | `MAX_LATENCY_COMPENSATION_SECONDS` | 75 s | quanta età del campione viene recuperata proiettando in avanti |
 | `LATENCY_COMPENSATION_LEAD_SECONDS` | 3 s | mira leggermente avanti, perché il marker raggiunge il bersaglio solo nei secondi successivi |
-| `SPEED_AVERAGE_WINDOW_SECONDS` | 60 s | finestra della media di velocità, allineata al ritardo compensato e pesata sul tempo reale tra i campioni, non sul loro numero |
+| `SPEED_AVERAGE_WINDOW_SECONDS` | 60 s | finestra della media di velocità, allineata al ritardo compensato e pesata sul tempo reale tra i campioni, non sul loro numero. **Simmetrica di proposito**: far entrare più in fretta i rallentamenti conta due volte le soste, che nella media già ci sono |
+| `STOP_DWELL_SECONDS` | 15 s | quanto costa alla proiezione ogni fermata che attraversa. Senza, il mezzo veniva proiettato dritto attraverso la fermata che stava servendo |
+| `LATENCY_ADJUST_FRACTION` | 0,35 | quanta della velocità del mezzo la correzione può spendere per cambiare sé stessa. Il marker si muove quindi fra 0,65× e 1,35× la velocità del mezzo: mai all'indietro, mai a scatti |
 | velocità usata per la proiezione | media mobile, non istantanea | proiettare un minuto di percorso con la velocità di un singolo istante faceva oscillare il recupero fra zero e 400 m sullo stesso mezzo, a ogni ripartenza da fermata |
 | `ASSUMED_UNDECLARED_FEED_DELAY_SECONDS` | 35 s | ritardo che il feed GTT **non dichiara**: i campioni arrivano marcati come appena misurati, ma la posizione è di circa un minuto prima. È l'unica costante tarata su un'osservazione dalla strada, non sui dati — vedi la tabella qui sotto |
 | `MAX_LATENCY_COMPENSATION_METERS` | 700 m | tetto assoluto alla proiezione |
@@ -169,10 +171,28 @@ Il feed non dice quanto è vecchio: i campioni arrivano marcati come appena misu
 | --- | --- | --- |
 | 0 s | 3 s | in ritardo di tutto il minuto |
 | 25 s | 25 s | in ritardo di 30-35 s, movimento fluido |
-| 35 s | 34 s | **valore attuale** |
+| 35 s | 34 s | **valore attuale**; senza le due correzioni sotto: recupero in un solo salto, poi attesa un centinaio di metri oltre la fermata |
 | 50 s | 48 s | marker che si bloccano: peggio che non compensare affatto |
 
-Il blocco a 50 s non è un caso limite ma il meccanismo stesso: se la proiezione supera la posizione vera, la soglia di marcia indietro in `routeMotion` tiene fermo il marker finché il mezzo reale non lo raggiunge. **Proiettare troppo costa più che proiettare poco.** Se ricompaiono gli stalli, si torna a 25 s e si cambia modello di animazione invece di continuare a spostare la costante.
+Il blocco a 50 s non è un caso limite ma il meccanismo stesso: se la proiezione supera la posizione vera, la soglia di marcia indietro in `routeMotion` tiene fermo il marker finché il mezzo reale non lo raggiunge. **Proiettare troppo costa più che proiettare poco.**
+
+#### Il banco di prova
+
+`npm run simulate:latency` mette a confronto le varianti dell'algoritmo su un mezzo urbano in traffico irregolare, con un feed vecchio di un minuto che si dichiara fresco. Esiste perché il feed non è raggiungibile da ogni ambiente, e perché a un autobus vero non si può chiedere di ripetere la stessa manovra due volte.
+
+**Le tre metriche vanno lette insieme, e nessuna variante vince su tutte.** Chi riduce il sorpasso paga in ritardo: il compromesso è reale e va scelto, non risolto.
+
+| variante | davanti 5% | mediana | punta 99% |
+| --- | --- | --- | --- |
+| nessuna correzione, 25 s | 72 m | 121 m | 13,4 m/s |
+| nessuna correzione, 35 s | 118 m | 79 m | 14,2 m/s |
+| solo fermate a carico | 86 m | 98 m | 18,8 m/s |
+| solo limite alla variazione | 110 m | 87 m | 12,6 m/s |
+| **in uso: limite + fermate, 35 s** | **71 m** | **116 m** | **12,0 m/s** |
+
+Due letture importano più delle altre. **Le fermate a carico da sole peggiorano gli scatti** (18,8 m/s): accorciano la proiezione a strappi, man mano che una fermata entra o esce dal tratto proiettato, e servono il limite alla variazione per essere utili. E **la configurazione in uso domina il pavimento a 25 s su ogni asse**: stesso sorpasso, meno ritardo, marker più fluido, stalli più corti. È il motivo per cui il pavimento resta a 35 s invece di tornare indietro.
+
+Se le costanti in `gttRealtime.ts` cambiano, vanno riallineate anche nello script: altrimenti il banco misura un algoritmo che non è più quello in produzione.
 
 ### In `components/BusMap.tsx`
 
@@ -267,6 +287,7 @@ Tutti da `frontend/`.
 | `npm run verify:routes` | integrità delle varianti GTFS e delle direzioni |
 | `npm run gtfs:generate` | rigenera i dataset GTFS statici |
 | `npm run realtime:spike` | ispeziona il feed GTFS-RT senza passare dalla UI |
+| `npm run simulate:latency` | confronta le tarature della compensazione senza toccare il feed vivo |
 | `npm run preview` | serve la build compilata |
 
 ### Verificare in che stato è il progetto
