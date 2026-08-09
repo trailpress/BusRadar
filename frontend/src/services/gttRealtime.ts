@@ -594,11 +594,19 @@ const LATENCY_COMPENSATION_LEAD_SECONDS = 3;
 // of a few seconds, where a real minute would have called for 200 to 400 m.
 //
 // The delay is therefore real but undeclared, and no amount of reading the feed
-// can derive it: the data denies it exists. This is the floor we assume for it
-// instead, calibrated on the lag reported from the street. Raise it if vehicles
-// still trail, lower it if they start running ahead of themselves and stalling
-// at the point where the next sample catches up.
-const ASSUMED_UNDECLARED_FEED_DELAY_SECONDS = 50;
+// can derive it: the data denies it exists. This is the floor we assume for it.
+//
+// It covers only part of the delay on purpose. Projecting the whole of it was
+// tried and made the map worse: the projection assumes the vehicle holds its
+// recent pace, a city bus does not, and routeMotion refuses to move a marker
+// backwards. So every overshoot became a full frame with the marker standing
+// still while the real vehicle drove on, and the map read as more stuck and
+// further behind than with no compensation at all.
+//
+// Correcting part of the delay reduces the lag without buying it back in
+// stalls. Raise it if vehicles trail steadily; lower it if they start freezing
+// in place waiting for the next sample to reach them.
+const ASSUMED_UNDECLARED_FEED_DELAY_SECONDS = 25;
 
 function compensateFeedLatency(
   routeVariantId: string | undefined,
