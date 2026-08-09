@@ -253,7 +253,6 @@ function serviceRunsToday(serviceId: string | undefined, index: StopTimeIndex | 
 function scheduledStopArrivals(
   stopId: string,
   allowedRouteIds: string[],
-  stopSequencesByRoute: Record<string, number[]>,
   stopTimeIndex: StopTimeIndex | undefined,
 ): GttStopArrival[] {
   if (!stopTimeIndex) return [];
@@ -274,12 +273,11 @@ function scheduledStopArrivals(
       const normalizedRouteId = normalizeRouteName(trip.line || trip.routeId);
       if (allowed.size > 0 && !allowed.has(trip.routeId) && !allowed.has(normalizedRouteId)) return [];
 
-      const sequenceSet = new Set([
-        ...(stopSequencesByRoute[trip.routeId] ?? []),
-        ...(stopSequencesByRoute[normalizedRouteId] ?? []),
-        ...(stopSequencesByRoute[`${normalizedRouteId}U`] ?? []),
-      ]);
-      const stopEntries = trip.stops.filter(([sequence, staticStopId]) => staticStopId === stopId || sequenceSet.has(sequence));
+      // Every static stop time carries its own stop id, so the stop is always
+      // resolvable here. Accepting an entry because its ordinal matched one of
+      // the positions this stop occupies elsewhere on the line pulled in the
+      // stops of the opposite direction and of the other variants.
+      const stopEntries = trip.stops.filter(([, staticStopId]) => staticStopId === stopId);
 
       return serviceDays.flatMap(({ date, dayOffset }) => {
         if (!serviceRunsToday(trip.serviceId, stopTimeIndex, date)) return [];
@@ -363,10 +361,18 @@ export async function fetchGttStopArrivalsInfo(
 
       return trip.stopTimeUpdates
         .filter((stopUpdate) => {
-          if (stopUpdate.stopId === stopId) return true;
+          // An explicit stop id settles the question in both directions: a
+          // different id means a different stop, not a candidate to rescue
+          // through its ordinal.
+          if (stopUpdate.stopId) return stopUpdate.stopId === stopId;
           if (stopUpdate.stopSequence == null) return false;
           const staticStopId = staticTrip?.stops.find(([sequence]) => sequence === stopUpdate.stopSequence)?.[1];
-          return staticStopId === stopId || (resolvedRouteId && sequenceSet.has(stopUpdate.stopSequence));
+          if (staticStopId) return staticStopId === stopId;
+          // Nothing resolves this sequence to a stop, so the ordinal is the
+          // only signal left. It stays a last resort rather than an
+          // alternative, because a position is shared by every variant of the
+          // line and by the opposite direction.
+          return Boolean(resolvedRouteId) && sequenceSet.has(stopUpdate.stopSequence);
         })
         .filter((stopUpdate) => Number(stopUpdate.arrivalTime ?? stopUpdate.departureTime ?? 0) > 0)
         .map((stopUpdate) => {
@@ -391,7 +397,7 @@ export async function fetchGttStopArrivalsInfo(
     .sort((a, b) => a.minutes - b.minutes)
     .slice(0, 8);
 
-  const scheduledArrivals = scheduledStopArrivals(stopId, allowedRouteIds, stopSequencesByRoute, stopTimeIndex);
+  const scheduledArrivals = scheduledStopArrivals(stopId, allowedRouteIds, stopTimeIndex);
   const realtimeLines = new Set(realtimeArrivals.map((arrival) => arrival.line));
   const scheduledFallbacks = scheduledArrivals.filter((arrival) => !realtimeLines.has(arrival.line));
   const arrivals = [...realtimeArrivals, ...scheduledFallbacks]

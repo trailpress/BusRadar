@@ -64,6 +64,20 @@ Tutto in `frontend/src/services/gttRealtime.ts`, funzione `toVehicle`.
 4. **Compensazione della latenza** (`compensateFeedLatency`): se agganciato, il punto viene proiettato in avanti lungo la shape per recuperare l'età del campione. Vedi §4.
 5. **Uscita**: posizione finale, bearing, progresso sulla linea, capolinea stimato, ETA, previsioni di fermata dai Trip Update.
 
+### 2.1.1 Arrivi alle paline
+
+Gli arrivi mostrati toccando una palina vengono da `fetchGttStopArrivalsInfo`, che unisce due fonti: i Trip Update GTFS-RT e, per le linee senza dato realtime, gli orari programmati del GTFS statico.
+
+L'aggancio di un orario alla palina giusta segue una gerarchia precisa, e va rispettata:
+
+1. Se l'aggiornamento porta un `stopId` esplicito, quello decide, **anche in negativo**: un id diverso significa un'altra fermata.
+2. Altrimenti si risolve la `stopSequence` sul trip statico e si confronta l'id ottenuto.
+3. Solo se nulla risolve la sequenza si può ricadere sull'ordinale.
+
+Il terzo passo è un ripiego, mai un'alternativa ai primi due. Una palina occupa in media 1,29 posizioni diverse sulla stessa linea, e fino a 9 nei casi peggiori, perché le sequenze di tutte le varianti e di entrambe le direzioni finiscono sotto la stessa chiave. Trattare l'ordinale come prova di identità faceva comparire alla palina gli orari di altre fermate della stessa linea.
+
+Gli orari programmati passano poi dal calendario di servizio (`serviceRunsToday`): senza quel filtro la stessa corsa comparirebbe più volte, una per ogni calendario che la definisce.
+
 ### 2.2 Dal `Vehicle` al movimento sulla mappa
 
 Tutto in `frontend/src/components/BusMap.tsx`.
