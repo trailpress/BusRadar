@@ -224,6 +224,7 @@ In cloud si usa il workflow **Generate a GTT fleet render**, dalla scheda Action
 
 - Un render non si assegna senza aver confrontato modello, serie e livrea con le fonti indicate in `sourceNotes`. È una regola di `AGENTS.md`.
 - Se un render generato non corrisponde, si corregge il prompt nel catalogo e si rigenera. Non si ritocca il file a mano: la prossima rigenerazione perderebbe la correzione.
+- **Se un render generato arriva con un canale alpha, va scartato, non appiattito sul bianco.** L'RGB sottostante è già l'immagine su fondo scuro. È successo alla serie 5000: l'alpha sfumato sul soggetto è stato risolto appiattendo su bianco, e quel render è rimasto l'unico con lo sfondo chiaro in mezzo a ventinove studio scuri.
 - I render stanno in WebP entro 400 kB. `npm run verify:assets` fallisce se un file sfora o se resta nella cartella senza essere referenziato: è così che 40 MB di versioni superate erano rimasti nel repository.
 - `generic-tram` resta senza render. Quando una matricola finisce lì significa che non sappiamo che mezzo sia, e disegnare un tram generico mostrerebbe un mezzo inesistente. Se le matricole che ci finiscono appartengono a una serie reale, va aggiunta la serie in `vehicleFleetRules.ts`, non prodotto un render.
 
