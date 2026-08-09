@@ -7,7 +7,10 @@ name: Generate a GTT fleet render
 #
 # The result is never merged automatically. It arrives as a pull request to be
 # checked against the sources recorded on the cluster, because AGENTS.md forbids
-# assigning a fleet render without verifying model, series and livery.
+# assigning a fleet render without verifying model, series and livery. The
+# catalog is repointed inside that pull request, so the render can be reviewed
+# as the app would show it and the reference checks pass; merging is what makes
+# it live, and closing the pull request leaves main untouched.
 
 on:
   workflow_dispatch:
@@ -17,9 +20,9 @@ on:
         required: true
         type: string
       promote:
-        description: 'Point the catalog at the new file and mark it validated-render'
+        description: 'Point the catalog at the new file, so the pull request shows the render as the app would use it'
         required: false
-        default: false
+        default: true
         type: boolean
 
 permissions:
@@ -50,6 +53,12 @@ jobs:
       - name: Show the prompt this cluster will use
         working-directory: frontend
         run: node scripts/fleet-render.mjs --cluster '${{ inputs.cluster }}' --dry-run
+
+      # Only the render path needs an image library, so it is installed here
+      # rather than carried by every Verify BusRadar run.
+      - name: Install the image processor
+        working-directory: frontend
+        run: npm install --no-save --no-audit --no-fund sharp
 
       - name: Generate the render
         working-directory: frontend
