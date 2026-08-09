@@ -26,6 +26,8 @@ For interface changes, also run the development server and verify the affected d
 - `main` is the source of truth and the only production deployment branch.
 - Create a short-lived working branch for changes, prefixed with the name of the agent that opens it: `codex/*` for Codex, `claude/*` for Claude Code.
 - Submit changes through a pull request and wait for `Verify BusRadar` to pass.
+- Committing, pushing a working branch and opening its pull request are pre-authorised once the required checks pass. Do not ask for permission on each of those steps.
+- Merging is a human decision and is never done by an agent, because it publishes the site.
 - Do not edit or push generated files directly to `gh-pages`.
 - Merging into `main` triggers the GitHub Pages deployment automatically.
 
