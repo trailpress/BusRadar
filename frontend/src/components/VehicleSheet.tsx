@@ -120,7 +120,8 @@ const latencySkipReason: Record<NonNullable<Vehicle['latencyCompensationSkipped'
 
 function latencyText(vehicle: Vehicle) {
   if (vehicle.latencyCompensationMeters != null) {
-    return `Recupero ritardo feed: ${vehicle.latencyCompensationMeters} m avanti`;
+    const seconds = vehicle.latencyCompensationSeconds;
+    return `Recupero ritardo feed: ${vehicle.latencyCompensationMeters} m avanti${seconds != null ? ` · ${seconds} s recuperati` : ''}`;
   }
   const reason = vehicle.latencyCompensationSkipped;
   return `Recupero ritardo feed: ${reason ? latencySkipReason[reason] : 'non disponibile'}`;
