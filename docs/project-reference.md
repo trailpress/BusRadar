@@ -177,6 +177,18 @@ Il feed non dice quanto è vecchio: i campioni arrivano marcati come appena misu
 
 Il blocco a 50 s non è un caso limite ma il meccanismo stesso: se la proiezione supera la posizione vera, la soglia di marcia indietro in `routeMotion` tiene fermo il marker finché il mezzo reale non lo raggiunge. **Proiettare troppo costa più che proiettare poco.**
 
+#### Corse non accertate
+
+Quando il feed realtime tace su un'intera linea, le sue corse vengono disegnate **dall'orario programmato** e dichiarate non accertate. Non sono mezzi osservati: sono corse previste, e una corsa soppressa o un mezzo guasto apparirebbero comunque.
+
+**La regola per generarle è deliberatamente stretta: una linea con anche un solo mezzo tracciato non ne produce nessuna.** Se il feed copre la linea, una corsa che non vi compare è probabilmente una corsa che non sta circolando, e disegnarla sarebbe inventare un mezzo. Solo il silenzio completo su una linea giustifica il ricorso all'orario.
+
+Sono riconoscibili senza aprirle: pallino grigio con bordo tenue invece del colore di linea, sprite al 45% di opacità, e in tre punti dell'interfaccia la dicitura esplicita — «corsa non accertata · da orario» sulla mappa, «Corsa non accertata: posizione stimata dall'orario programmato, nessun dato in tempo reale» e «Tracciamento GTT: nessuno» nella scheda. Non entrano nel conteggio delle posizioni realtime.
+
+**Come si ricostruisce una corsa.** Gli orari pubblicati sono indicizzati per fermata, senza id di corsa né numero d'ordine: una corsa si ottiene incatenando — si parte dal capolinea all'ora X e a ogni fermata si prende la prima chiamata successiva. L'aggancio può prendere la corsa sbagliata dove una fermata è servita nei due sensi, e **il controllo che lo smaschera è geometrico**: la velocità implicita fra due fermate, nota perché la distanza lungo la shape è nota. Fuori da 2–110 km/h l'aggancio viene scartato invece che creduto (sul dataset attuale: 145 254 tenuti, 2914 scartati).
+
+Farlo a runtime costerebbe i bucket di tutte le fermate di ogni linea silenziosa, cioè 24 MB su un telefono. `npm run gtfs:runs` lo precalcola in `public/assets/scheduled-runs.json`: un profilo per variante — a quanti secondi dalla partenza il mezzo si trova a quale metro — più l'elenco delle partenze. **2,5 MB, 410 kB compressi**, chiesti solo quando servono. Va rigenerato insieme al dataset GTFS.
+
 #### Il riquadro di copertura del realtime
 
 I mezzi che cadono fuori da un riquadro geografico vengono scartati prima di arrivare alla mappa. **Il riquadro si misura dal dataset, non si scrive a mano.** Scritto a mano era 44,7–45,35 per 7,25–8,15: copriva la città e ritagliava la rete interurbana, che arriva a 44,39–45,55 per 7,14–8,46. Ne restavano fuori **1542 fermate su 7035**, e 38 linee ne avevano almeno una: i mezzi verso Ivrea, la Val di Susa o Asti sparivano dalla mappa a metà corsa.
@@ -321,6 +333,7 @@ Tutti da `frontend/`.
 | `npm run verify:assets` | ogni asset citato nei cataloghi esiste in `public/assets` |
 | `npm run verify:routes` | integrità delle varianti GTFS e delle direzioni |
 | `npm run gtfs:generate` | rigenera i dataset GTFS statici |
+| `npm run gtfs:runs` | ricostruisce le corse programmate per i mezzi non accertati |
 | `npm run realtime:spike` | ispeziona il feed GTFS-RT senza passare dalla UI |
 | `npm run simulate:latency` | confronta le tarature della compensazione senza toccare il feed vivo |
 | `npm run preview` | serve la build compilata |

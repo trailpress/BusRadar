@@ -2,7 +2,8 @@ import type { Vehicle } from '../types';
 import { getGtfsLine, getGtfsNetworkBounds, getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopsForRoute, loadGtfsNetwork, type GtfsRouteVariant } from '../data/gtfsNetwork';
 import { recognizedFleetNumber, vehicleFleetKey, vehicleFleetLabel, vehicleLengthClass, vehicleLiveryForVehicle, vehicleTypeForFleetNumber } from '../data/vehicleFleetRules';
 import { bearingDegrees, distanceMeters, interpolatePathState, routeProgressAtPoint } from '../utils/geo';
-import { fetchStopSchedule, isStopScheduleLoaded, peekStopSchedule, requestStopSchedule, type StopScheduleCalendar, type StopScheduleEntry } from './stopSchedule';
+import { fetchStopSchedule, fetchStopScheduleCalendar, isStopScheduleLoaded, peekStopSchedule, requestStopSchedule, type StopScheduleCalendar, type StopScheduleEntry } from './stopSchedule';
+import { loadScheduledRuns, peekScheduledRuns, scheduledRunsInProgress } from './scheduledRuns';
 
 type GttVehiclePosition = {
   entityId?: string | null;
@@ -1185,6 +1186,79 @@ function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttT
   };
 }
 
+// Le corse che l'orario dice in strada su linee di cui il feed non manda
+// nulla. Non sono mezzi osservati: sono corse previste, e vanno dichiarate per
+// quello che sono in ogni punto dell'interfaccia che le mostra.
+//
+// La regola per generarle è deliberatamente stretta: **una linea con anche un
+// solo mezzo tracciato non ne produce nessuna.** Se il feed copre la linea, una
+// corsa assente da quel feed è probabilmente una corsa che non sta circolando,
+// e disegnarla sarebbe inventare un mezzo. Solo il silenzio completo su una
+// linea giustifica il ricorso all'orario.
+let scheduledRunsCalendar: StopScheduleCalendar | undefined;
+let scheduledRunsRequested = false;
+
+const MAX_UNVERIFIED_RUNS = 400;
+
+function unverifiedScheduledVehicles(observed: Vehicle[]): Vehicle[] {
+  if (!scheduledRunsRequested) {
+    scheduledRunsRequested = true;
+    void loadScheduledRuns();
+    void fetchStopScheduleCalendar().then((calendar) => {
+      scheduledRunsCalendar = calendar;
+    });
+  }
+  if (!peekScheduledRuns() || !scheduledRunsCalendar) return [];
+
+  const coveredLines = new Set(observed.map((vehicle) => vehicle.line));
+  const now = new Date();
+  const runs = scheduledRunsInProgress(
+    now,
+    scheduledRunsCalendar,
+    (line) => !coveredLines.has(line),
+    MAX_UNVERIFIED_RUNS,
+  );
+
+  const label = now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  return runs
+    .map((run): Vehicle | undefined => {
+      const routeVariant = getGtfsRouteVariant(run.routeVariantId);
+      if (!routeVariant || routeVariant.path.length < 2) return undefined;
+      const progress = routeProgressAtPoint(routeVariant.path, routeVariant.path[routeVariant.path.length - 1]);
+      const totalMeters = progress ? progress.traveledMeters : 0;
+      if (totalMeters <= 0) return undefined;
+      const state = interpolatePathState(routeVariant.path, Math.min(0.999999, run.meters / totalMeters));
+      if (!state) return undefined;
+
+      const vehicleType = getGtfsLine(routeVariant.line)?.vehicleType ?? 'bus';
+      return {
+        vehicleId: `orario-${run.routeVariantId}-${run.departureSeconds}`,
+        routeId: `gtt-${routeVariant.routeId}`,
+        routeShortName: routeVariant.line,
+        vehicleType,
+        vehicleFleetKey: vehicleType === 'tram' ? ('generic-tram' as const) : ('generic-bus' as const),
+        vehicleFleetLabel: 'Corsa non accertata',
+        lat: state.point.lat,
+        lon: state.point.lon,
+        bearing: state.bearing,
+        speed: 0,
+        updatedAt: label,
+        source: 'scheduled' as const,
+        status: 'unknown' as const,
+        line: routeVariant.line,
+        lineId: routeVariant.line,
+        direction: routeVariant.headsign,
+        terminalName: routeVariant.headsign,
+        reliability: 0,
+        progress: run.meters / totalMeters,
+        routeVariantId: routeVariant.id,
+        shapeId: routeVariant.shapeId,
+        routeMatchStatus: 'on-route' as const,
+      };
+    })
+    .filter((vehicle): vehicle is Vehicle => Boolean(vehicle));
+}
+
 export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | undefined> {
   let response: Response;
   try {
@@ -1236,9 +1310,13 @@ export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | 
     }
   }
 
+  const withUnverified = [...vehicles, ...unverifiedScheduledVehicles(vehicles)];
+
   const snapshot = {
-    vehicles,
+    vehicles: withUnverified,
     entityCount: payload.entityCount ?? vehicles.length,
+    // Solo i mezzi realmente osservati: le corse non accertate non sono
+    // posizioni del feed e non vanno contate come tali.
     vehiclePositionCount: payload.vehiclePositionCount ?? vehicles.length,
     checkedAt: payload.checkedAt ?? new Date().toISOString(),
   };
