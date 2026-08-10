@@ -123,7 +123,11 @@ function latencyText(vehicle: Vehicle) {
     const seconds = vehicle.latencyCompensationSeconds;
     // Quale delle due stime ha posizionato il mezzo: l'interpolazione verso la
     // fermata annunciata da GTT, o la proiezione della velocità tenuta.
-    const source = vehicle.latencyCompensationAnchored ? 'previsione fermata' : 'velocità stimata';
+    const source = vehicle.latencyCompensationSource === 'previsione'
+      ? 'previsione fermata'
+      : vehicle.latencyCompensationSource === 'orario'
+        ? 'orario programmato'
+        : 'velocità stimata';
     return `Recupero ritardo feed: ${vehicle.latencyCompensationMeters} m avanti${seconds != null ? ` · ${seconds} s recuperati` : ''} · ${source}`;
   }
   const reason = vehicle.latencyCompensationSkipped;

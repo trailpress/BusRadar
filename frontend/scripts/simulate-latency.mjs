@@ -97,8 +97,11 @@ function positionAfterSeconds(fromMeters, seconds, speed, dwellSeconds) {
   return position + remaining * speed;
 }
 
-function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35, anchored, predictionError = 20, seed = 1 }) {
+function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35, anchored, scheduledPace, predictionError = 20, seed = 1 }) {
   const { positions, arrivals } = course;
+  // Il passo che l'orario programmato attribuisce al tratto: la media della
+  // corsa, che è ciò che un orario codifica, non la velocità di un istante.
+  const scheduledSegmentSeconds = SPACING / (positions[positions.length - 1] / positions.length);
   const noise = mulberry32(seed * 7919);
   let average;
   let advance = 0;
@@ -129,6 +132,18 @@ function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35
       target = dwellAware
         ? positionAfterSeconds(reported, seconds, average, 15) - reported
         : average * seconds;
+    }
+
+    // The timetable's pace for this segment, used when the feed announces
+    // nothing: the position is still the feed's, only the speed comes from the
+    // schedule.
+    if (scheduledPace && !anchored) {
+      const nextStop = stops.find((stop) => stop > reported);
+      if (nextStop != null) {
+        const remaining = nextStop - reported;
+        const expected = scheduledSegmentSeconds * (remaining / SPACING);
+        if (expected > 0) target = remaining * Math.min(1, Math.max(DECLARED_AGE, floor) / expected);
+      }
     }
 
     // Anchoring: instead of extrapolating from a stale position, interpolate
@@ -209,6 +224,7 @@ const scenarios = [
   ['in uso, pavimento 45 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 45 }],
   ['in uso, pavimento 60 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 60 }],
   ['+ reazione al rallentamento', { dwellAware: true, rateLimited: true, fastDrop: true, floor: 35 }],
+  ['passo da orario programmato', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 35, scheduledPace: true }],
   ['ancorato alle previsioni', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 35, anchored: true }],
   ['ancorato, previsioni +/-40 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 35, anchored: true, predictionError: 40 }],
   ['ancorato, senza limite', { dwellAware: true, rateLimited: false, fastDrop: false, floor: 35, anchored: true }],

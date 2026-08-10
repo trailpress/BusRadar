@@ -62,9 +62,9 @@ export type TransitVehicle = {
   latencyCompensationMeters?: number;
   latencyCompensationSeconds?: number;
   latencyCompensationSkipped?: 'non-agganciato' | 'troppo-lento' | 'campione-recente' | 'percorso-assente';
-  // True when the position came from interpolating towards the stop GTT says
-  // the vehicle is about to reach, rather than from projecting its speed.
-  latencyCompensationAnchored?: boolean;
+  // Which evidence placed the vehicle: the arrival GTT announces for this trip,
+  // the pace the timetable gives this segment, or its own recent speed.
+  latencyCompensationSource?: 'previsione' | 'orario' | 'velocita';
   routeMatchStatus?: 'on-route' | 'gps-only' | 'unmatched';
   routeVariantId?: string;
   shapeId?: string;
