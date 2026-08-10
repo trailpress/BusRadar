@@ -28,7 +28,10 @@
 // stato speso fermi.
 
 const FEED_DELAY = 60;
-const DECLARED_AGE = 3;
+// Misurato sul feed vero il 2026-08-10: l'header sta a 15:59:46 e i campioni
+// portano timestamp fra 15:59:16 e 15:59:37. Il feed dichiara quindi 10-30
+// secondi di età, non i 3 che si erano supposti da uno screenshot.
+const DECLARED_AGE = 15;
 const POLL = 10;
 const SPACING = 300;
 const HORIZON = 3600;
@@ -97,7 +100,7 @@ function positionAfterSeconds(fromMeters, seconds, speed, dwellSeconds) {
   return position + remaining * speed;
 }
 
-function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35, anchored, scheduledPace, predictionError = 20, seed = 1 }) {
+function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35, anchored, scheduledPace, additive, predictionError = 20, seed = 1 }) {
   const { positions, arrivals } = course;
   // Il passo che l'orario programmato attribuisce al tratto: la media della
   // corsa, che è ciò che un orario codifica, non la velocità di un istante.
@@ -126,7 +129,10 @@ function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35
       average = average * (1 - weight) + observed * weight;
     }
 
-    const seconds = Math.min(Math.max(DECLARED_AGE, floor) + 3, 75) * 0.9;
+    // additive: il ritardo non dichiarato si somma all'età dichiarata invece di
+    // sostituirla. Con `max` un campione già vecchio non riceve alcuna correzione.
+    const assumed = additive ? DECLARED_AGE + floor : Math.max(DECLARED_AGE, floor);
+    const seconds = Math.min(assumed + 3, 75) * 0.9;
     let target = 0;
     if (average >= 1.5 / 3.6) {
       target = dwellAware
@@ -225,6 +231,10 @@ const scenarios = [
   ['in uso, pavimento 60 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 60 }],
   ['+ reazione al rallentamento', { dwellAware: true, rateLimited: true, fastDrop: true, floor: 35 }],
   ['passo da orario programmato', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 35, scheduledPace: true }],
+  ['in uso oggi: pavimento 35 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 35 }],
+  ['additivo +20 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 20, additive: true }],
+  ['additivo +30 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 30, additive: true }],
+  ['additivo +40 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 40, additive: true }],
   ['ancorato alle previsioni', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 35, anchored: true }],
   ['ancorato, previsioni +/-40 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 35, anchored: true, predictionError: 40 }],
   ['ancorato, senza limite', { dwellAware: true, rateLimited: false, fastDrop: false, floor: 35, anchored: true }],

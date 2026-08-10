@@ -164,6 +164,20 @@ Sono i numeri che decidono quanto il movimento appare realistico. Vanno cambiati
 
 La compensazione è limitata anche dalla distanza residua al capolinea: un mezzo non viene mai proiettato oltre la fine della sua corsa.
 
+#### Cosa contiene davvero il feed GTT
+
+Misurato sull'endpoint del proxy il **2026-08-10 alle 15:59 UTC**, 294 mezzi. Sono i primi dati letti dal feed vivo invece che dedotti da screenshot, e correggono tre supposizioni:
+
+| campo | cosa arriva davvero |
+| --- | --- |
+| `timestamp` del veicolo | presente, con età dichiarata di **10-30 s** nel caso tipico (non ~3 s come si era dedotto), e una coda di campioni fino a **5 minuti** |
+| `speed` | **sempre 0**, su tutti e 294 i mezzi. La velocità del feed è inutilizzabile: si ricava solo dallo spostamento fra campioni |
+| `tripId` | **sempre vuoto**. Un Trip Update non potrà mai essere agganciato per corsa: resta solo l'aggancio per matricola |
+| `lat`/`lon` | alcuni mezzi a `0,0`, correttamente scartati |
+| `vehicleLabel` | a volte diverso da `vehicleId` (1235 → 16235, 1305 → 19005) e a 5 cifre, fuori da ogni gruppo del catalogo flotta: quei mezzi restano «modello non identificato» finché la serie non è verificata su fonti attendibili |
+
+**Il ritardo non dichiarato si somma all'età dichiarata, non la sostituisce.** Con un pavimento, un campione che si dichiara già vecchio di 40 s non riceveva alcuna correzione, come se per lui la tubatura fra misura e lettura non esistesse — e quei campioni nel feed reale ci sono. Nel caso tipico i due modelli coincidono (15+20 = 35, il valore tarato dalla strada), quindi il cambiamento non sposta la mappa di tutti i giorni.
+
 #### Taratura del ritardo non dichiarato
 
 Il feed non dice quanto è vecchio: i campioni arrivano marcati come appena misurati. Il valore va quindi trovato guardando la mappa accanto alla strada, un passo alla volta. Quello che si è visto finora:
@@ -193,7 +207,7 @@ Quando il feed realtime tace su un'intera linea, le sue corse vengono disegnate 
 
 A valle resta una garanzia indipendente: **due corse della stessa linea non vengono mai disegnate a meno di 250 m l'una dall'altra.** Due calendari attivi nello stesso giorno possono ancora descrivere la stessa corsa due volte, e un ammasso di pallini identici sulla stessa strada è indistinguibile da un errore.
 
-Il budget è distribuito: al massimo 12 corse per variante entro un tetto di 400. Senza il limite per variante una sola linea ad alta frequenza esauriva il budget e lasciava tutte le altre senza nulla.
+**Le previsioni non superano mai di numero le osservazioni**: il tetto è il numero di mezzi realmente rilevati, con un minimo di 120 perché un feed quasi muto continui a dire qualcosa. Con 294 mezzi nel feed e un tetto fisso di 400, la mappa risultava fatta più di stime che di rilevazioni, ed è così che è stata letta: «corse grigie ovunque». Il budget è poi distribuito con un massimo di 12 corse per variante. Senza il limite per variante una sola linea ad alta frequenza esauriva il budget e lasciava tutte le altre senza nulla.
 
 Sono riconoscibili senza aprirle: pallino grigio con bordo tenue invece del colore di linea, sprite al 45% di opacità, e in tre punti dell'interfaccia la dicitura esplicita — «corsa non accertata · da orario» sulla mappa, «Corsa non accertata: posizione stimata dall'orario programmato, nessun dato in tempo reale» e «Tracciamento GTT: nessuno» nella scheda. Non entrano nel conteggio delle posizioni realtime.
 

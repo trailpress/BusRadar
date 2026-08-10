@@ -626,7 +626,19 @@ const LATENCY_COMPENSATION_LEAD_SECONDS = 3;
 // stops it was serving, and it changed by a hundred metres between one sample
 // and the next. Both are addressed below, by spending the projection on a route
 // with stops on it and by limiting how fast the correction may change.
-const ASSUMED_UNDECLARED_FEED_DELAY_SECONDS = 35;
+// **Misurato sul feed vero il 2026-08-10.** L'header stava a 15:59:46 e i
+// campioni portavano timestamp fra 15:59:16 e 15:59:37: il feed dichiara quindi
+// 10-30 secondi di età, non i 3 che si erano dedotti da uno screenshot. Con un
+// ritardo osservato dalla strada di 50-60 s, la parte non dichiarata vale una
+// ventina di secondi sopra a quella dichiarata.
+//
+// E si **somma**, non sostituisce. Con un pavimento, un campione che si dichiara
+// già vecchio di 40 s non riceveva alcuna correzione, come se per lui la
+// tubatura fra misura e lettura non esistesse; nel feed reale quei campioni ci
+// sono, fino a cinque minuti. Nel caso tipico i due modelli coincidono — 15+20
+// è 35, il valore tarato dalla strada — quindi questa è una correzione di forma
+// che non sposta la mappa di tutti i giorni.
+const ASSUMED_UNDECLARED_FEED_DELAY_SECONDS = 20;
 
 // A city vehicle does not spend the whole delay moving: it opens its doors.
 // Projecting a bus that is serving a stop straight through it put the marker a
@@ -928,7 +940,7 @@ function compensateFeedLatency(
   }
   // A sample the feed calls fresh is still assumed to carry the undeclared
   // delay, so the age used here never drops below that floor.
-  const effectiveAgeSeconds = Math.max(ageSeconds, ASSUMED_UNDECLARED_FEED_DELAY_SECONDS);
+  const effectiveAgeSeconds = ageSeconds + ASSUMED_UNDECLARED_FEED_DELAY_SECONDS;
   if (effectiveAgeSeconds < 4) {
     recordAdvance(vehicleId, 0);
     return { skipped: 'campione-recente' as const };
@@ -1263,6 +1275,12 @@ function unverifiedScheduledVehicles(observed: Vehicle[]): Vehicle[] {
   }
   if (!peekScheduledRuns() || !scheduledRunsCalendar) return [];
 
+  // Le previsioni non devono mai superare di numero le osservazioni. Con 294
+  // mezzi nel feed e un tetto di 400 corse, la mappa risultava fatta più di
+  // stime che di rilevazioni, ed è così che è stata letta: "corse grigie
+  // ovunque". Sotto una certa soglia il tetto resta quello assoluto, altrimenti
+  // un feed quasi muto non produrrebbe nulla proprio quando serve.
+  const budget = Math.max(120, Math.min(MAX_UNVERIFIED_RUNS, observed.length));
   const coveredLines = new Set(observed.map((vehicle) => vehicle.line));
   const now = new Date();
   const delayByLine = lineDelaysFromTripUpdates(tripUpdatesCache?.updates ?? []);
@@ -1270,7 +1288,7 @@ function unverifiedScheduledVehicles(observed: Vehicle[]): Vehicle[] {
     now,
     scheduledRunsCalendar,
     (line) => !coveredLines.has(line),
-    MAX_UNVERIFIED_RUNS,
+    budget,
     (line) => delayByLine.get(line) ?? 0,
   );
 
