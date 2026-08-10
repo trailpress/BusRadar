@@ -42,6 +42,10 @@ export function stopScheduleBucket(stopId: string) {
 
 let calendarCache: Promise<StopScheduleCalendar | undefined> | undefined;
 const bucketCache = new Map<number, Promise<BucketPayload | undefined>>();
+// Buckets already in memory, reachable without awaiting. The map needs the
+// schedule of hundreds of vehicles on every refresh and cannot wait on the
+// network for any of them: it reads what has arrived and skips the rest.
+const settledBuckets = new Map<number, BucketPayload | undefined>();
 
 export function fetchStopScheduleCalendar() {
   calendarCache ??= fetch(`${import.meta.env.BASE_URL}assets/stop-schedule/calendar.json`)
@@ -55,10 +59,51 @@ function fetchBucket(bucket: number) {
   if (!pending) {
     pending = fetch(`${import.meta.env.BASE_URL}assets/stop-schedule/${bucket}.json`)
       .then((response) => (response.ok ? response.json() as Promise<BucketPayload> : undefined))
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .then((payload) => {
+        settledBuckets.set(bucket, payload);
+        return payload;
+      });
     bucketCache.set(bucket, pending);
   }
   return pending;
+}
+
+// Scheduled calls at a stop, but only if its bucket has already arrived.
+// Returns undefined when the bucket is missing, which the caller reads as "not
+// yet", never as "no service".
+export function peekStopSchedule(stopId: string) {
+  const bucket = settledBuckets.get(stopScheduleBucket(stopId));
+  if (!bucket) return undefined;
+  return (bucket.stops[stopId] ?? []).map(([serviceIndex, routeIndex, seconds]) => {
+    const [routeId, line] = bucket.routes[routeIndex] ?? ['', ''];
+    return { serviceId: bucket.services[serviceIndex] ?? '', routeId, line, seconds };
+  });
+}
+
+export function isStopScheduleLoaded(stopId: string) {
+  return settledBuckets.has(stopScheduleBucket(stopId));
+}
+
+// Warming the buckets the map is actually looking at, a couple at a time. The
+// whole set is 25 MB; fetching it to place markers would undo the very problem
+// the bucketing was built to solve, so the schedule improves the map gradually
+// as the lines being watched settle in, and never in a burst.
+const requestedBuckets = new Set<number>();
+let warmingBuckets = 0;
+const MAX_CONCURRENT_BUCKET_WARMUPS = 2;
+const MAX_WARMED_BUCKETS = 24;
+
+export function requestStopSchedule(stopId: string) {
+  const bucket = stopScheduleBucket(stopId);
+  if (requestedBuckets.has(bucket) || bucketCache.has(bucket)) return;
+  if (warmingBuckets >= MAX_CONCURRENT_BUCKET_WARMUPS) return;
+  if (requestedBuckets.size >= MAX_WARMED_BUCKETS) return;
+  requestedBuckets.add(bucket);
+  warmingBuckets += 1;
+  void fetchBucket(bucket).finally(() => {
+    warmingBuckets -= 1;
+  });
 }
 
 export async function fetchStopSchedule(stopId: string): Promise<{

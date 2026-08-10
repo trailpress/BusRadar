@@ -177,6 +177,22 @@ Il feed non dice quanto è vecchio: i campioni arrivano marcati come appena misu
 
 Il blocco a 50 s non è un caso limite ma il meccanismo stesso: se la proiezione supera la posizione vera, la soglia di marcia indietro in `routeMotion` tiene fermo il marker finché il mezzo reale non lo raggiunge. **Proiettare troppo costa più che proiettare poco.**
 
+#### Gerarchia delle fonti che posizionano un mezzo
+
+**La posizione GPS del feed è sempre l'ancora**, in ogni caso. Quello che cambia è come si copre il minuto che manca fra il campione e adesso, e si prende la prova migliore disponibile:
+
+| ordine | fonte | cosa fornisce | quando si usa |
+| --- | --- | --- | --- |
+| 1 | previsione GTT per quella corsa | l'orario di arrivo alla prossima fermata | quando il TripUpdate porta un orario assoluto |
+| 2 | orario programmato del tratto | quanto dura quel tratto di strada | quando il realtime tace su quella corsa |
+| 3 | velocità recente del mezzo | la media mobile su 60 s | quando nessuna delle due è disponibile |
+
+L'orario programmato contribuisce **solo il passo, mai l'orologio**. Usare gli orari assoluti metterebbe un mezzo in ritardo dove avrebbe dovuto essere; il rapporto fra due orari programmati dice quanto dura il tratto, e un mezzo in ritardo lo percorre più o meno allo stesso passo. Così il ritardo di esercizio si annulla da sé e non serve stimarlo.
+
+Il passo si ricava dai bucket orari già pubblicati, accoppiando ogni partenza dalla fermata precedente con la prima chiamata successiva alla fermata seguente: fra due fermate consecutive la percorrenza è più breve dell'intervallo fra le corse, quindi quella chiamata è della stessa corsa. Le coppie oltre i 15 minuti sono scartate invece che credute.
+
+**I bucket vengono scaldati due alla volta, con un tetto di 24** (`stopSchedule.ts`). L'insieme completo pesa 25 MB: scaricarlo per posizionare i marker disferebbe esattamente il problema che il bucketing ha risolto. L'orario quindi migliora la mappa man mano che le linee guardate si assestano, e mai in un colpo solo. La scheda del mezzo dichiara quale delle tre fonti lo ha posizionato.
+
 #### Il banco di prova
 
 `npm run simulate:latency` mette a confronto le varianti dell'algoritmo su un mezzo urbano in traffico irregolare, con un feed vecchio di un minuto che si dichiara fresco. Esiste perché il feed non è raggiungibile da ogni ambiente, e perché a un autobus vero non si può chiedere di ripetere la stessa manovra due volte.
@@ -190,6 +206,7 @@ Il blocco a 50 s non è un caso limite ma il meccanismo stesso: se la proiezione
 | solo fermate a carico | 86 m | 98 m | 210 s | 18,8 m/s |
 | solo limite alla variazione | 110 m | 87 m | 200 s | 12,6 m/s |
 | limite + fermate, 35 s | 71 m | 116 m | 150 s | 12,0 m/s |
+| passo da orario programmato | 69 m | 115 m | 130 s | 11,5 m/s |
 | **in uso: ancorato alle previsioni, 35 s** | **47 m** | **113 m** | **90 s** | **11,9 m/s** |
 | ancorato, pavimento 45 s | 74 m | 84 m | 130 s | 12,1 m/s |
 | ancorato senza limite alla variazione | 62 m | 70 m | 90 s | 20,5 m/s |
@@ -199,6 +216,8 @@ Tre letture importano più delle altre.
 **Le fermate a carico da sole peggiorano gli scatti** (18,8 m/s): accorciano la proiezione a strappi, man mano che una fermata entra o esce dal tratto proiettato, e servono il limite alla variazione per essere utili.
 
 **L'ancoraggio domina tutto il resto su ogni asse insieme**, ed è l'unico cambiamento che modifica il meccanismo invece dell'ampiezza: le altre varianti estrapolano da una posizione vecchia di un minuto, questa interpola fra due istanti noti. Regge bene anche a previsioni sbagliate: portando l'errore da ±20 s a ±40 s il risultato quasi non si muove (46 m / 115 m). L'ancoraggio **non recupera il ritardo non dichiarato**: l'estremo vicino dell'interpolazione resta il campione vecchio creduto giovane, quindi il pavimento serve ancora.
+
+**L'orario programmato batte la velocità stimata su ogni asse, ma di poco** (69 contro 71, 130 s contro 150). È un ripiego migliore, non un sostituto dell'ancoraggio realtime: vale la pena averlo perché copre le corse di cui il feed tace, non perché cambi la mappa da solo.
 
 **Il pavimento a 45 s è il passo successivo se il ritardo dà più fastidio del sorpasso**: a parità di sorpasso con quanto c'era prima (74 m contro 71 m) toglie un quarto del ritardo. È una scelta fra due difetti, non un miglioramento gratuito, e va fatta guardando la mappa.
 

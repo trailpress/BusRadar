@@ -2,7 +2,7 @@ import type { Vehicle } from '../types';
 import { getGtfsLine, getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopsForRoute, loadGtfsNetwork, type GtfsRouteVariant } from '../data/gtfsNetwork';
 import { recognizedFleetNumber, vehicleFleetKey, vehicleFleetLabel, vehicleLengthClass, vehicleLiveryForVehicle, vehicleTypeForFleetNumber } from '../data/vehicleFleetRules';
 import { bearingDegrees, distanceMeters, interpolatePathState, routeProgressAtPoint } from '../utils/geo';
-import { fetchStopSchedule, type StopScheduleCalendar, type StopScheduleEntry } from './stopSchedule';
+import { fetchStopSchedule, isStopScheduleLoaded, peekStopSchedule, requestStopSchedule, type StopScheduleCalendar, type StopScheduleEntry } from './stopSchedule';
 
 type GttVehiclePosition = {
   entityId?: string | null;
@@ -690,10 +690,65 @@ function anchoredAdvanceMeters(
   return (nearestMeters - traveledMeters) * Math.min(1, Math.max(0, share));
 }
 
+// The timetable knows something neither the position nor the speed can say:
+// how long this particular stretch of street takes. A block through the centre
+// is slower than a boulevard, every day, and GTT has measured it over years of
+// service.
+//
+// What is taken from it is only the pace of the segment, never the clock. The
+// scheduled times of a trip running late would put the marker where the vehicle
+// should have been; the ratio between two scheduled times says how long the
+// segment takes, and a vehicle running late covers it at much the same pace.
+// The position stays the feed's, the timetable only says how fast to close the
+// remaining metres.
+//
+// Only stops whose bucket has already been fetched can answer, so this improves
+// as the lines being watched settle in, and never blocks a refresh.
+const SCHEDULED_PACE_MAX_SEGMENT_SECONDS = 900;
+const scheduledSegmentSeconds = new Map<string, number | undefined>();
+
+function scheduledSegmentPaceSeconds(line: string, fromStopId: string, toStopId: string) {
+  const key = `${line}|${fromStopId}|${toStopId}`;
+  if (scheduledSegmentSeconds.has(key)) return scheduledSegmentSeconds.get(key);
+  if (!isStopScheduleLoaded(fromStopId) || !isStopScheduleLoaded(toStopId)) return undefined;
+
+  // Every service day is taken, not only today's. The question is how long the
+  // segment takes, and that hardly depends on which calendar the trip belongs
+  // to; using them all gives the median far more trips to stand on.
+  const departures = (peekStopSchedule(fromStopId) ?? [])
+    .filter((entry) => entry.line === line)
+    .map((entry) => entry.seconds)
+    .sort((a, b) => a - b);
+  const arrivals = (peekStopSchedule(toStopId) ?? [])
+    .filter((entry) => entry.line === line)
+    .map((entry) => entry.seconds)
+    .sort((a, b) => a - b);
+
+  // Each departure is paired with the first call at the next stop after it.
+  // Between two consecutive stops the run is shorter than the headway, so that
+  // call belongs to the same trip; anything longer is a pairing that failed and
+  // is discarded rather than believed.
+  const runs: number[] = [];
+  for (const departure of departures) {
+    const arrival = arrivals.find((candidate) => candidate > departure);
+    if (arrival == null) continue;
+    const run = arrival - departure;
+    if (run > 0 && run <= SCHEDULED_PACE_MAX_SEGMENT_SECONDS) runs.push(run);
+  }
+
+  runs.sort((a, b) => a - b);
+  const median = runs.length >= 3 ? runs[Math.floor(runs.length / 2)] : undefined;
+  scheduledSegmentSeconds.set(key, median);
+  return median;
+}
+
 // Where the stops of a route sit along its shape, in metres from the start.
 // Computed once per variant: the projection needs it on every sample.
 const routeStopDistances = new Map<string, number[]>();
 const routeStopDistancesByStopId = new Map<string, Map<string, number[]>>();
+// The same stops in order along the shape, so the pair the vehicle sits between
+// can be found from its position alone.
+const routeStopsInOrder = new Map<string, Array<{ stopId: string; meters: number }>>();
 // How far ahead of the feed each vehicle is currently being drawn.
 const publishedAdvances = new Map<string, { meters: number; atMs: number }>();
 
@@ -708,6 +763,7 @@ function stopDistancesAlongRoute(routeVariant: GtfsRouteVariant) {
   const path = routeVariant.path;
   const distances: number[] = [];
   const byStopId = new Map<string, number[]>();
+  const inOrder: Array<{ stopId: string; meters: number }> = [];
   if (path.length >= 2) {
     const metersPerDegreeLat = 111320;
     const metersPerDegreeLon = 111320 * Math.cos((path[0].lat * Math.PI) / 180);
@@ -740,14 +796,17 @@ function stopDistancesAlongRoute(routeVariant: GtfsRouteVariant) {
       // charging a dwell for it would slow the projection for no reason.
       if (bestOffRouteSquared > 120 * 120) continue;
       distances.push(bestMeters);
+      inOrder.push({ stopId: stop.id, meters: bestMeters });
       const occurrences = byStopId.get(stop.id);
       if (occurrences) occurrences.push(bestMeters);
       else byStopId.set(stop.id, [bestMeters]);
     }
     distances.sort((a, b) => a - b);
+    inOrder.sort((a, b) => a.meters - b.meters);
     for (const occurrences of byStopId.values()) occurrences.sort((a, b) => a - b);
   }
   routeStopDistancesByStopId.set(routeVariant.id, byStopId);
+  routeStopsInOrder.set(routeVariant.id, inOrder);
 
   routeStopDistances.set(routeVariant.id, distances);
   return distances;
@@ -756,6 +815,45 @@ function stopDistancesAlongRoute(routeVariant: GtfsRouteVariant) {
 function stopDistancesByStopId(routeVariant: GtfsRouteVariant) {
   if (!routeStopDistancesByStopId.has(routeVariant.id)) stopDistancesAlongRoute(routeVariant);
   return routeStopDistancesByStopId.get(routeVariant.id) ?? new Map<string, number[]>();
+}
+
+function stopsInOrderAlongRoute(routeVariant: GtfsRouteVariant) {
+  if (!routeStopsInOrder.has(routeVariant.id)) stopDistancesAlongRoute(routeVariant);
+  return routeStopsInOrder.get(routeVariant.id) ?? [];
+}
+
+// The timetable's answer, for the trips the realtime feed says nothing about.
+// The vehicle sits between two stops; the schedule says how long that stretch
+// takes; the remaining metres are covered at that pace. No absolute scheduled
+// time is used, so a trip running ten minutes late is placed just as well as
+// one on time.
+function scheduledPaceAdvanceMeters(
+  routeVariant: GtfsRouteVariant,
+  traveledMeters: number,
+  ageSeconds: number,
+) {
+  const ordered = stopsInOrderAlongRoute(routeVariant);
+  if (ordered.length < 2) return undefined;
+
+  const nextIndex = ordered.findIndex((stop) => stop.meters > traveledMeters + 5);
+  if (nextIndex <= 0) return undefined;
+  const previous = ordered[nextIndex - 1];
+  const next = ordered[nextIndex];
+
+  // Ask for the buckets even when they are not here yet: the answer arrives for
+  // the next refresh, and the request is rationed inside stopSchedule.
+  requestStopSchedule(previous.stopId);
+  requestStopSchedule(next.stopId);
+
+  const segmentMeters = next.meters - previous.meters;
+  if (segmentMeters <= 0) return undefined;
+  const segmentSeconds = scheduledSegmentPaceSeconds(routeVariant.line, previous.stopId, next.stopId);
+  if (!segmentSeconds) return undefined;
+
+  const remainingMeters = next.meters - traveledMeters;
+  const remainingSeconds = segmentSeconds * (remainingMeters / segmentMeters);
+  if (remainingSeconds <= 0) return undefined;
+  return remainingMeters * Math.min(1, ageSeconds / remainingSeconds);
 }
 
 // Walk the route forward for the seconds being recovered, stopping the clock at
@@ -853,9 +951,15 @@ function compensateFeedLatency(
     Date.now() - effectiveAgeSeconds * 1000,
     tripUpdate,
   );
+  // Order of preference, best evidence first: what GTT announces for this trip,
+  // then what the timetable says this segment takes, then the vehicle's own
+  // recent pace. The GPS position anchors all three.
+  const scheduledMeters = anchoredMeters == null
+    ? scheduledPaceAdvanceMeters(routeVariant, progress.traveledMeters, effectiveAgeSeconds)
+    : undefined;
   const targetMeters = Math.min(
     MAX_LATENCY_COMPENSATION_METERS,
-    anchoredMeters ?? projectedMeters,
+    anchoredMeters ?? scheduledMeters ?? projectedMeters,
     // Dead reckoning may not push a vehicle past its own terminus.
     Math.max(0, progress.remainingMeters - 5),
   );
@@ -892,7 +996,11 @@ function compensateFeedLatency(
         // Report the delay actually recovered, which after the stops and the
         // rate limit is not the delay we set out to recover.
         seconds: Math.round(advanceMeters / speedMetersPerSecond),
-        anchored: anchoredMeters != null,
+        source: anchoredMeters != null
+          ? ('previsione' as const)
+          : scheduledMeters != null
+            ? ('orario' as const)
+            : ('velocita' as const),
       }
     : { skipped: 'percorso-assente' as const };
 }
@@ -1024,7 +1132,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttT
     latencyCompensationMeters: latencyCompensation?.meters,
     latencyCompensationSeconds: latencyCompensation?.seconds,
     latencyCompensationSkipped: 'skipped' in latencyOutcome ? latencyOutcome.skipped : undefined,
-    latencyCompensationAnchored: latencyCompensation?.anchored,
+    latencyCompensationSource: latencyCompensation?.source,
     vehicleLivery,
     vehicleLengthClass: lengthClass,
     vehicleFleetLabel: fleetNumber
