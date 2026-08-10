@@ -120,7 +120,10 @@ const latencySkipReason: Record<NonNullable<Vehicle['latencyCompensationSkipped'
 
 function latencyText(vehicle: Vehicle) {
   if (vehicle.source === 'scheduled') {
-    return 'Corsa non accertata: posizione stimata dall\u2019orario programmato, nessun dato in tempo reale';
+    // La direzione dell'errore è l'informazione più utile davanti a un pallino
+    // grigio: chi guarda deve sapere da che parte cercare il mezzo vero.
+    return 'Corsa non accertata: posizione prevista dall\u2019orario, nessun dato in tempo reale. '
+      + 'Un mezzo in ritardo si trova indietro rispetto a questo punto.';
   }
   if (vehicle.latencyCompensationMeters != null) {
     const seconds = vehicle.latencyCompensationSeconds;
