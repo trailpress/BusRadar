@@ -264,6 +264,9 @@ Se le costanti in `gttRealtime.ts` cambiano, vanno riallineate anche nello scrip
 | soglia marcia indietro in `routeMotion` | −10 m | sotto questa soglia il progresso resta fermo invece di tornare indietro |
 | throttle di rendering | 33 ms | circa 30 fps per la sorgente dei mezzi |
 | `ARROW_OFFSET_EMS` | 1,24 | distanza della freccia dal badge, in em |
+| `BEARING_BASELINE_METERS` (`utils/geo.ts`) | 40 m | la direzione si misura fra il punto 40 m indietro e quello 40 m avanti, **non sul segmento corrente**. Le shape GTT cambiano direzione di 20° in media fra segmenti consecutivi, e di oltre 60° in un caso su otto: presa dal singolo segmento la freccia scattava a ogni vertice. Con la base, gli scatti oltre 45° spariscono e il 99° percentile scende da 59° a 14° |
+
+**Le misure di una shape stanno in cache accanto all'oggetto** (`measurePath`). `interpolatePathState` e `routeProgressAtPoint` girano per ogni mezzo a ogni fotogramma: rimisurare i segmenti trenta volte al secondo per trecento marker porta un fotogramma a 155 ms, cioè a uno scatto visibile.
 
 **Regola pratica.** Se i mezzi sembrano accelerare in modo innaturale, il problema è quasi sempre nella durata del playback, non nella compensazione. Se sembrano andare all'indietro, guarda prima l'aggancio alla shape e poi la compensazione. Se la freccia confonde, guarda `hasReliableHeading` e l'offset.
 
