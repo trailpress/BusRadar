@@ -32,7 +32,14 @@ export type ScheduledRun = {
   /** Da quanti secondi è partita: serve a distinguere due corse della stessa linea. */
   departureSeconds: number;
   serviceDayOffsetSeconds: number;
+  /** Il passo che l'orario dà al tratto in cui si trova adesso. */
+  speedKmh: number;
 };
+
+// Una linea molto frequente ha decine di corse in strada insieme e da sola
+// esaurirebbe il budget, lasciando senza nulla tutte le altre. Il tetto per
+// variante distribuisce quello che c'è.
+const MAX_RUNS_PER_VARIANT = 12;
 
 let payloadPromise: Promise<ScheduledRunsPayload | undefined> | undefined;
 
@@ -74,7 +81,7 @@ function serviceRunsOn(serviceId: string | undefined, calendar: StopScheduleCale
   return dayKey >= service.startDate && dayKey <= service.endDate && service.days[date.getDay()] === 1;
 }
 
-function metersAtElapsed(anchors: Array<[number, number]>, elapsedSeconds: number) {
+function stateAtElapsed(anchors: Array<[number, number]>, elapsedSeconds: number) {
   if (elapsedSeconds < 0) return undefined;
   const last = anchors[anchors.length - 1];
   if (elapsedSeconds > last[1]) return undefined;
@@ -85,10 +92,15 @@ function metersAtElapsed(anchors: Array<[number, number]>, elapsedSeconds: numbe
     if (elapsedSeconds <= seconds) {
       const span = seconds - previousSeconds;
       const share = span > 0 ? (elapsedSeconds - previousSeconds) / span : 0;
-      return previousMeters + (meters - previousMeters) * share;
+      return {
+        meters: previousMeters + (meters - previousMeters) * share,
+        // Il passo del tratto, non zero: una corsa disegnata ferma mentre
+        // avanza si legge come un guasto invece che come una previsione.
+        speedKmh: span > 0 ? ((meters - previousMeters) / span) * 3.6 : 0,
+      };
     }
   }
-  return last[0];
+  return { meters: last[0], speedKmh: 0 };
 }
 
 /**
@@ -115,8 +127,9 @@ export function scheduledRunsInProgress(
     if (runs.length >= limit) break;
     if (!isLineUncovered(variant.line)) continue;
 
+    let fromThisVariant = 0;
     for (const [serviceIndex, departureSeconds] of variant.runs) {
-      if (runs.length >= limit) break;
+      if (runs.length >= limit || fromThisVariant >= MAX_RUNS_PER_VARIANT) break;
       const serviceId = payload.services[serviceIndex];
 
       // Due letture della stessa partenza: come corsa di oggi, e come corsa di
@@ -125,15 +138,17 @@ export function scheduledRunsInProgress(
         const date = dayOffset === 0 ? now : yesterday;
         if (!serviceRunsOn(serviceId, calendar, date)) continue;
         const elapsed = secondsToday + dayOffset - departureSeconds;
-        const meters = metersAtElapsed(variant.anchors, elapsed);
-        if (meters == null) continue;
+        const state = stateAtElapsed(variant.anchors, elapsed);
+        if (!state) continue;
         runs.push({
           routeVariantId: variant.id,
           line: variant.line,
-          meters,
+          meters: state.meters,
           departureSeconds,
           serviceDayOffsetSeconds: dayOffset,
+          speedKmh: Math.round(state.speedKmh),
         });
+        fromThisVariant += 1;
         break;
       }
     }

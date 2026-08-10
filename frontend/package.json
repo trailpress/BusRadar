@@ -10,6 +10,7 @@
     "verify:routes": "node scripts/verify-gtfs-routes.mjs",
     "preview": "vite preview",
     "realtime:spike": "node scripts/realtime-spike.mjs",
+    "smoke:map": "node scripts/smoke-map.mjs",
     "simulate:latency": "node scripts/simulate-latency.mjs",
     "gtfs:generate": "node scripts/generate-gtfs-network.mjs",
     "gtfs:runs": "node scripts/generate-scheduled-runs.mjs",
