@@ -138,6 +138,8 @@ function latencyText(vehicle: Vehicle) {
       'nessun-aggiornamento': 'nessuna previsione per questo mezzo',
       'previsioni-senza-orario': 'previsioni senza orario futuro',
       'fermate-non-riconosciute': 'fermate previste non sul percorso',
+      'previsioni-senza-ritardo': 'previsioni senza orario né ritardo',
+      'orari-non-caricati': 'orario della prossima fermata non ancora caricato',
     };
     const miss = vehicle.latencyAnchorMiss ? ` · previsione non usata: ${missReason[vehicle.latencyAnchorMiss]}` : '';
     return `Recupero ritardo feed: ${vehicle.latencyCompensationMeters} m avanti${seconds != null ? ` · ${seconds} s recuperati` : ''} · ${source}${miss}`;

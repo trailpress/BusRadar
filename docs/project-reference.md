@@ -233,11 +233,15 @@ Prima che la rete sia caricata vale un ripiego largo quanto il Piemonte, il cui 
 
 | ordine | fonte | cosa fornisce | quando si usa |
 | --- | --- | --- | --- |
-| 1 | previsione GTT per quella corsa | l'orario di arrivo alla prossima fermata | quando il TripUpdate porta un orario assoluto |
+| 1 | previsione GTT per quella corsa | l'orario di arrivo alla prossima fermata | quando il TripUpdate porta un orario assoluto **oppure un ritardo**: nel feed GTT gli orari assoluti non arrivano, ma il ritardo sì, e sommato all'orario programmato ricostruisce l'orario mancante |
 | 2 | orario programmato del tratto | quanto dura quel tratto di strada | quando il realtime tace su quella corsa |
 | 3 | velocità recente del mezzo | la media mobile su 60 s | quando nessuna delle due è disponibile |
 
-L'orario programmato contribuisce **solo il passo, mai l'orologio**. Usare gli orari assoluti metterebbe un mezzo in ritardo dove avrebbe dovuto essere; il rapporto fra due orari programmati dice quanto dura il tratto, e un mezzo in ritardo lo percorre più o meno allo stesso passo. Così il ritardo di esercizio si annulla da sé e non serve stimarlo.
+**Come si aggancia una previsione a un mezzo, e cosa manca nel feed.** Il `tripId` dei veicoli è vuoto su tutti, quindi l'aggancio avviene per matricola — e funziona: la scheda lo ha confermato, riportando «previsioni senza orario futuro» invece di «nessuna previsione». Quello che manca sono gli **orari assoluti**: GTT manda solo lo scarto rispetto al programmato. L'orario si ricostruisce quindi sommando il ritardo dichiarato all'orario programmato della prossima fermata, scegliendo fra le corse della linea la prima che, applicato il ritardo, deve ancora arrivare — l'intervallo fra corse è molto più lungo dell'incertezza sul ritardo, quindi è quella giusta.
+
+Se anche il ritardo mancasse, la scheda lo direbbe («previsioni senza orario né ritardo»): la diagnosi resta leggibile invece di degradare in silenzio.
+
+L'orario programmato contribuisce **solo il passo, mai l'orologio** quando si tratta della stima di ripiego. Usare gli orari assoluti metterebbe un mezzo in ritardo dove avrebbe dovuto essere; il rapporto fra due orari programmati dice quanto dura il tratto, e un mezzo in ritardo lo percorre più o meno allo stesso passo. Così il ritardo di esercizio si annulla da sé e non serve stimarlo.
 
 Il passo si ricava dai bucket orari già pubblicati, accoppiando ogni partenza dalla fermata precedente con la prima chiamata successiva alla fermata seguente: fra due fermate consecutive la percorrenza è più breve dell'intervallo fra le corse, quindi quella chiamata è della stessa corsa. Le coppie oltre i 15 minuti sono scartate invece che credute.
 
