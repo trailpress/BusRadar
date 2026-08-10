@@ -1,7 +1,10 @@
 export type VehicleType = 'bus' | 'tram';
 export type VehicleLengthClass = 'standard' | 'articulated-18m';
 export type VehicleLivery = 'urban' | 'interurban-blue' | 'electric-compact';
-export type VehicleSource = 'simulation' | 'gtfs-rt';
+// 'scheduled' non è un mezzo osservato: è una corsa che l'orario dice in strada
+// mentre il realtime tace sulla sua linea. Ovunque compaia va dichiarata non
+// accertata, mai mescolata ai mezzi tracciati.
+export type VehicleSource = 'simulation' | 'gtfs-rt' | 'scheduled';
 export type VehicleStatus = 'moving' | 'stopped' | 'unknown';
 export type VehicleFleetKey =
   | 'tram-serie-2800'

@@ -92,7 +92,12 @@ export function isStopScheduleLoaded(stopId: string) {
 const requestedBuckets = new Set<number>();
 let warmingBuckets = 0;
 const MAX_CONCURRENT_BUCKET_WARMUPS = 2;
-const MAX_WARMED_BUCKETS = 24;
+// Alzato da 24. L'insieme completo è 24 MB su 256 bucket, circa 94 kB l'uno:
+// questo tetto ne concede poco meno di un terzo, e solo per le fermate che i
+// mezzi guardati stanno realmente avvicinando. Resta un tetto perché la mappa
+// si usa in mobilità, e perché scaricare tutto per posizionare dei marker era
+// esattamente il difetto che il bucketing ha corretto.
+const MAX_WARMED_BUCKETS = 80;
 
 export function requestStopSchedule(stopId: string) {
   const bucket = stopScheduleBucket(stopId);

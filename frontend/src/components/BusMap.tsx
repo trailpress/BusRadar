@@ -286,6 +286,9 @@ function vehicleKind(vehicle: Vehicle) {
 }
 
 function trackingLabel(vehicle: Vehicle) {
+  // Detto per primo, perché cambia il senso di tutto il resto: qui non c'è
+  // nessun mezzo rilevato, solo una corsa che l'orario prevede.
+  if (vehicle.source === 'scheduled') return 'corsa non accertata · da orario';
   if (vehicle.routeMatchStatus === 'on-route') return 'su percorso GTFS';
   if (vehicle.routeMatchStatus === 'gps-only') return 'GPS reale, fuori shape';
   return 'GPS reale';
@@ -496,6 +499,9 @@ function vehiclesToGeoJson(
           selected,
           isArticulated: vehicle.vehicleLengthClass === 'articulated-18m',
           isTram: vehicle.vehicleType === 'tram',
+          // Una corsa non accertata viene dall'orario, non dal feed. Va vista
+          // come tale a colpo d'occhio, senza aprire nulla.
+          unverified: vehicle.source === 'scheduled',
         },
       };
     }),
@@ -833,9 +839,12 @@ function installTransitLayers(map: maplibregl.Map) {
         20,
         ['case', ['get', 'selected'], 10, 7],
       ],
-      'circle-color': ['get', 'color'],
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': ['case', ['get', 'selected'], 2.4, 1.6],
+      // Una corsa non accertata porta il colore della linea sbiadito verso il
+      // grigio e un bordo che non è bianco pieno: si legge come "previsto",
+      // non come "rilevato", prima ancora di toccarla.
+      'circle-color': ['case', ['get', 'unverified'], '#8a8f98', ['get', 'color']],
+      'circle-stroke-color': ['case', ['get', 'unverified'], '#d7dae0', '#ffffff'],
+      'circle-stroke-width': ['case', ['get', 'selected'], 2.4, ['case', ['get', 'unverified'], 1.1, 1.6]],
       'circle-opacity': [
         'interpolate',
         ['linear'],
@@ -939,7 +948,13 @@ function installTransitLayers(map: maplibregl.Map) {
       'icon-allow-overlap': true,
       'icon-ignore-placement': true,
     },
-    paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 14.25, 0.82, 14.8, 1] },
+    paint: {
+      'icon-opacity': [
+        '*',
+        ['interpolate', ['linear'], ['zoom'], 14.25, 0.82, 14.8, 1],
+        ['case', ['get', 'unverified'], 0.45, 1],
+      ],
+    },
   });
 
   map.addLayer({

@@ -119,6 +119,9 @@ const latencySkipReason: Record<NonNullable<Vehicle['latencyCompensationSkipped'
 };
 
 function latencyText(vehicle: Vehicle) {
+  if (vehicle.source === 'scheduled') {
+    return 'Corsa non accertata: posizione stimata dall\u2019orario programmato, nessun dato in tempo reale';
+  }
   if (vehicle.latencyCompensationMeters != null) {
     const seconds = vehicle.latencyCompensationSeconds;
     // Quale delle due stime ha posizionato il mezzo: l'interpolazione verso la
@@ -135,6 +138,11 @@ function latencyText(vehicle: Vehicle) {
 }
 
 function routeTrackingText(vehicle: Vehicle) {
+  // Il primo controllo, non l'ultimo: dire "posizione agganciata al percorso"
+  // di una corsa mai osservata sarebbe vero e ingannevole insieme.
+  if (vehicle.source === 'scheduled') {
+    return 'Tracciamento GTT: nessuno \u2014 la linea non risulta nel feed in tempo reale';
+  }
   if (vehicle.routeMatchStatus === 'on-route') return 'Tracciamento GTT: posizione agganciata al percorso';
   if (vehicle.routeMatchStatus === 'gps-only') {
     const distance = vehicle.offRouteMeters != null ? ` · scarto shape ${vehicle.offRouteMeters} m` : '';
