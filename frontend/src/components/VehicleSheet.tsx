@@ -113,7 +113,9 @@ function sampleAgeText(vehicle: Vehicle) {
 
 const latencySkipReason: Record<NonNullable<Vehicle['latencyCompensationSkipped']>, string> = {
   'non-agganciato': 'non applicata: mezzo fuori dal tracciato',
-  'troppo-lento': 'non applicata: mezzo fermo o troppo lento',
+  'mezzo-fermo': 'non applicata: mezzo fermo, misurato',
+  'nessuna-stima': 'non applicata: né previsione né velocità misurabile',
+  'gia-in-posizione': 'non necessaria: mezzo già alla posizione prevista',
   'campione-recente': 'non necessaria: campione recente',
   'percorso-assente': 'non applicata: percorso non disponibile',
 };

@@ -6,18 +6,18 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 
 ---
 
-## Ultimo aggiornamento: 2026-08-09 · sessione Claude Code
+## Ultimo aggiornamento: 2026-08-10 · sessione Claude Code
 
 ### Stato al momento della consegna
 
 | | |
 | --- | --- |
-| pull request aperte | **nessuna** |
-| ultimo merge in `main` | PR #16 |
-| ramo `claude/tandem-codex-workflow-v1nntw` | interamente unito, libero |
-| deploy | pubblicato da `main` dopo il merge |
+| pull request aperte | **una**, il turno descritto qui sotto |
+| ultimo merge in `main` | PR #31 |
+| ramo `claude/tandem-codex-workflow-v1nntw` | in uso da questa sessione |
+| deploy | pubblicato da `main` fino a PR #31 compresa |
 
-Non c'è lavoro in sospeso e nessun ramo da evitare. Chi riprende parte da `main` aggiornato con un ramo nuovo del proprio prefisso.
+Chi riprende parte da `main` aggiornato con un ramo nuovo del proprio prefisso, dopo aver controllato se la pull request di cui sopra è stata unita.
 
 ### Cosa è cambiato in questo turno
 
@@ -53,7 +53,13 @@ Soprattutto: **l'età del campione si misura dal timestamp del veicolo con ricad
 
 **Identificazione della flotta.** Il tipo del mezzo lo decide la matricola quando è inequivocabile, con la linea come ripiego: un bus che sostituisce un tram non diventa più un tram inesistente, e la scheda dichiara la sostituzione.
 
-**Render della flotta.** Da PNG 2048px a WebP 1280px: 74,5 → 1,9 MB, rimossi 115,4 MB di versioni superate. Il render della serie 5000 è stato **rigenerato**: il precedente aveva bordi frastagliati già nella sorgente, nascosti finché il fondo era bianco.
+**Render della flotta.** Da PNG 2048px a WebP 1280px: 74,5 → 1,9 MB, rimossi 115,4 MB di versioni superate.
+
+**Il render della serie 5000 è stato ritirato perché era inventato.** Chi vede quelle vetture ogni giorno lo ha riconosciuto come non realistico. Era nato da una descrizione a parole («frontale squadrato come la 5014») e rifinito due volte — l'alpha, i bordi — senza che nessuno lo confrontasse con una fotografia della serie: **una descrizione plausibile non è una verifica, e tre iterazioni sul file non la sostituiscono**. Ora la scheda mostra il pannello «Render 3D da produrre» con le specifiche della scheda ufficiale M4, che sono verificate. Non rigenerarlo senza una fotografia reale come reference. Lo stesso sospetto vale per gli altri render nati solo da prompt descrittivi.
+
+**La velocità del mezzo serviva solo alla terza stima, ma le sbarrava tutte e tre.** Il cancello a 1,5 km/h stava prima dell'ancoraggio: un mezzo non ancora misurabile perdeva anche la previsione GTT, che è il dato migliore che abbiamo. Ora l'ordine è invertito. Insieme a questo, **fermo e non misurabile sono stati separati**: se una misura recente dice che il mezzo non si è mosso, nessun orario lo spinge avanti — è l'osservazione che vince, ed era questo a far scivolare il marker sempre più avanti del mezzo vero. La scheda distingue i due casi a parole, e `npm run smoke:map --feed-fermo` verifica che li distingua davvero.
+
+**Un'opacità che dipende dalla feature costa un layer.** Le corse non accertate erano sbiadite moltiplicando l'interpolazione sullo zoom per uno sconto letto dalla feature: MapLibre rifiuta `['zoom']` dentro una moltiplicazione, quindi la proprietà era **invalida** e la dissolvenza spariva senza che si vedesse altro che un errore in console. Riscritta in forma valida diventava un attributo per feature e portava il fotogramma più lungo **da 17 a 128 ms**. La forma che regge è due layer separati da un filtro, ciascuno con opacità costante.
 
 ### Convenzioni introdotte, da rispettare
 
@@ -61,6 +67,8 @@ Soprattutto: **l'età del campione si misura dal timestamp del veicolo con ricad
 - **Il prompt dei render vive nel catalogo**, non nel workflow. Se un render non va bene si corregge `renderPrompt` in `gttFleetCatalog.ts` e si rigenera; non si ritocca il file, la rigenerazione perderebbe la correzione.
 - **I render stanno entro 400 kB e devono essere referenziati.** `npm run verify:assets` fallisce altrimenti.
 - **`generic-tram` resta senza render di proposito.** Se le matricole che ci finiscono appartengono a una serie reale, si aggiunge la serie in `vehicleFleetRules.ts`.
+- **La serie 5000 resta senza render finché non c'è una fotografia reale.** Rigenerarlo dal prompt riprodurrebbe l'invenzione: il prompt è stato svuotato apposta.
+- **Un nuovo layer di mezzi va aggiunto anche a `vehicleLayers`** in `BusMap.tsx`, o non risponde a click e hover.
 - **Il percorso di un render è scritto in due file**: `gttFleetCatalog.ts` e `vehicleFleet.ts`. L'interfaccia legge il secondo. Spostarne uno solo significa dichiarare validato un render che l'app non mostra.
 - **Sostituendo il contenuto di un asset, cambiare anche il nome del file.** `public/` viene servito a URL stabile, senza hash: a parità di nome la cache continua a restituire la versione vecchia.
 - **Un render che arriva con canale alpha va appiattito sul fondo studio**, non lasciato passare e non appiattito sul bianco. Lo script di generazione ora lo fa da sé.

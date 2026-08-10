@@ -64,7 +64,13 @@ export type TransitVehicle = {
   // a lag reported on the map can be read off instead of guessed at.
   latencyCompensationMeters?: number;
   latencyCompensationSeconds?: number;
-  latencyCompensationSkipped?: 'non-agganciato' | 'troppo-lento' | 'campione-recente' | 'percorso-assente';
+  latencyCompensationSkipped?:
+    | 'non-agganciato'
+    | 'mezzo-fermo'
+    | 'nessuna-stima'
+    | 'gia-in-posizione'
+    | 'campione-recente'
+    | 'percorso-assente';
   // Which evidence placed the vehicle: the arrival GTT announces for this trip,
   // the pace the timetable gives this segment, or its own recent speed.
   latencyCompensationSource?: 'previsione' | 'orario' | 'velocita';
