@@ -185,6 +185,10 @@ Quando il feed realtime tace su un'intera linea, le sue corse vengono disegnate 
 
 **Vengono calcolate prima di arrendersi a un feed vuoto.** Calcolarle dopo le rendeva inerti proprio nel caso per cui esistono: a feed muto si usciva dalla cache o senza nulla, e la mappa restava con i tracciati e nessun mezzo sopra. Non finiscono invece nella cache dello snapshot: una posizione prevista vale per l'istante in cui è stata calcolata, e ripescarla cinque minuti dopo sarebbe falsa.
 
+**Ogni partenza appartiene a una variante sola.** Gli orari per fermata non dicono a quale: al capolinea si legge solo «la linea 1510 parte alle 8:12». Preso alla lettera, ogni ramo che condivide quel capolinea rivendicava tutte le partenze della linea — su 485 partenze della 1510, **387 finivano a più varianti** — e la mappa mostrava cinque corse ammassate in cento metri. Il generatore assegna quindi ogni partenza al ramo più completo: è una convenzione dichiarata, non una verità ricavata dai dati, ed è una delle ragioni per cui queste corse restano «non accertate».
+
+A valle resta una garanzia indipendente: **due corse della stessa linea non vengono mai disegnate a meno di 250 m l'una dall'altra.** Due calendari attivi nello stesso giorno possono ancora descrivere la stessa corsa due volte, e un ammasso di pallini identici sulla stessa strada è indistinguibile da un errore.
+
 Il budget è distribuito: al massimo 12 corse per variante entro un tetto di 400. Senza il limite per variante una sola linea ad alta frequenza esauriva il budget e lasciava tutte le altre senza nulla.
 
 Sono riconoscibili senza aprirle: pallino grigio con bordo tenue invece del colore di linea, sprite al 45% di opacità, e in tre punti dell'interfaccia la dicitura esplicita — «corsa non accertata · da orario» sulla mappa, «Corsa non accertata: posizione stimata dall'orario programmato, nessun dato in tempo reale» e «Tracciamento GTT: nessuno» nella scheda. Non entrano nel conteggio delle posizioni realtime.
