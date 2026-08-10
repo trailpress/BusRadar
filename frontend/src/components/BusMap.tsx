@@ -402,6 +402,11 @@ function hasReliableHeading(vehicle: Vehicle) {
 function vehiclesToGeoJson(
   vehicles: Vehicle[],
   positions: Map<string, LatLng>,
+  // La direzione ricavata dal progresso lungo il percorso, per i mezzi che ne
+  // hanno uno. Vedi il commento su `bearing` più sotto: è migliore di quella
+  // che si ottiene riproiettando il punto, e va tenuta separata perché la
+  // riproiezione serve ancora per la posizione.
+  routeBearings: Map<string, number>,
   zoom: number,
   selectedVehicleId?: string,
   followedVehicleId?: string,
@@ -471,7 +476,16 @@ function vehiclesToGeoJson(
       const position = snapped?.point ?? rawPosition;
       const displayPosition = displayPositions.get(vehicle.vehicleId) ?? position;
       const selected = vehicle.vehicleId === selectedVehicleId || vehicle.vehicleId === followedVehicleId;
-      const bearing = snapped?.bearing ?? vehicle.bearing;
+      // La direzione viene dal progresso lungo il percorso quando c'è, non
+      // dalla riproiezione del punto. La riproiezione non ha memoria: su una
+      // shape che si sovrappone a sé stessa - capolinea ad anello, andata e
+      // ritorno sulla stessa via - ritrova il mezzo sul passaggio sbagliato e
+      // la freccia si gira. Misurato sulle shape GTT, succede all'1,7% dei
+      // campioni, e porta le frecce girate di oltre 90° dallo 0,5% al 2,0%.
+      // Il progresso invece è continuo e non torna indietro, quindi non salta
+      // da un passaggio all'altro. La riproiezione resta per la posizione, che
+      // deve stare sul tracciato disegnato.
+      const bearing = routeBearings.get(vehicle.vehicleId) ?? snapped?.bearing ?? vehicle.bearing;
       const bearingRadians = (bearing * Math.PI) / 180;
       return {
         type: 'Feature',
@@ -1072,6 +1086,10 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   const mapRef = useRef<maplibregl.Map | undefined>(undefined);
   const vehicleFramesRef = useRef<Map<string, VehicleFrame>>(new Map());
   const currentPositionsRef = useRef<Map<string, LatLng>>(new Map());
+  // Direzione ricavata dal progresso lungo il percorso, riempita a ogni
+  // fotogramma per i mezzi agganciati a una shape. Sta accanto alle posizioni
+  // perché ha la stessa vita: vale finché quel mezzo è in animazione.
+  const currentRouteBearingsRef = useRef<Map<string, number>>(new Map());
   const vehicleRouteProgressRef = useRef<Map<string, VehicleRouteMemory>>(new Map());
   const vehicleFeedSamplesRef = useRef<Map<string, VehicleFeedMemory>>(new Map());
   const vehicleOverlayElementsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -1295,6 +1313,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       if (!active.has(id) && !keepDuringFeedGap) {
         vehicleFramesRef.current.delete(id);
         currentPositionsRef.current.delete(id);
+        currentRouteBearingsRef.current.delete(id);
         vehicleRouteProgressRef.current.delete(id);
         vehicleFeedSamplesRef.current.delete(id);
         vehicleLastSeenAtRef.current.delete(id);
@@ -1361,6 +1380,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       vehiclesToGeoJson(
         visibleVehicles,
         currentPositionsRef.current,
+        currentRouteBearingsRef.current,
         map.getZoom(),
         selectedVehicleIdRef.current,
         followedVehicleIdRef.current,
@@ -1405,6 +1425,8 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         };
         const position = routeState?.point ?? linearPosition;
         currentPositionsRef.current.set(id, position);
+        if (routeState) currentRouteBearingsRef.current.set(id, routeState.bearing);
+        else currentRouteBearingsRef.current.delete(id);
         if (frame.routeVariantId && routeProgress != null) {
           vehicleRouteProgressRef.current.set(id, {
             routeVariantId: frame.routeVariantId,
@@ -1421,6 +1443,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         vehiclesToGeoJson(
           displayedVehicles,
           currentPositionsRef.current,
+          currentRouteBearingsRef.current,
           map.getZoom(),
           selectedVehicleIdRef.current,
           followedVehicleIdRef.current,

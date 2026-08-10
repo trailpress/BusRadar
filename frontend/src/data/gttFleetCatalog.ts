@@ -379,8 +379,9 @@ export const GTT_FLEET_CATALOG: GttFleetCluster[] = [
     length: '22 m',
     traction: 'electric',
     livery: 'GTT grigio/blu/giallo.',
-    assetStatus: 'needs-reference-render',
-    sourceNotes: 'Render ritirato il 2026-08-10: chi vede queste vetture ogni giorno lo ha riconosciuto come inventato. Era stato generato descrivendo a parole un frontale squadrato "come la 5014" senza mai confrontarlo con una fotografia della serie, e una descrizione plausibile non è una verifica. Restano le specifiche della scheda ufficiale M4 (22.200 mm, 2 casse, 3 carrelli, 1989-1992), che sono verificate. Non rigenerare il render finché non c\'è una fotografia reale della serie 5000 come reference.',
+    asset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v6.webp',
+    assetStatus: 'validated-render',
+    sourceNotes: 'Immagine della vettura 5014 riconosciuta come realistica dall\'utente il 2026-08-10, dopo che la versione rigenerata da prompt era stata riconosciuta come inventata e ritirata. Le due si distinguono a colpo d\'occhio: questa porta i dettagli che solo una vettura vera ha - matricola 5014, linea 15 sul rullo, marchi TORINO 2006 e STT, interni della cabina - mentre quella generata era pulita e senza. **Non rigenerare da prompt**: `renderPrompt` è vuoto di proposito, ed è per questo. Se il file va rilavorato, si parte da questa immagine. Da verificare, se il progetto diventa pubblico: la provenienza dell\'immagine originale, che ha tutta l\'aria di essere una fotografia scontornata.',
     renderPrompt: '',
   },
   {
