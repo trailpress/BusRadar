@@ -1,4 +1,4 @@
-import maplibregl, { type GeoJSONSource, type LngLatBoundsLike, type MapMouseEvent } from 'maplibre-gl';
+import maplibregl, { type GeoJSONSource, type LngLatBoundsLike, type MapMouseEvent, type SymbolLayerSpecification } from 'maplibre-gl';
 import { LocateFixed, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -921,39 +921,58 @@ function installTransitLayers(map: maplibregl.Map) {
     },
   });
 
+  // Le corse non accertate vanno disegnate piu' scariche di quelle vere, e il
+  // modo ovvio - moltiplicare l'opacita' per uno sconto letto dalla feature -
+  // costa caro due volte. MapLibre accetta ['zoom'] solo come ingresso diretto
+  // di un interpolate di primo livello, quindi l'espressione moltiplicata era
+  // invalida e la dissolvenza allo zoom spariva; e riscritta in forma valida,
+  // con il ['get'] dentro ogni tappa, rende l'opacita' un attributo per
+  // feature: su un layer symbol questo ha portato il fotogramma piu' lungo del
+  // polling da 17 a 128 ms, misurato con smoke:map. Due layer con opacita'
+  // costante e un filtro che li separa danno lo stesso risultato a costo zero.
+  const spriteLayout: SymbolLayerSpecification['layout'] = {
+    'icon-image': ['get', 'icon'],
+    'icon-size': [
+      'interpolate',
+      ['exponential', 1.35],
+      ['zoom'],
+      14.25,
+      ['case', ['get', 'isArticulated'], 0.032, 0.04],
+      16,
+      ['case', ['get', 'isArticulated'], 0.05, 0.065],
+      18,
+      ['case', ['get', 'isArticulated'], 0.08, 0.105],
+      20,
+      ['case', ['get', 'isArticulated'], 0.12, 0.16],
+    ],
+    'icon-rotate': ['get', 'spriteBearing'],
+    'icon-offset': [0, 4],
+    'icon-rotation-alignment': 'map',
+    'icon-allow-overlap': true,
+    'icon-ignore-placement': true,
+  };
+
+  map.addLayer({
+    id: 'vehicle-ghost-sprites',
+    type: 'symbol',
+    source: 'vehicles',
+    minzoom: spriteZoomThreshold,
+    filter: ['all', ['==', ['get', 'selected'], false], ['==', ['get', 'unverified'], true]],
+    layout: { ...spriteLayout },
+    paint: {
+      'icon-opacity': ['interpolate', ['linear'], ['zoom'], 14.25, 0.37, 14.8, 0.45],
+    },
+  });
+
   map.addLayer({
     id: 'vehicle-sprites',
     type: 'symbol',
     source: 'vehicles',
     minzoom: spriteZoomThreshold,
-    filter: ['==', ['get', 'selected'], false],
-    layout: {
-      'icon-image': ['get', 'icon'],
-      'icon-size': [
-        'interpolate',
-        ['exponential', 1.35],
-        ['zoom'],
-        14.25,
-        ['case', ['get', 'isArticulated'], 0.032, 0.04],
-        16,
-        ['case', ['get', 'isArticulated'], 0.05, 0.065],
-        18,
-        ['case', ['get', 'isArticulated'], 0.08, 0.105],
-        20,
-        ['case', ['get', 'isArticulated'], 0.12, 0.16],
-      ],
-      'icon-rotate': ['get', 'spriteBearing'],
-      'icon-offset': [0, 4],
-      'icon-rotation-alignment': 'map',
-      'icon-allow-overlap': true,
-      'icon-ignore-placement': true,
-    },
+    filter: ['all', ['==', ['get', 'selected'], false], ['!=', ['get', 'unverified'], true]],
+    layout: { ...spriteLayout },
     paint: {
-      'icon-opacity': [
-        '*',
-        ['interpolate', ['linear'], ['zoom'], 14.25, 0.82, 14.8, 1],
-        ['case', ['get', 'unverified'], 0.45, 1],
-      ],
+      'icon-opacity': ['interpolate', ['linear'], ['zoom'], 14.25, 0.82, 14.8, 1],
     },
   });
 
@@ -1546,7 +1565,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     const map = mapRef.current;
-    const vehicleLayers = ['vehicle-selected-sprites', 'vehicle-sprites', 'vehicle-hit-area', 'vehicle-badges', 'vehicle-badge-arrows', 'vehicle-badge-labels', 'vehicle-sprite-labels'];
+    const vehicleLayers = ['vehicle-selected-sprites', 'vehicle-sprites', 'vehicle-ghost-sprites', 'vehicle-hit-area', 'vehicle-badges', 'vehicle-badge-arrows', 'vehicle-badge-labels', 'vehicle-sprite-labels'];
     const stopLayers = ['stops-hit-area', 'stops-circle'];
     const hoverPopup = new maplibregl.Popup({
       className: 'vehicle-hover-popup',

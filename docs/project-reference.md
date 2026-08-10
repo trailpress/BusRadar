@@ -160,7 +160,8 @@ Sono i numeri che decidono quanto il movimento appare realistico. Vanno cambiati
 | `LATENCY_COMPENSATION_CONFIDENCE` | 0,90 | margine contro l'overshoot: la stima assume velocità costante, il mezzo invece frena |
 | bonus di permanenza sulla shape | −95 entro 140 m | evita che andata e ritorno si scambino tra un campione e l'altro |
 | `snapLimitMeters` | 55 m, 70 m extraurbani | oltre questa distanza il mezzo non è agganciato alla shape |
-| soglia velocità per la compensazione | 1,5–75 km/h | fuori da questa fascia non si proietta |
+| soglia velocità per la compensazione | 1,5–75 km/h | fuori da questa fascia **non si proietta**, ma ancoraggio e orario programmato restano attivi: non hanno bisogno della velocità del mezzo |
+| misura recente che dice «fermo» | < 1,5 km/h misurati negli ultimi 90 s | la correzione si spegne del tutto. Una misura è un'osservazione: se il mezzo non si è mosso, l'orario che lo vorrebbe trecento metri più avanti è smentito dai fatti |
 
 La compensazione è limitata anche dalla distanza residua al capolinea: un mezzo non viene mai proiettato oltre la fine della sua corsa.
 
@@ -243,6 +244,12 @@ Prima che la rete sia caricata vale un ripiego largo quanto il Piemonte, il cui 
 
 Se anche il ritardo mancasse, la scheda lo direbbe («previsioni senza orario né ritardo»): la diagnosi resta leggibile invece di degradare in silenzio.
 
+**La velocità del mezzo serve solo alla terza stima, e il cancello sulla velocità la sbarrava a tutte e tre.** Le prime due dicono dove il mezzo *deve* essere adesso, e lo dicono anche di un mezzo che non siamo ancora riusciti a misurare: pretendere una velocità plausibile prima di guardarle spegneva la correzione proprio sui mezzi per cui esiste il dato migliore. Ora l'ordine è invertito — prima le stime, poi la velocità solo se serve a proiettare.
+
+**Non misurabile e fermo non sono la stessa cosa, e vanno trattati all'opposto.** Un mezzo di cui *sappiamo* per misura che non si è mosso negli ultimi 90 secondi non va spinto avanti da nessun orario: l'osservazione batte la previsione, ed è questo che faceva scivolare il marker sempre più avanti del mezzo vero. Un mezzo che non siamo riusciti a misurare non è fermo: è ignoto, e lì la previsione è l'unico dato che abbiamo. La scheda distingue i due casi con due frasi diverse, «mezzo fermo, misurato» e «né previsione né velocità misurabile». `npm run smoke:map --feed-fermo` mette in mappa un mezzo per caso — uno che manda campioni nuovi restando immobile, uno col timestamp bloccato — e verifica che la riga dica cose diverse sui due.
+
+Il freno alla variazione della correzione ha comunque bisogno di un passo. Quando il mezzo non è misurabile lo prende dalla stima stessa: i metri da recuperare divisi per l'età del campione, con un minimo di 2,5 m/s perché un passo nullo congelerebbe la correzione al valore precedente invece di lasciarla convergere.
+
 L'orario programmato contribuisce **solo il passo, mai l'orologio** quando si tratta della stima di ripiego. Usare gli orari assoluti metterebbe un mezzo in ritardo dove avrebbe dovuto essere; il rapporto fra due orari programmati dice quanto dura il tratto, e un mezzo in ritardo lo percorre più o meno allo stesso passo. Così il ritardo di esercizio si annulla da sé e non serve stimarlo.
 
 Il passo si ricava dai bucket orari già pubblicati, accoppiando ogni partenza dalla fermata precedente con la prima chiamata successiva alla fermata seguente: fra due fermate consecutive la percorrenza è più breve dell'intervallo fra le corse, quindi quella chiamata è della stessa corsa. Le coppie oltre i 15 minuti sono scartate invece che credute.
@@ -293,6 +300,8 @@ Se le costanti in `gttRealtime.ts` cambiano, vanno riallineate anche nello scrip
 | `BEARING_BASELINE_METERS` (`utils/geo.ts`) | 40 m | la direzione si misura fra il punto 40 m indietro e quello 40 m avanti, **non sul segmento corrente**. Le shape GTT cambiano direzione di 20° in media fra segmenti consecutivi, e di oltre 60° in un caso su otto: presa dal singolo segmento la freccia scattava a ogni vertice. Con la base, gli scatti oltre 45° spariscono e il 99° percentile scende da 59° a 14° |
 
 **Le misure di una shape stanno in cache accanto all'oggetto** (`measurePath`). `interpolatePathState` e `routeProgressAtPoint` girano per ogni mezzo a ogni fotogramma: rimisurare i segmenti trenta volte al secondo per trecento marker porta un fotogramma a 155 ms, cioè a uno scatto visibile.
+
+**Un'opacità che dipende dalla feature costa un layer, non una moltiplicazione.** Le corse non accertate vanno disegnate più scariche, e il modo ovvio — moltiplicare l'interpolazione sullo zoom per uno sconto letto dalla feature — sbaglia due volte. MapLibre accetta `['zoom']` **solo come ingresso diretto di un `interpolate` o `step` di primo livello**: dentro una moltiplicazione l'intera proprietà diventa invalida, l'errore compare solo in console e la dissolvenza allo zoom sparisce in silenzio. Riscritta in forma valida, con il `['get']` dentro ogni tappa, l'opacità diventa un attributo per feature: su un layer `symbol` il fotogramma più lungo del polling è passato **da 17 a 128 ms**, misurato con `smoke:map`. La forma che regge è due layer separati da un filtro, ciascuno con opacità costante — `vehicle-ghost-sprites` e `vehicle-sprites`. Chi aggiunge un layer di mezzi lo aggiunga anche a `vehicleLayers`, o quel layer non risponderà a click e hover.
 
 **Regola pratica.** Se i mezzi sembrano accelerare in modo innaturale, il problema è quasi sempre nella durata del playback, non nella compensazione. Se sembrano andare all'indietro, guarda prima l'aggancio alla shape e poi la compensazione. Se la freccia confonde, guarda `hasReliableHeading` e l'offset.
 
@@ -359,6 +368,7 @@ In cloud si usa il workflow **Generate a GTT fleet render**, dalla scheda Action
 - **Sostituendo il contenuto di un render, cambiare anche il nome del file.** Gli asset in `public/` vengono serviti a URL stabile, senza hash: se il nome resta uguale, browser e CDN continuano a servire la versione vecchia e la correzione non si vede. Per questo il render della serie 5000 è passato da `-v4` a `-v5`.
 - I render stanno in WebP entro 400 kB. `npm run verify:assets` fallisce se un file sfora o se resta nella cartella senza essere referenziato: è così che 40 MB di versioni superate erano rimasti nel repository.
 - `generic-tram` resta senza render. Quando una matricola finisce lì significa che non sappiamo che mezzo sia, e disegnare un tram generico mostrerebbe un mezzo inesistente. Se le matricole che ci finiscono appartengono a una serie reale, va aggiunta la serie in `vehicleFleetRules.ts`, non prodotto un render.
+- **La serie 5000 resta senza render, e il motivo vale per tutte.** Il render è stato ritirato il 2026-08-10 perché chi vede quelle vetture ogni giorno lo ha riconosciuto come inventato. Era nato descrivendo a parole un frontale «come quello della 5014» e rifinito due volte — l'alpha, i bordi — senza che nessuno lo confrontasse con una fotografia della serie: **una descrizione plausibile non è una verifica, e nemmeno tre iterazioni su un file la sostituiscono**. Restano le specifiche della scheda ufficiale M4, che sono verificate. Non rigenerarlo finché non c'è una fotografia reale come reference; nel frattempo la scheda mostra il pannello «Render 3D da produrre», che dice il vero.
 
 ---
 
@@ -377,7 +387,7 @@ Tutti da `frontend/`.
 | `npm run gtfs:runs` | ricostruisce le corse programmate per i mezzi non accertati |
 | `npm run realtime:spike` | ispeziona il feed GTFS-RT senza passare dalla UI |
 | `npm run simulate:latency` | confronta le tarature della compensazione senza toccare il feed vivo |
-| `npm run smoke:map` | apre l'app con un feed finto e verifica che i mezzi compaiano davvero |
+| `npm run smoke:map` | apre l'app con un feed finto e verifica che i mezzi compaiano davvero. Scenari: `--feed-vuoto` (feed che non manda niente), `--feed-mobile` (feed lento con `speed` a zero), `--feed-fermo` (mezzo fermo misurato contro mezzo non misurabile) |
 | `npm run preview` | serve la build compilata |
 
 ### Verificare in che stato è il progetto
