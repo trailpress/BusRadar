@@ -16,7 +16,7 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'tram-serie-5000': {
     label: 'Tram serie 5000',
-    detailAsset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v6.webp',
+    detailAsset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v7.webp',
     referenceNotes: 'Scheda ufficiale M4: TPR a pavimento ribassato, 22.200 mm, 2 casse e 3 carrelli, 1989-1992. Immagine della vettura 5014, riconosciuta come realistica; la versione rigenerata da prompt è stata ritirata.',
   },
   'tram-serie-6000': {
