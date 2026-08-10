@@ -68,6 +68,10 @@ export type TransitVehicle = {
   // Which evidence placed the vehicle: the arrival GTT announces for this trip,
   // the pace the timetable gives this segment, or its own recent speed.
   latencyCompensationSource?: 'previsione' | 'orario' | 'velocita';
+  // Perché la previsione di fermata non ha posizionato il mezzo. Con il feed
+  // che porta 305 previsioni e la mappa che usa la velocità stimata, il motivo
+  // va letto sulla scheda invece che indovinato.
+  latencyAnchorMiss?: 'nessun-aggiornamento' | 'previsioni-senza-orario' | 'fermate-non-riconosciute';
   routeMatchStatus?: 'on-route' | 'gps-only' | 'unmatched';
   routeVariantId?: string;
   shapeId?: string;

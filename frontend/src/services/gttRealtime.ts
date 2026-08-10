@@ -697,17 +697,34 @@ const LATENCY_ADJUST_FRACTION = 0.35;
 // It cannot recover the undeclared delay, though. The near end of the
 // interpolation is still the stale sample, believed younger than it is, so the
 // floor above still does the work it did.
+// Perché l'ancoraggio non è scattato. Con 305 previsioni nel feed e la scheda
+// che dichiara "velocità stimata", il motivo va letto e non indovinato: ognuno
+// dei tre porta a una correzione diversa.
+export type AnchorMiss =
+  // Nessun Trip Update associato a questo mezzo. Nel feed GTT il `tripId` dei
+  // veicoli è vuoto, quindi l'aggancio può avvenire solo per matricola: se
+  // manca anche quella nelle previsioni, non c'è modo di collegarle.
+  | 'nessun-aggiornamento'
+  // Previsioni presenti ma senza orario assoluto futuro: solo ritardi, oppure
+  // orari già passati.
+  | 'previsioni-senza-orario'
+  // Orari presenti ma le fermate che nominano non stanno sul percorso davanti
+  // al mezzo: id fermata diversi da quelli del dataset statico, o previsioni
+  // tutte alle spalle.
+  | 'fermate-non-riconosciute';
+
 function anchoredAdvanceMeters(
   routeVariant: GtfsRouteVariant,
   traveledMeters: number,
   believedSampleAtMs: number,
   tripUpdate: GttTripUpdate | undefined,
-) {
-  if (!tripUpdate) return undefined;
+): { meters: number; miss?: undefined } | { meters?: undefined; miss: AnchorMiss } {
+  if (!tripUpdate) return { miss: 'nessun-aggiornamento' };
   const now = Date.now();
-  if (believedSampleAtMs >= now) return undefined;
+  if (believedSampleAtMs >= now) return { miss: 'previsioni-senza-orario' };
   const byStopId = stopDistancesByStopId(routeVariant);
 
+  let withFutureTime = 0;
   let nearestMeters: number | undefined;
   let nearestAtMs: number | undefined;
   for (const update of tripUpdate.stopTimeUpdates) {
@@ -715,6 +732,7 @@ function anchoredAdvanceMeters(
     const atMs = epochSecondsToMs(update.arrivalTime ?? update.departureTime);
     // A prediction already due tells us nothing about where the vehicle is now.
     if (atMs == null || atMs <= now) continue;
+    withFutureTime += 1;
     const occurrences = byStopId.get(update.stopId);
     if (!occurrences) continue;
     // On a loop the same stop is served twice: the one being approached is the
@@ -727,9 +745,11 @@ function anchoredAdvanceMeters(
     }
   }
 
-  if (nearestMeters == null || nearestAtMs == null) return undefined;
+  if (nearestMeters == null || nearestAtMs == null) {
+    return { miss: withFutureTime > 0 ? 'fermate-non-riconosciute' : 'previsioni-senza-orario' };
+  }
   const share = (now - believedSampleAtMs) / (nearestAtMs - believedSampleAtMs);
-  return (nearestMeters - traveledMeters) * Math.min(1, Math.max(0, share));
+  return { meters: (nearestMeters - traveledMeters) * Math.min(1, Math.max(0, share)) };
 }
 
 // The timetable knows something neither the position nor the speed can say:
@@ -1005,12 +1025,13 @@ function compensateFeedLatency(
   // Where GTT says the vehicle is going, and when, beats any guess about the
   // speed it has held since a sample we cannot date. The projection stays as
   // the fallback for the trips the feed says nothing about.
-  const anchoredMeters = anchoredAdvanceMeters(
+  const anchor = anchoredAdvanceMeters(
     routeVariant,
     progress.traveledMeters,
     Date.now() - effectiveAgeSeconds * 1000,
     tripUpdate,
   );
+  const anchoredMeters = anchor.meters;
   // Order of preference, best evidence first: what GTT announces for this trip,
   // then what the timetable says this segment takes, then the vehicle's own
   // recent pace. The GPS position anchors all three.
@@ -1056,6 +1077,7 @@ function compensateFeedLatency(
         // Report the delay actually recovered, which after the stops and the
         // rate limit is not the delay we set out to recover.
         seconds: Math.round(advanceMeters / speedMetersPerSecond),
+        anchorMiss: anchor.miss,
         source: anchoredMeters != null
           ? ('previsione' as const)
           : scheduledMeters != null
@@ -1203,6 +1225,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttT
     latencyCompensationSeconds: latencyCompensation?.seconds,
     latencyCompensationSkipped: 'skipped' in latencyOutcome ? latencyOutcome.skipped : undefined,
     latencyCompensationSource: latencyCompensation?.source,
+    latencyAnchorMiss: latencyCompensation?.anchorMiss,
     vehicleLivery,
     vehicleLengthClass: lengthClass,
     vehicleFleetLabel: fleetNumber
