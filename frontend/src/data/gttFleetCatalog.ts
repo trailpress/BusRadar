@@ -14,6 +14,10 @@ export type GttFleetCluster = {
   assetStatus: FleetAssetStatus;
   sourceNotes: string;
   renderPrompt: string;
+  // Immagine di riferimento da passare al generatore insieme al prompt, per i
+  // cluster in cui una descrizione a parole non basta a ottenere il mezzo
+  // giusto. Il percorso è relativo a `public/`. Vedi `scripts/fleet-render.mjs`.
+  referenceAsset?: string;
 };
 
 const sharedRenderPrompt =
@@ -381,8 +385,9 @@ export const GTT_FLEET_CATALOG: GttFleetCluster[] = [
     livery: 'GTT grigio/blu/giallo.',
     asset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v6.webp',
     assetStatus: 'validated-render',
-    sourceNotes: 'Immagine della vettura 5014 riconosciuta come realistica dall\'utente il 2026-08-10, dopo che la versione rigenerata da prompt era stata riconosciuta come inventata e ritirata. Le due si distinguono a colpo d\'occhio: questa porta i dettagli che solo una vettura vera ha - matricola 5014, linea 15 sul rullo, marchi TORINO 2006 e STT, interni della cabina - mentre quella generata era pulita e senza. **Non rigenerare da prompt**: `renderPrompt` è vuoto di proposito, ed è per questo. Se il file va rilavorato, si parte da questa immagine. Da verificare, se il progetto diventa pubblico: la provenienza dell\'immagine originale, che ha tutta l\'aria di essere una fotografia scontornata.',
-    renderPrompt: '',
+    sourceNotes: 'Vettura 5014. L\'immagine precedente era realistica ma aveva tutta l\'aria di essere una fotografia scontornata di provenienza ignota, quindi il render viene rigenerato dall\'API partendo da quella come **riferimento visivo**, non da una descrizione a parole: la rigenerazione descritta a parole era già stata provata e aveva prodotto un tram che non esiste. Confronti verificati sulla scheda ufficiale M4: 22.200 mm, 2 casse, 3 carrelli, 1989-1992, pavimento ribassato.',
+    renderPrompt: `${sharedRenderPrompt} Exact subject: the tram in the reference image, a Turin GTT series 5000 T.P.R. tram, car 5014. Reproduce it faithfully and change nothing about the vehicle itself: the boxy late-1980s cab with its tall one-piece windscreen split by a central pillar and a black destination box above it, the deep blue band that wraps the front below the windscreen and runs along both bodies at waist height with a thin yellow stripe under it, the light grey upper bodywork, the dark grey skirt and bogie covers, two articulated bodies joined by a black bellows, three bogies, the roof ventilation louvres over the rear body, one single-arm pantograph, four double doors with black rubber surrounds, and the square headlight clusters set into the blue front band. Keep the same three-quarter front-left angle. Do not modernize the front, do not round the corners, do not add or remove body sections, and do not add any route number, fleet number, advertising or lettering.`,
+    referenceAsset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v6.webp',
   },
   {
     key: 'tram-serie-6000',

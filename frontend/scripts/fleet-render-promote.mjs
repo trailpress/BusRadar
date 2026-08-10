@@ -8,7 +8,11 @@
 // `detailAsset` the vehicle sheet actually reads. Updating only the catalog
 // leaves the app showing the old render, so both move together.
 //
-// Usage: node scripts/fleet-render-promote.mjs --cluster <fleet-key>
+// Usage: node scripts/fleet-render-promote.mjs --cluster <fleet-key> [--variant <name>]
+//
+// `--variant` deve combaciare con quello passato a `fleet-render.mjs`: è il
+// suffisso che tiene il nome del file diverso da quello sostituito, senza il
+// quale la cache del browser continua a servire il render vecchio.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,11 +20,15 @@ import path from 'node:path';
 const args = process.argv.slice(2);
 const clusterKey = args[args.indexOf('--cluster') + 1];
 if (!clusterKey || clusterKey.startsWith('--')) {
-  console.error('Usage: node scripts/fleet-render-promote.mjs --cluster <fleet-key>');
+  console.error('Usage: node scripts/fleet-render-promote.mjs --cluster <fleet-key> [--variant <name>]');
   process.exit(1);
 }
+const variantIndex = args.indexOf('--variant');
+const variant = variantIndex >= 0 && args[variantIndex + 1] && !args[variantIndex + 1].startsWith('--')
+  ? args[variantIndex + 1]
+  : undefined;
 
-const assetPath = `assets/vehicles/detail/generated/${clusterKey}-gtt-render.webp`;
+const assetPath = `assets/vehicles/detail/generated/${clusterKey}-gtt-render${variant ? `-${variant}` : ''}.webp`;
 if (!fs.existsSync(path.join('public', assetPath))) {
   console.error(`No render at public/${assetPath}. Generate it first.`);
   process.exit(1);
