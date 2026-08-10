@@ -1241,7 +1241,7 @@ function unverifiedScheduledVehicles(observed: Vehicle[]): Vehicle[] {
         lat: state.point.lat,
         lon: state.point.lon,
         bearing: state.bearing,
-        speed: 0,
+        speed: run.speedKmh,
         updatedAt: label,
         source: 'scheduled' as const,
         status: 'unknown' as const,
@@ -1298,7 +1298,13 @@ export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | 
       return toVehicleSafely(vehicle, index, update);
     })
     .filter((vehicle): vehicle is Vehicle => Boolean(vehicle));
-  if (vehicles.length === 0) {
+  // Le corse non accertate si calcolano **prima** di arrendersi a un feed
+  // vuoto. Calcolarle dopo le rendeva inerti proprio nel caso per cui esistono:
+  // a feed muto si usciva dalla cache o senza nulla, e la mappa restava con i
+  // tracciati e nessun mezzo sopra.
+  const unverified = unverifiedScheduledVehicles(vehicles);
+
+  if (vehicles.length === 0 && unverified.length === 0) {
     try {
       const cached = localStorage.getItem(vehicleSnapshotCacheKey);
       if (!cached) return undefined;
@@ -1310,7 +1316,7 @@ export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | 
     }
   }
 
-  const withUnverified = [...vehicles, ...unverifiedScheduledVehicles(vehicles)];
+  const withUnverified = [...vehicles, ...unverified];
 
   const snapshot = {
     vehicles: withUnverified,
@@ -1321,7 +1327,11 @@ export async function fetchGttRealtimeVehicles(): Promise<GttRealtimeSnapshot | 
     checkedAt: payload.checkedAt ?? new Date().toISOString(),
   };
   try {
-    localStorage.setItem(vehicleSnapshotCacheKey, JSON.stringify(snapshot));
+    // In cache vanno solo i mezzi osservati. Una corsa non accertata è valida
+    // per l'istante in cui è stata calcolata: ripescarla da una cache di
+    // cinque minuti fa significherebbe mostrare una posizione prevista per un
+    // momento che è passato.
+    localStorage.setItem(vehicleSnapshotCacheKey, JSON.stringify({ ...snapshot, vehicles }));
   } catch {
     // The live snapshot remains usable even if browser storage is unavailable.
   }

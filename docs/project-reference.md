@@ -183,6 +183,10 @@ Quando il feed realtime tace su un'intera linea, le sue corse vengono disegnate 
 
 **La regola per generarle è deliberatamente stretta: una linea con anche un solo mezzo tracciato non ne produce nessuna.** Se il feed copre la linea, una corsa che non vi compare è probabilmente una corsa che non sta circolando, e disegnarla sarebbe inventare un mezzo. Solo il silenzio completo su una linea giustifica il ricorso all'orario.
 
+**Vengono calcolate prima di arrendersi a un feed vuoto.** Calcolarle dopo le rendeva inerti proprio nel caso per cui esistono: a feed muto si usciva dalla cache o senza nulla, e la mappa restava con i tracciati e nessun mezzo sopra. Non finiscono invece nella cache dello snapshot: una posizione prevista vale per l'istante in cui è stata calcolata, e ripescarla cinque minuti dopo sarebbe falsa.
+
+Il budget è distribuito: al massimo 12 corse per variante entro un tetto di 400. Senza il limite per variante una sola linea ad alta frequenza esauriva il budget e lasciava tutte le altre senza nulla.
+
 Sono riconoscibili senza aprirle: pallino grigio con bordo tenue invece del colore di linea, sprite al 45% di opacità, e in tre punti dell'interfaccia la dicitura esplicita — «corsa non accertata · da orario» sulla mappa, «Corsa non accertata: posizione stimata dall'orario programmato, nessun dato in tempo reale» e «Tracciamento GTT: nessuno» nella scheda. Non entrano nel conteggio delle posizioni realtime.
 
 **Come si ricostruisce una corsa.** Gli orari pubblicati sono indicizzati per fermata, senza id di corsa né numero d'ordine: una corsa si ottiene incatenando — si parte dal capolinea all'ora X e a ogni fermata si prende la prima chiamata successiva. L'aggancio può prendere la corsa sbagliata dove una fermata è servita nei due sensi, e **il controllo che lo smaschera è geometrico**: la velocità implicita fra due fermate, nota perché la distanza lungo la shape è nota. Fuori da 2–110 km/h l'aggancio viene scartato invece che creduto (sul dataset attuale: 145 254 tenuti, 2914 scartati).
@@ -336,6 +340,7 @@ Tutti da `frontend/`.
 | `npm run gtfs:runs` | ricostruisce le corse programmate per i mezzi non accertati |
 | `npm run realtime:spike` | ispeziona il feed GTFS-RT senza passare dalla UI |
 | `npm run simulate:latency` | confronta le tarature della compensazione senza toccare il feed vivo |
+| `npm run smoke:map` | apre l'app con un feed finto e verifica che i mezzi compaiano davvero |
 | `npm run preview` | serve la build compilata |
 
 ### Verificare in che stato è il progetto
