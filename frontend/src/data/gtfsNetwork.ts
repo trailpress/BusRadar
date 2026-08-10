@@ -51,6 +51,16 @@ const listeners = new Set<() => void>();
 let revision = 0;
 let loadPromise: Promise<GtfsNetwork> | undefined;
 let loaded = false;
+// The ground the network actually covers, measured from its own stops. Written
+// by hand it was wrong: the box in use accepted 44,7-45,35 by 7,25-8,15 while
+// the network reaches Ivrea, the Susa valley and Asti, so a fifth of the stops
+// lay outside it and every interurban vehicle out there was discarded before it
+// could be drawn.
+let networkBounds: { minLat: number; maxLat: number; minLon: number; maxLon: number } | undefined;
+
+export function getGtfsNetworkBounds() {
+  return networkBounds;
+}
 
 function rebuildIndexes() {
   routesByRouteId.clear();
@@ -66,6 +76,18 @@ function rebuildIndexes() {
   });
   gtfsNetwork.lines.forEach((line) => lineById.set(line.id, line));
   gtfsNetwork.stops.forEach((stop) => stopById.set(stop.id, stop));
+
+  networkBounds = undefined;
+  for (const stop of gtfsNetwork.stops) {
+    networkBounds = networkBounds
+      ? {
+          minLat: Math.min(networkBounds.minLat, stop.lat),
+          maxLat: Math.max(networkBounds.maxLat, stop.lat),
+          minLon: Math.min(networkBounds.minLon, stop.lon),
+          maxLon: Math.max(networkBounds.maxLon, stop.lon),
+        }
+      : { minLat: stop.lat, maxLat: stop.lat, minLon: stop.lon, maxLon: stop.lon };
+  }
 }
 
 function publishNetwork(network: GtfsNetwork) {

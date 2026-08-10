@@ -177,6 +177,12 @@ Il feed non dice quanto è vecchio: i campioni arrivano marcati come appena misu
 
 Il blocco a 50 s non è un caso limite ma il meccanismo stesso: se la proiezione supera la posizione vera, la soglia di marcia indietro in `routeMotion` tiene fermo il marker finché il mezzo reale non lo raggiunge. **Proiettare troppo costa più che proiettare poco.**
 
+#### Il riquadro di copertura del realtime
+
+I mezzi che cadono fuori da un riquadro geografico vengono scartati prima di arrivare alla mappa. **Il riquadro si misura dal dataset, non si scrive a mano.** Scritto a mano era 44,7–45,35 per 7,25–8,15: copriva la città e ritagliava la rete interurbana, che arriva a 44,39–45,55 per 7,14–8,46. Ne restavano fuori **1542 fermate su 7035**, e 38 linee ne avevano almeno una: i mezzi verso Ivrea, la Val di Susa o Asti sparivano dalla mappa a metà corsa.
+
+Prima che la rete sia caricata vale un ripiego largo quanto il Piemonte, il cui compito è respingere solo le assurdità — una posizione a 0,0, un mezzo dichiarato in un altro paese. `npm run verify:routes` controlla che la rete vera stia dentro quel ripiego.
+
 #### Gerarchia delle fonti che posizionano un mezzo
 
 **La posizione GPS del feed è sempre l'ancora**, in ogni caso. Quello che cambia è come si copre il minuto che manca fra il campione e adesso, e si prende la prova migliore disponibile:
