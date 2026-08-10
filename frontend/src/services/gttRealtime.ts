@@ -1069,10 +1069,21 @@ function compensateFeedLatency(
     recordAdvance(vehicleId, 0);
     return { skipped: 'campione-recente' as const };
   }
-  if (speedKmhValue < 1.5 || speedKmhValue > 75) {
+  // Una misura recente che dice "fermo" è un'osservazione, non la sua assenza.
+  // Se il mezzo non si è mosso nell'ultimo minuto, l'orario che lo vorrebbe
+  // trecento metri più avanti è smentito dai fatti, e i fatti vincono: è così
+  // che il marker finiva per traslare sempre più avanti del mezzo vero.
+  const measuredAverage = recentSpeeds.get(vehicleId);
+  if (measuredAverage && Date.now() - measuredAverage.atMs < 90000 && measuredAverage.kmh < 1.5) {
     recordAdvance(vehicleId, 0);
-    return { skipped: 'troppo-lento' as const };
+    return { skipped: 'mezzo-fermo' as const };
   }
+  // La velocità del mezzo serve solo alla proiezione. La previsione di GTT e
+  // l'orario programmato dicono dove il mezzo *deve* essere adesso, e lo dicono
+  // anche di un mezzo fermo al semaforo o di uno che non siamo ancora riusciti
+  // a misurare: pretendere una velocità prima di guardarle spegneva la
+  // correzione proprio sui mezzi per cui esiste il dato migliore.
+  const hasMeasuredPace = speedKmhValue >= 1.5 && speedKmhValue <= 75;
   const routeVariant = getGtfsRouteVariant(routeVariantId);
   const progress = routeVariant && routeVariant.path.length >= 2
     ? routeProgressAtPoint(routeVariant.path, point)
@@ -1083,20 +1094,6 @@ function compensateFeedLatency(
     return { skipped: 'percorso-assente' as const };
   }
 
-  const speedMetersPerSecond = speedKmhValue / 3.6;
-  // The GTT feed is regularly one minute old. Compensating only a part of that
-  // age leaves a residual lag that the playback has to absorb later as an
-  // unrealistic burst of speed, so cover the observed staleness instead.
-  const compensationSeconds = Math.min(
-    effectiveAgeSeconds + LATENCY_COMPENSATION_LEAD_SECONDS,
-    MAX_LATENCY_COMPENSATION_SECONDS,
-  ) * LATENCY_COMPENSATION_CONFIDENCE;
-  const projectedMeters = positionAfterSeconds(
-    stopDistancesAlongRoute(routeVariant),
-    progress.traveledMeters,
-    compensationSeconds,
-    speedMetersPerSecond,
-  ) - progress.traveledMeters;
   // Where GTT says the vehicle is going, and when, beats any guess about the
   // speed it has held since a sample we cannot date. The projection stays as
   // the fallback for the trips the feed says nothing about.
@@ -1113,12 +1110,40 @@ function compensateFeedLatency(
   const scheduledMeters = anchoredMeters == null
     ? scheduledPaceAdvanceMeters(routeVariant, progress.traveledMeters, effectiveAgeSeconds)
     : undefined;
+  // The GTT feed is regularly one minute old. Compensating only a part of that
+  // age leaves a residual lag that the playback has to absorb later as an
+  // unrealistic burst of speed, so cover the observed staleness instead.
+  const compensationSeconds = Math.min(
+    effectiveAgeSeconds + LATENCY_COMPENSATION_LEAD_SECONDS,
+    MAX_LATENCY_COMPENSATION_SECONDS,
+  ) * LATENCY_COMPENSATION_CONFIDENCE;
+  const projectedMeters = anchoredMeters == null && scheduledMeters == null && hasMeasuredPace
+    ? positionAfterSeconds(
+        stopDistancesAlongRoute(routeVariant),
+        progress.traveledMeters,
+        compensationSeconds,
+        speedKmhValue / 3.6,
+      ) - progress.traveledMeters
+    : undefined;
+
+  const desiredMeters = anchoredMeters ?? scheduledMeters ?? projectedMeters;
+  if (desiredMeters == null) {
+    recordAdvance(vehicleId, 0);
+    return { skipped: 'nessuna-stima' as const };
+  }
   const targetMeters = Math.min(
     MAX_LATENCY_COMPENSATION_METERS,
-    anchoredMeters ?? scheduledMeters ?? projectedMeters,
+    desiredMeters,
     // Dead reckoning may not push a vehicle past its own terminus.
     Math.max(0, progress.remainingMeters - 5),
   );
+  // Il freno sul cambio della correzione ha bisogno di un passo. Quando il
+  // mezzo non è misurabile lo prende dalla stima stessa - i metri che deve
+  // recuperare, spalmati sull'età del campione - con un minimo che impedisce a
+  // un passo nullo di congelare la correzione al valore precedente.
+  const speedMetersPerSecond = hasMeasuredPace
+    ? speedKmhValue / 3.6
+    : Math.min(20, Math.max(2.5, desiredMeters / Math.max(1, effectiveAgeSeconds)));
 
   // The correction is allowed to change only by a fraction of the ground the
   // vehicle itself covers in the meantime. A marker may therefore gain on the
@@ -1139,7 +1164,9 @@ function compensateFeedLatency(
     Math.max((previous?.meters ?? 0) - allowedChangeMeters, targetMeters),
   );
   recordAdvance(vehicleId, advanceMeters);
-  if (advanceMeters < 8) return { skipped: 'troppo-lento' as const };
+  // Meno di otto metri non è un errore da segnalare: è la stima che dice che il
+  // mezzo è già dove lo stiamo disegnando, cosa che succede a ogni fermata.
+  if (advanceMeters < 8) return { skipped: 'gia-in-posizione' as const };
   const compensated = interpolatePathState(
     routeVariant.path,
     Math.min(0.999999, (progress.traveledMeters + advanceMeters) / totalMeters),
@@ -1150,8 +1177,10 @@ function compensateFeedLatency(
         bearing: compensated.bearing,
         meters: Math.round(advanceMeters),
         // Report the delay actually recovered, which after the stops and the
-        // rate limit is not the delay we set out to recover.
-        seconds: Math.round(advanceMeters / speedMetersPerSecond),
+        // rate limit is not the delay we set out to recover. Measured as the
+        // fraction of the estimate that survived, so it stays honest whichever
+        // of the three estimates produced it.
+        seconds: Math.round(effectiveAgeSeconds * Math.min(1, advanceMeters / Math.max(1, desiredMeters))),
         anchorMiss: anchor.miss,
         source: anchoredMeters != null
           ? ('previsione' as const)

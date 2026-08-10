@@ -40,9 +40,19 @@ const emptyFeed = process.argv.includes('--feed-vuoto');
 const chosen = emptyFeed ? [] : network.routes.slice(0, 2);
 const stopById = new Map(network.stops.map((stop) => [stop.id, stop]));
 const now = Math.floor(Date.now() / 1000);
+// Due mezzi che sulla mappa si somigliano e non vanno trattati allo stesso
+// modo: il primo manda campioni nuovi e non si sposta - e' fermo, e lo sappiamo
+// per averlo misurato; il secondo ha il timestamp bloccato, quindi non c'e'
+// modo di misurarlo. Sul primo la previsione va ignorata, altrimenti il marker
+// scivola avanti mentre il mezzo sta fermo; sul secondo la previsione e'
+// l'unico dato che abbiamo, e prima veniva buttata via.
+const stillFeed = process.argv.includes('--feed-fermo');
+const frozenSince = Math.floor(Date.now() / 1000) - 20;
 const vehicles = chosen.map((route, index) => {
-  const stop = stopById.get(route.stopEntries[Math.floor(route.stopEntries.length / 2)].stopId);
+  const middle = Math.floor(route.stopEntries.length / 2);
+  const stop = stopById.get(route.stopEntries[middle].stopId);
   return {
+    nextStopId: route.stopEntries[Math.min(route.stopEntries.length - 1, middle + 2)].stopId,
     entityId: `e${index}`,
     routeId: route.routeId,
     vehicleId: `${9000 + index}`,
@@ -75,7 +85,15 @@ const startedAt = Date.now();
 
 await page.route('**/gtt-realtime/vehicles', (route) => {
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const payload = movingFeed
+  const payload = stillFeed
+    ? vehicles.map((vehicle, index) => ({
+        ...vehicle,
+        speed: 0,
+        // Il primo: campione nuovo a ogni giro, posizione sempre la stessa.
+        // Il secondo: sempre lo stesso campione, quindi niente da misurare.
+        timestamp: String(index === 0 ? nowSeconds - 20 : frozenSince),
+      }))
+    : movingFeed
     ? vehicles.map((vehicle, index) => {
         // Un campione nuovo ogni 15 s, e nel frattempo lo stesso identico.
         const tick = Math.floor((Date.now() - startedAt) / 15000);
@@ -100,9 +118,29 @@ await page.route('**/gtt-realtime/vehicles', (route) => {
     }),
   });
 });
-await page.route('**/gtt-realtime/trips', (route) =>
-  route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', tripUpdates: [] }) }),
-);
+await page.route('**/gtt-realtime/trips', (route) => {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const tripUpdates = stillFeed
+    ? vehicles.map((vehicle) => ({
+        routeId: vehicle.routeId,
+        tripId: vehicle.tripId,
+        vehicleId: vehicle.vehicleId,
+        vehicleLabel: vehicle.vehicleLabel,
+        timestamp: String(nowSeconds),
+        stopTimeUpdates: [
+          {
+            stopId: vehicle.nextStopId,
+            stopSequence: null,
+            arrivalDelay: 60,
+            arrivalTime: String(nowSeconds + 120),
+            departureDelay: 60,
+            departureTime: String(nowSeconds + 130),
+          },
+        ],
+      }))
+    : [];
+  route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', tripUpdates }) });
+});
 
 await page.goto(base, { waitUntil: 'networkidle' });
 await page.waitForTimeout(movingFeed ? 60000 : 9000);
@@ -139,6 +177,31 @@ for (const vehicle of vehicles) {
   console.log(`velocita del mezzo tracciato ${vehicle.vehicleId}:`, row ? `${row[1]} km/h` : 'riga non trovata');
 }
 console.log('mezzi "In servizio" nel DOM:', inServizio ? inServizio[1] : 'sezione non trovata');
+
+// La riga deve dire due cose diverse sui due mezzi: "fermo, misurato" sul
+// primo, "previsione fermata" sul secondo. Se dicesse la stessa cosa su
+// entrambi, o l'osservazione o la previsione starebbe venendo ignorata.
+if (stillFeed) {
+  // Sul secondo non si pretende quale delle due stime da orario abbia vinto -
+  // dipende dalla variante su cui l'app aggancia il mezzo finto - ma che una
+  // delle due sia stata usata: "m avanti" significa correzione applicata.
+  const atteso = ['fermo, misurato', 'm avanti'];
+  for (const [index, vehicle] of vehicles.entries()) {
+    // Chiudere la scheda riporta alla mappa, non all'elenco: senza tornarci il
+    // secondo mezzo non e' cliccabile e il controllo passerebbe a vuoto.
+    await page.getByRole('button', { name: 'Vetture' }).click().catch(() => {});
+    await page.waitForTimeout(1200);
+    await page.getByText(vehicle.vehicleId, { exact: false }).first().click().catch(() => {});
+    await page.waitForTimeout(1500);
+    const sheetText = await page.locator('body').innerText();
+    const line = sheetText.match(/Recupero ritardo feed:[^\n]*/);
+    const testo = line ? line[0] : 'riga non trovata';
+    const esito = testo.includes(atteso[index]) ? 'ok' : `atteso "${atteso[index]}"`;
+    console.log(`mezzo ${vehicle.vehicleId} (${index === 0 ? 'misurato fermo' : 'non misurabile'}): ${testo} [${esito}]`);
+    await page.getByRole('button', { name: 'Chiudi dettaglio' }).click().catch(() => {});
+    await page.waitForTimeout(600);
+  }
+}
 console.log('fotogramma piu lungo durante il polling:', blocked, 'ms');
 const nonTile = errors.filter((error) => !/tile\.openstreetmap|ERR_TUNNEL/.test(error));
 console.log('errori console (escluse le tile di mappa):', nonTile.length);
