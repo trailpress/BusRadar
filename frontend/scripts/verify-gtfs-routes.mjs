@@ -91,10 +91,38 @@ if (services.length === 0) {
   }
 }
 
+// Il riquadro di copertura del realtime scarta i mezzi che cadono fuori. Scritto
+// a mano copriva la città e ritagliava la rete interurbana: un quinto delle
+// fermate ne restava fuori e i mezzi verso Ivrea, la Val di Susa o Asti
+// sparivano dalla mappa a metà corsa. Ora si misura dal dataset, e questo
+// controllo verifica che il ripiego usato prima del caricamento non torni a
+// tagliare la rete vera.
+const PIEDMONT_FALLBACK_BOUNDS = { minLat: 44.0, maxLat: 46.2, minLon: 6.5, maxLon: 9.4 };
+const outsideFallback = network.stops.filter(
+  (stop) =>
+    stop.lat <= PIEDMONT_FALLBACK_BOUNDS.minLat ||
+    stop.lat >= PIEDMONT_FALLBACK_BOUNDS.maxLat ||
+    stop.lon <= PIEDMONT_FALLBACK_BOUNDS.minLon ||
+    stop.lon >= PIEDMONT_FALLBACK_BOUNDS.maxLon,
+);
+
+if (outsideFallback.length > 0) {
+  errors.push(
+    `${outsideFallback.length} fermate cadono fuori dal riquadro di ripiego del realtime: allargare PIEDMONT_FALLBACK_BOUNDS in services/gttRealtime.ts e qui`,
+  );
+}
+
 if (errors.length > 0) {
   console.error(errors.join('\n'));
   process.exit(1);
 }
+
+const stopLats = network.stops.map((stop) => stop.lat);
+const stopLons = network.stops.map((stop) => stop.lon);
+console.log(
+  `Network covers lat ${Math.min(...stopLats).toFixed(3)}..${Math.max(...stopLats).toFixed(3)}, ` +
+    `lon ${Math.min(...stopLons).toFixed(3)}..${Math.max(...stopLons).toFixed(3)}, entirely inside the realtime coverage box.`,
+);
 
 console.log(`Verified ${network.lines.length} lines, ${directionCount} directions and ${network.routes.length} GTFS variants.`);
 console.log(`No displayed direction is replaced by a shorter duplicate (${discardedShortVariants} duplicate variants found).`);

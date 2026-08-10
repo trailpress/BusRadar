@@ -1,5 +1,5 @@
 import type { Vehicle } from '../types';
-import { getGtfsLine, getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopsForRoute, loadGtfsNetwork, type GtfsRouteVariant } from '../data/gtfsNetwork';
+import { getGtfsLine, getGtfsNetworkBounds, getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopsForRoute, loadGtfsNetwork, type GtfsRouteVariant } from '../data/gtfsNetwork';
 import { recognizedFleetNumber, vehicleFleetKey, vehicleFleetLabel, vehicleLengthClass, vehicleLiveryForVehicle, vehicleTypeForFleetNumber } from '../data/vehicleFleetRules';
 import { bearingDegrees, distanceMeters, interpolatePathState, routeProgressAtPoint } from '../utils/geo';
 import { fetchStopSchedule, isStopScheduleLoaded, peekStopSchedule, requestStopSchedule, type StopScheduleCalendar, type StopScheduleEntry } from './stopSchedule';
@@ -1015,16 +1015,26 @@ function hasNumericCoordinate(vehicle: GttVehiclePosition): vehicle is GttVehicl
   );
 }
 
+// A vehicle running past the last stop of its line is still a vehicle: depots,
+// layovers and the odd diversion all sit slightly outside the network.
+const COVERAGE_MARGIN_DEGREES = 0.15;
+// Used only until the network has loaded. Wide enough to hold the whole of
+// Piedmont, because its job is to reject nonsense - a null island fix, a
+// vehicle reported in another country - and nothing else.
+const PIEDMONT_FALLBACK_BOUNDS = { minLat: 44.0, maxLat: 46.2, minLon: 6.5, maxLon: 9.4 };
+
 function isValidGttCoverageCoordinate(vehicle: GttVehiclePosition) {
+  if (!hasNumericCoordinate(vehicle)) return false;
+  // The filter is measured from the dataset rather than written by hand. The
+  // hand-written one covered the city and clipped the interurban network: a
+  // fifth of the stops fell outside it, so buses towards Ivrea, Susa or Asti
+  // vanished from the map partway through their run.
+  const bounds = getGtfsNetworkBounds() ?? PIEDMONT_FALLBACK_BOUNDS;
   return (
-    hasNumericCoordinate(vehicle) &&
-    // GTT includes urban, suburban and interurban services around Torino.
-    // Keep this deliberately wider than the city core so valid extraurban
-    // vehicles are not filtered out before reaching the map.
-    vehicle.lat > 44.7 &&
-    vehicle.lat < 45.35 &&
-    vehicle.lon > 7.25 &&
-    vehicle.lon < 8.15
+    vehicle.lat > bounds.minLat - COVERAGE_MARGIN_DEGREES &&
+    vehicle.lat < bounds.maxLat + COVERAGE_MARGIN_DEGREES &&
+    vehicle.lon > bounds.minLon - COVERAGE_MARGIN_DEGREES &&
+    vehicle.lon < bounds.maxLon + COVERAGE_MARGIN_DEGREES
   );
 }
 
