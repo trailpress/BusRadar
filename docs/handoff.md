@@ -12,12 +12,12 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 
 | | |
 | --- | --- |
-| pull request aperte | **una**, il turno descritto qui sotto |
-| ultimo merge in `main` | PR #31 |
-| ramo `claude/tandem-codex-workflow-v1nntw` | in uso da questa sessione |
-| deploy | pubblicato da `main` fino a PR #31 compresa |
+| pull request aperte | **nessuna** |
+| ultimo merge in `main` | PR #32 |
+| ramo `claude/tandem-codex-workflow-v1nntw` | interamente unito, libero |
+| deploy | pubblicato da `main` dopo il merge |
 
-Chi riprende parte da `main` aggiornato con un ramo nuovo del proprio prefisso, dopo aver controllato se la pull request di cui sopra è stata unita.
+Non c'è lavoro in sospeso e nessun ramo da evitare. Chi riprende parte da `main` aggiornato con un ramo nuovo del proprio prefisso.
 
 ### Cosa è cambiato in questo turno
 
