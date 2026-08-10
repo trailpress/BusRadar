@@ -3,7 +3,7 @@ import { getGtfsLine, getGtfsNetworkBounds, getGtfsRouteVariant, getGtfsRoutesFo
 import { recognizedFleetNumber, vehicleFleetKey, vehicleFleetLabel, vehicleLengthClass, vehicleLiveryForVehicle, vehicleTypeForFleetNumber } from '../data/vehicleFleetRules';
 import { bearingDegrees, distanceMeters, interpolatePathState, routeProgressAtPoint } from '../utils/geo';
 import { fetchStopSchedule, fetchStopScheduleCalendar, isStopScheduleLoaded, peekStopSchedule, requestStopSchedule, type StopScheduleCalendar, type StopScheduleEntry } from './stopSchedule';
-import { loadScheduledRuns, peekScheduledRuns, scheduledRunsInProgress } from './scheduledRuns';
+import { loadScheduledRuns, peekScheduledRuns, scheduledPassagesAtMeters, scheduledRunsInProgress } from './scheduledRuns';
 
 type GttVehiclePosition = {
   entityId?: string | null;
@@ -793,18 +793,31 @@ function anchoredAdvanceMeters(
     const ordered = stopsInOrderAlongRoute(routeVariant);
     const next = ordered.find((stop) => stop.meters > traveledMeters + 5);
     if (!next) return { miss: 'fermate-non-riconosciute' };
-    requestStopSchedule(next.stopId);
-    const calls = peekStopSchedule(next.stopId);
-    if (!calls) return { miss: 'orari-non-caricati' };
 
-    // Fra le corse programmate della linea a quella fermata si prende la prima
-    // che, applicato il ritardo, deve ancora arrivare: l'intervallo fra corse è
-    // molto più lungo dell'incertezza sul ritardo, quindi è quella giusta.
-    const candidates = calls
-      .filter((call) => call.line === routeVariant.line)
-      .map((call) => scheduledSecondsToNearbyMs(call.seconds, now) + delay * 1000)
-      .filter((atMs) => atMs > now)
-      .sort((a, b) => a - b);
+    // L'orario di passaggio si prende dal profilo della corsa, che è già in
+    // memoria. Chiedere il bucket della fermata funziona ma è razionato a due
+    // richieste per volta: con trecento mezzi che ne vogliono uno ciascuno,
+    // l'ancoraggio finiva per attivarsi su pochi e a caso — la stessa lotteria
+    // che aveva tenuto spenta la compensazione.
+    const fromProfile = scheduledPassagesAtMeters(routeVariant.id, next.meters, now);
+    let candidates = fromProfile.map((atMs) => atMs + delay * 1000).filter((atMs) => atMs > now);
+
+    if (candidates.length === 0) {
+      // Ripiego per le varianti senza corse proprie nel profilo: il bucket
+      // della fermata, quando è arrivato.
+      requestStopSchedule(next.stopId);
+      const calls = peekStopSchedule(next.stopId);
+      if (!calls) return { miss: 'orari-non-caricati' };
+      // Fra le corse programmate della linea a quella fermata si prende la prima
+      // che, applicato il ritardo, deve ancora arrivare: l'intervallo fra corse è
+      // molto più lungo dell'incertezza sul ritardo, quindi è quella giusta.
+      candidates = calls
+        .filter((call) => call.line === routeVariant.line)
+        .map((call) => scheduledSecondsToNearbyMs(call.seconds, now) + delay * 1000)
+        .filter((atMs) => atMs > now);
+    }
+
+    candidates.sort((a, b) => a - b);
     if (candidates.length === 0) return { miss: 'previsioni-senza-orario' };
 
     nearestMeters = next.meters;
