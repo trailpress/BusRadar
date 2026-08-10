@@ -66,7 +66,18 @@ function buildRun(seed) {
     const dwell = random() < 0.25 ? 0 : 8 + random() * 35;
     for (let second = 0; second < dwell; second += STEP) positions.push(position);
   }
-  return { positions };
+  // When the vehicle truly reaches each stop. GTT predicts these times in the
+  // TripUpdate feed, well or badly; the simulation adds the error separately.
+  const arrivals = new Map();
+  let stopIndex = 0;
+  for (let second = 0; second < positions.length; second += 1) {
+    while (positions[second] >= (stopIndex + 1) * SPACING) {
+      stopIndex += 1;
+      arrivals.set(stopIndex * SPACING, second);
+    }
+  }
+
+  return { positions, arrivals };
 }
 
 const stops = [];
@@ -86,8 +97,9 @@ function positionAfterSeconds(fromMeters, seconds, speed, dwellSeconds) {
   return position + remaining * speed;
 }
 
-function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35 }) {
-  const { positions } = course;
+function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35, anchored, predictionError = 20, seed = 1 }) {
+  const { positions, arrivals } = course;
+  const noise = mulberry32(seed * 7919);
   let average;
   let advance = 0;
   let shown = -Infinity;
@@ -117,6 +129,25 @@ function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35
       target = dwellAware
         ? positionAfterSeconds(reported, seconds, average, 15) - reported
         : average * seconds;
+    }
+
+    // Anchoring: instead of extrapolating from a stale position, interpolate
+    // between it and the next stop the operator says the vehicle will reach.
+    // Two known instants with the vehicle between them, rather than one known
+    // instant and a guess about the speed it has held since.
+    if (anchored) {
+      const nextStop = stops.find((stop) => stop > reported);
+      const trueArrival = nextStop != null ? arrivals.get(nextStop) : undefined;
+      // The prediction the feed would carry: right to within a few seconds, in
+      // either direction. Predictions already passed are of no use.
+      const predicted = trueArrival != null ? trueArrival + (noise() * 2 - 1) * predictionError : undefined;
+      // The sample is believed to be `floor` seconds old, not the minute it
+      // really is: the anchor inherits that error, and cannot escape it.
+      const believedSampleAt = t - Math.max(DECLARED_AGE, floor);
+      if (predicted != null && predicted > t && predicted > believedSampleAt) {
+        const share = Math.min(1, Math.max(0, (t - believedSampleAt) / (predicted - believedSampleAt)));
+        target = (nextStop - reported) * share;
+      }
     }
 
     advance = rateLimited
@@ -150,7 +181,7 @@ function summarise(options) {
   const allJumps = [];
   let worstStall = 0;
   for (let seed = 1; seed <= 40; seed += 1) {
-    const { errors, longestStall, jumps } = run(buildRun(seed), options);
+    const { errors, longestStall, jumps } = run(buildRun(seed), { ...options, seed });
     all.push(...errors);
     allJumps.push(...jumps);
     worstStall = Math.max(worstStall, longestStall);
@@ -178,6 +209,12 @@ const scenarios = [
   ['in uso, pavimento 45 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 45 }],
   ['in uso, pavimento 60 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 60 }],
   ['+ reazione al rallentamento', { dwellAware: true, rateLimited: true, fastDrop: true, floor: 35 }],
+  ['ancorato alle previsioni', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 35, anchored: true }],
+  ['ancorato, previsioni +/-40 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 35, anchored: true, predictionError: 40 }],
+  ['ancorato, senza limite', { dwellAware: true, rateLimited: false, fastDrop: false, floor: 35, anchored: true }],
+  ['ancorato, pavimento 45 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 45, anchored: true }],
+  ['ancorato, pavimento 50 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 50, anchored: true }],
+  ['ancorato, pavimento 60 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 60, anchored: true }],
 ];
 
 console.log('errore = posizione vera meno marker; negativo = marker davanti al mezzo\n');

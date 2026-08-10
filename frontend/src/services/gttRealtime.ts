@@ -640,9 +640,60 @@ const STOP_DWELL_SECONDS = 15;
 // recovery margin the playback in BusMap already allows itself.
 const LATENCY_ADJUST_FRACTION = 0.35;
 
+// Every projection so far shares one weakness: it extrapolates. It takes a
+// position from a minute ago and a speed, and guesses forward, and a guess
+// about a city bus is wrong whenever the traffic decides otherwise.
+//
+// The feed also carries what GTT expects: the time each vehicle will reach the
+// stops ahead of it. That turns the guess into an interpolation between two
+// known instants — where the vehicle was, and where it is about to be — with
+// the vehicle somewhere in between. The marker converges on the stop instead of
+// being flung past it, and an error in the prediction costs far less than an
+// error in the assumed speed: on the bench, moving the prediction error from
+// 20 s to 40 s barely moves the result.
+//
+// It cannot recover the undeclared delay, though. The near end of the
+// interpolation is still the stale sample, believed younger than it is, so the
+// floor above still does the work it did.
+function anchoredAdvanceMeters(
+  routeVariant: GtfsRouteVariant,
+  traveledMeters: number,
+  believedSampleAtMs: number,
+  tripUpdate: GttTripUpdate | undefined,
+) {
+  if (!tripUpdate) return undefined;
+  const now = Date.now();
+  if (believedSampleAtMs >= now) return undefined;
+  const byStopId = stopDistancesByStopId(routeVariant);
+
+  let nearestMeters: number | undefined;
+  let nearestAtMs: number | undefined;
+  for (const update of tripUpdate.stopTimeUpdates) {
+    if (!update.stopId) continue;
+    const atMs = epochSecondsToMs(update.arrivalTime ?? update.departureTime);
+    // A prediction already due tells us nothing about where the vehicle is now.
+    if (atMs == null || atMs <= now) continue;
+    const occurrences = byStopId.get(update.stopId);
+    if (!occurrences) continue;
+    // On a loop the same stop is served twice: the one being approached is the
+    // first still ahead of the vehicle.
+    const meters = occurrences.find((candidate) => candidate > traveledMeters + 5);
+    if (meters == null) continue;
+    if (nearestMeters == null || meters < nearestMeters) {
+      nearestMeters = meters;
+      nearestAtMs = atMs;
+    }
+  }
+
+  if (nearestMeters == null || nearestAtMs == null) return undefined;
+  const share = (now - believedSampleAtMs) / (nearestAtMs - believedSampleAtMs);
+  return (nearestMeters - traveledMeters) * Math.min(1, Math.max(0, share));
+}
+
 // Where the stops of a route sit along its shape, in metres from the start.
 // Computed once per variant: the projection needs it on every sample.
 const routeStopDistances = new Map<string, number[]>();
+const routeStopDistancesByStopId = new Map<string, Map<string, number[]>>();
 // How far ahead of the feed each vehicle is currently being drawn.
 const publishedAdvances = new Map<string, { meters: number; atMs: number }>();
 
@@ -656,6 +707,7 @@ function stopDistancesAlongRoute(routeVariant: GtfsRouteVariant) {
   // here and every stop is projected onto it in flat metres.
   const path = routeVariant.path;
   const distances: number[] = [];
+  const byStopId = new Map<string, number[]>();
   if (path.length >= 2) {
     const metersPerDegreeLat = 111320;
     const metersPerDegreeLon = 111320 * Math.cos((path[0].lat * Math.PI) / 180);
@@ -686,13 +738,24 @@ function stopDistancesAlongRoute(routeVariant: GtfsRouteVariant) {
       }
       // A stop that does not sit on the shape belongs to some other branch:
       // charging a dwell for it would slow the projection for no reason.
-      if (bestOffRouteSquared <= 120 * 120) distances.push(bestMeters);
+      if (bestOffRouteSquared > 120 * 120) continue;
+      distances.push(bestMeters);
+      const occurrences = byStopId.get(stop.id);
+      if (occurrences) occurrences.push(bestMeters);
+      else byStopId.set(stop.id, [bestMeters]);
     }
     distances.sort((a, b) => a - b);
+    for (const occurrences of byStopId.values()) occurrences.sort((a, b) => a - b);
   }
+  routeStopDistancesByStopId.set(routeVariant.id, byStopId);
 
   routeStopDistances.set(routeVariant.id, distances);
   return distances;
+}
+
+function stopDistancesByStopId(routeVariant: GtfsRouteVariant) {
+  if (!routeStopDistancesByStopId.has(routeVariant.id)) stopDistancesAlongRoute(routeVariant);
+  return routeStopDistancesByStopId.get(routeVariant.id) ?? new Map<string, number[]>();
 }
 
 // Walk the route forward for the seconds being recovered, stopping the clock at
@@ -732,6 +795,7 @@ function compensateFeedLatency(
   speedKmhValue: number,
   ageSeconds: number,
   isSnappedToRoute: boolean,
+  tripUpdate: GttTripUpdate | undefined,
 ) {
   // Dead reckoning over the better part of a minute has to use the pace held
   // over that minute. Driven by the speed of the single sample, the projection
@@ -780,9 +844,18 @@ function compensateFeedLatency(
     compensationSeconds,
     speedMetersPerSecond,
   ) - progress.traveledMeters;
+  // Where GTT says the vehicle is going, and when, beats any guess about the
+  // speed it has held since a sample we cannot date. The projection stays as
+  // the fallback for the trips the feed says nothing about.
+  const anchoredMeters = anchoredAdvanceMeters(
+    routeVariant,
+    progress.traveledMeters,
+    Date.now() - effectiveAgeSeconds * 1000,
+    tripUpdate,
+  );
   const targetMeters = Math.min(
     MAX_LATENCY_COMPENSATION_METERS,
-    projectedMeters,
+    anchoredMeters ?? projectedMeters,
     // Dead reckoning may not push a vehicle past its own terminus.
     Math.max(0, progress.remainingMeters - 5),
   );
@@ -819,6 +892,7 @@ function compensateFeedLatency(
         // Report the delay actually recovered, which after the stops and the
         // rate limit is not the delay we set out to recover.
         seconds: Math.round(advanceMeters / speedMetersPerSecond),
+        anchored: anchoredMeters != null,
       }
     : { skipped: 'percorso-assente' as const };
 }
@@ -904,6 +978,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttT
     recentSpeed ?? speed,
     ageSeconds,
     isSnappedToRoute,
+    tripUpdate,
   );
   const latencyCompensation = 'point' in latencyOutcome ? latencyOutcome : undefined;
   const finalPoint = latencyCompensation?.point ?? displayPoint;
@@ -949,6 +1024,7 @@ function toVehicle(vehicle: GttVehiclePosition, index: number, tripUpdate?: GttT
     latencyCompensationMeters: latencyCompensation?.meters,
     latencyCompensationSeconds: latencyCompensation?.seconds,
     latencyCompensationSkipped: 'skipped' in latencyOutcome ? latencyOutcome.skipped : undefined,
+    latencyCompensationAnchored: latencyCompensation?.anchored,
     vehicleLivery,
     vehicleLengthClass: lengthClass,
     vehicleFleetLabel: fleetNumber

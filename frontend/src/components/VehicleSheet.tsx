@@ -121,7 +121,10 @@ const latencySkipReason: Record<NonNullable<Vehicle['latencyCompensationSkipped'
 function latencyText(vehicle: Vehicle) {
   if (vehicle.latencyCompensationMeters != null) {
     const seconds = vehicle.latencyCompensationSeconds;
-    return `Recupero ritardo feed: ${vehicle.latencyCompensationMeters} m avanti${seconds != null ? ` · ${seconds} s recuperati` : ''}`;
+    // Quale delle due stime ha posizionato il mezzo: l'interpolazione verso la
+    // fermata annunciata da GTT, o la proiezione della velocità tenuta.
+    const source = vehicle.latencyCompensationAnchored ? 'previsione fermata' : 'velocità stimata';
+    return `Recupero ritardo feed: ${vehicle.latencyCompensationMeters} m avanti${seconds != null ? ` · ${seconds} s recuperati` : ''} · ${source}`;
   }
   const reason = vehicle.latencyCompensationSkipped;
   return `Recupero ritardo feed: ${reason ? latencySkipReason[reason] : 'non disponibile'}`;

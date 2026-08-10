@@ -62,6 +62,9 @@ export type TransitVehicle = {
   latencyCompensationMeters?: number;
   latencyCompensationSeconds?: number;
   latencyCompensationSkipped?: 'non-agganciato' | 'troppo-lento' | 'campione-recente' | 'percorso-assente';
+  // True when the position came from interpolating towards the stop GTT says
+  // the vehicle is about to reach, rather than from projecting its speed.
+  latencyCompensationAnchored?: boolean;
   routeMatchStatus?: 'on-route' | 'gps-only' | 'unmatched';
   routeVariantId?: string;
   shapeId?: string;
