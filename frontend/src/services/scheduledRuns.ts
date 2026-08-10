@@ -163,3 +163,43 @@ export function scheduledRunsInProgress(
 
   return runs;
 }
+
+/**
+ * Gli orari programmati di passaggio a un punto del percorso, per la variante
+ * indicata, in millisecondi.
+ *
+ * Serve a ricostruire l'orario assoluto che le previsioni GTT non portano. Il
+ * dato è già qui — il profilo dice a quanti secondi dalla partenza il mezzo si
+ * trova a quel metro, e le partenze sono elencate — quindi non c'è bisogno di
+ * scaricare il bucket della fermata, che con trecento mezzi che ne chiedono uno
+ * ciascuno arriverebbe per pochi e in ritardo.
+ */
+export function scheduledPassagesAtMeters(routeVariantId: string, meters: number, now: number) {
+  const payload = loadedPayload;
+  const variant = payload?.variants.find((candidate) => candidate.id === routeVariantId);
+  if (!variant || variant.runs.length === 0) return [];
+
+  const anchors = variant.anchors;
+  // Le ancore del profilo e le fermate lungo la shape sono misurate con lo
+  // stesso metro, ma da due implementazioni diverse: si accetta uno scarto.
+  if (meters < anchors[0][0] - 30 || meters > anchors[anchors.length - 1][0] + 30) return [];
+
+  let elapsedAtMeters: number | undefined;
+  for (let index = 1; index < anchors.length; index += 1) {
+    const [aheadMeters, aheadSeconds] = anchors[index];
+    const [behindMeters, behindSeconds] = anchors[index - 1];
+    if (meters <= aheadMeters) {
+      const span = aheadMeters - behindMeters;
+      const share = span > 0 ? (meters - behindMeters) / span : 0;
+      elapsedAtMeters = behindSeconds + (aheadSeconds - behindSeconds) * share;
+      break;
+    }
+  }
+  if (elapsedAtMeters == null) return [];
+
+  const midnight = new Date(now);
+  midnight.setHours(0, 0, 0, 0);
+  return variant.runs
+    .map(([, departureSeconds]) => midnight.getTime() + (departureSeconds + elapsedAtMeters!) * 1000)
+    .sort((a, b) => a - b);
+}
