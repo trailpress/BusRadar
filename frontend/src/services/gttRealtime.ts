@@ -711,7 +711,43 @@ export type AnchorMiss =
   // Orari presenti ma le fermate che nominano non stanno sul percorso davanti
   // al mezzo: id fermata diversi da quelli del dataset statico, o previsioni
   // tutte alle spalle.
-  | 'fermate-non-riconosciute';
+  | 'fermate-non-riconosciute'
+  // Nemmeno un ritardo dichiarato, quindi non c'è nulla da incrociare con
+  // l'orario programmato.
+  | 'previsioni-senza-ritardo'
+  // Il ritardo c'è ma l'orario della prossima fermata non è ancora arrivato:
+  // il bucket si sta scaldando e la risposta arriva al giro successivo.
+  | 'orari-non-caricati';
+
+// L'orario programmato di oggi, in millisecondi. Il GTFS scrive i servizi
+// notturni come 27:49, e il giorno di servizio non coincide con quello civile:
+// il candidato viene quindi riportato al giorno più vicino a ora.
+function scheduledSecondsToNearbyMs(seconds: number, now: number) {
+  const midnight = new Date(now);
+  midnight.setHours(0, 0, 0, 0);
+  let candidate = midnight.getTime() + seconds * 1000;
+  while (candidate - now > 12 * 3600_000) candidate -= 86_400_000;
+  while (now - candidate > 12 * 3600_000) candidate += 86_400_000;
+  return candidate;
+}
+
+// Il ritardo che questo mezzo dichiara, preso alla fermata richiesta se c'è e
+// altrimenti come mediana delle sue previsioni. GTT manda i ritardi anche
+// quando non manda gli orari assoluti, ed è l'unico modo di sapere di quanto
+// una corsa sia fuori orario.
+function declaredDelaySeconds(tripUpdate: GttTripUpdate, stopId?: string) {
+  const atStop = stopId
+    ? tripUpdate.stopTimeUpdates.find((update) => update.stopId === stopId)
+    : undefined;
+  const direct = atStop?.arrivalDelay ?? atStop?.departureDelay;
+  if (direct != null && Number.isFinite(direct)) return direct;
+
+  const delays = tripUpdate.stopTimeUpdates
+    .map((update) => update.arrivalDelay ?? update.departureDelay)
+    .filter((delay): delay is number => delay != null && Number.isFinite(delay) && Math.abs(delay) <= 3600)
+    .sort((a, b) => a - b);
+  return delays.length > 0 ? delays[Math.floor(delays.length / 2)] : undefined;
+}
 
 function anchoredAdvanceMeters(
   routeVariant: GtfsRouteVariant,
@@ -746,7 +782,33 @@ function anchoredAdvanceMeters(
   }
 
   if (nearestMeters == null || nearestAtMs == null) {
-    return { miss: withFutureTime > 0 ? 'fermate-non-riconosciute' : 'previsioni-senza-orario' };
+    if (withFutureTime > 0) return { miss: 'fermate-non-riconosciute' };
+
+    // GTT manda le previsioni **senza orario assoluto**: solo lo scarto rispetto
+    // all'orario programmato. L'orario assoluto si ricostruisce sommando i due,
+    // e a quel punto l'ancoraggio funziona come se fosse arrivato dal feed.
+    const delay = declaredDelaySeconds(tripUpdate);
+    if (delay == null) return { miss: 'previsioni-senza-ritardo' };
+
+    const ordered = stopsInOrderAlongRoute(routeVariant);
+    const next = ordered.find((stop) => stop.meters > traveledMeters + 5);
+    if (!next) return { miss: 'fermate-non-riconosciute' };
+    requestStopSchedule(next.stopId);
+    const calls = peekStopSchedule(next.stopId);
+    if (!calls) return { miss: 'orari-non-caricati' };
+
+    // Fra le corse programmate della linea a quella fermata si prende la prima
+    // che, applicato il ritardo, deve ancora arrivare: l'intervallo fra corse è
+    // molto più lungo dell'incertezza sul ritardo, quindi è quella giusta.
+    const candidates = calls
+      .filter((call) => call.line === routeVariant.line)
+      .map((call) => scheduledSecondsToNearbyMs(call.seconds, now) + delay * 1000)
+      .filter((atMs) => atMs > now)
+      .sort((a, b) => a - b);
+    if (candidates.length === 0) return { miss: 'previsioni-senza-orario' };
+
+    nearestMeters = next.meters;
+    nearestAtMs = candidates[0];
   }
   const share = (now - believedSampleAtMs) / (nearestAtMs - believedSampleAtMs);
   return { meters: (nearestMeters - traveledMeters) * Math.min(1, Math.max(0, share)) };

@@ -71,7 +71,12 @@ export type TransitVehicle = {
   // Perché la previsione di fermata non ha posizionato il mezzo. Con il feed
   // che porta 305 previsioni e la mappa che usa la velocità stimata, il motivo
   // va letto sulla scheda invece che indovinato.
-  latencyAnchorMiss?: 'nessun-aggiornamento' | 'previsioni-senza-orario' | 'fermate-non-riconosciute';
+  latencyAnchorMiss?:
+    | 'nessun-aggiornamento'
+    | 'previsioni-senza-orario'
+    | 'fermate-non-riconosciute'
+    | 'previsioni-senza-ritardo'
+    | 'orari-non-caricati';
   routeMatchStatus?: 'on-route' | 'gps-only' | 'unmatched';
   routeVariantId?: string;
   shapeId?: string;
