@@ -818,6 +818,24 @@ function stopDistancesByStopId(routeVariant: GtfsRouteVariant) {
   return routeStopDistancesByStopId.get(routeVariant.id) ?? new Map<string, number[]>();
 }
 
+// La lunghezza vera della shape, sommando i segmenti. Ricavarla proiettando
+// l'ultimo punto sul percorso sembra equivalente e non lo è: su una linea ad
+// anello l'ultimo punto coincide col primo e la proiezione restituisce zero,
+// mettendo ogni corsa di quella linea al capolinea. Succede su una variante su
+// 602, il che la rende peggio di un errore evidente: passa inosservata.
+const routeLengths = new Map<string, number>();
+
+function routeLengthMeters(routeVariant: GtfsRouteVariant) {
+  const cached = routeLengths.get(routeVariant.id);
+  if (cached != null) return cached;
+  let total = 0;
+  for (let index = 0; index < routeVariant.path.length - 1; index += 1) {
+    total += distanceMeters(routeVariant.path[index], routeVariant.path[index + 1]);
+  }
+  routeLengths.set(routeVariant.id, total);
+  return total;
+}
+
 function stopsInOrderAlongRoute(routeVariant: GtfsRouteVariant) {
   if (!routeStopsInOrder.has(routeVariant.id)) stopDistancesAlongRoute(routeVariant);
   return routeStopsInOrder.get(routeVariant.id) ?? [];
@@ -1200,6 +1218,41 @@ let scheduledRunsRequested = false;
 
 const MAX_UNVERIFIED_RUNS = 400;
 
+// Il ritardo che la linea sta accumulando, letto dai Trip Update. Quando il
+// feed delle posizioni tace, quello delle previsioni può parlare ancora: porta
+// lo scarto fra orario previsto e programmato, ed è l'unico modo di sapere che
+// una corsa è in ritardo senza vederla.
+//
+// Senza questa correzione una corsa programmata resta per definizione davanti a
+// un mezzo in ritardo, e si allontana man mano che il ritardo cresce — che è
+// esattamente il "sempre più avanti" che si osserva sulla mappa.
+//
+// Si usa la mediana e non la media: un solo aggiornamento aberrante sposterebbe
+// tutte le corse della linea.
+function lineDelaysFromTripUpdates(updates: GttTripUpdate[]) {
+  const byLine = new Map<string, number[]>();
+  for (const update of updates) {
+    if (!update.routeId) continue;
+    const line = lineNameForRoute(update.routeId);
+    for (const stop of update.stopTimeUpdates) {
+      const delay = stop.arrivalDelay ?? stop.departureDelay;
+      if (delay == null || !Number.isFinite(delay)) continue;
+      // Oltre l'ora non è un ritardo, è un dato sbagliato.
+      if (Math.abs(delay) > 3600) continue;
+      const bucket = byLine.get(line);
+      if (bucket) bucket.push(delay);
+      else byLine.set(line, [delay]);
+    }
+  }
+
+  const median = new Map<string, number>();
+  for (const [line, delays] of byLine) {
+    delays.sort((a, b) => a - b);
+    median.set(line, delays[Math.floor(delays.length / 2)]);
+  }
+  return median;
+}
+
 function unverifiedScheduledVehicles(observed: Vehicle[]): Vehicle[] {
   if (!scheduledRunsRequested) {
     scheduledRunsRequested = true;
@@ -1212,11 +1265,13 @@ function unverifiedScheduledVehicles(observed: Vehicle[]): Vehicle[] {
 
   const coveredLines = new Set(observed.map((vehicle) => vehicle.line));
   const now = new Date();
+  const delayByLine = lineDelaysFromTripUpdates(tripUpdatesCache?.updates ?? []);
   const runs = scheduledRunsInProgress(
     now,
     scheduledRunsCalendar,
     (line) => !coveredLines.has(line),
     MAX_UNVERIFIED_RUNS,
+    (line) => delayByLine.get(line) ?? 0,
   );
 
   const label = now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
@@ -1232,8 +1287,7 @@ function unverifiedScheduledVehicles(observed: Vehicle[]): Vehicle[] {
     .map((run): Vehicle | undefined => {
       const routeVariant = getGtfsRouteVariant(run.routeVariantId);
       if (!routeVariant || routeVariant.path.length < 2) return undefined;
-      const progress = routeProgressAtPoint(routeVariant.path, routeVariant.path[routeVariant.path.length - 1]);
-      const totalMeters = progress ? progress.traveledMeters : 0;
+      const totalMeters = routeLengthMeters(routeVariant);
       if (totalMeters <= 0) return undefined;
       const state = interpolatePathState(routeVariant.path, Math.min(0.999999, run.meters / totalMeters));
       if (!state) return undefined;
@@ -1250,7 +1304,9 @@ function unverifiedScheduledVehicles(observed: Vehicle[]): Vehicle[] {
         routeShortName: routeVariant.line,
         vehicleType,
         vehicleFleetKey: vehicleType === 'tram' ? ('generic-tram' as const) : ('generic-bus' as const),
-        vehicleFleetLabel: 'Corsa non accertata',
+        vehicleFleetLabel: run.delaySeconds
+          ? `Corsa non accertata · ritardo linea ${Math.round(run.delaySeconds / 60)} min`
+          : 'Corsa non accertata',
         lat: state.point.lat,
         lon: state.point.lon,
         bearing: state.bearing,

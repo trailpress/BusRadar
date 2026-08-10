@@ -34,6 +34,8 @@ export type ScheduledRun = {
   serviceDayOffsetSeconds: number;
   /** Il passo che l'orario dà al tratto in cui si trova adesso. */
   speedKmh: number;
+  /** Il ritardo della linea applicato a questa corsa, se noto. */
+  delaySeconds: number;
 };
 
 // Una linea molto frequente ha decine di corse in strada insieme e da sola
@@ -115,6 +117,7 @@ export function scheduledRunsInProgress(
   calendar: StopScheduleCalendar | undefined,
   isLineUncovered: (line: string) => boolean,
   limit = 500,
+  delayForLine: (line: string) => number = () => 0,
 ) {
   const payload = loadedPayload;
   if (!payload || !calendar) return [];
@@ -127,6 +130,9 @@ export function scheduledRunsInProgress(
     if (runs.length >= limit) break;
     if (!isLineUncovered(variant.line)) continue;
 
+    // Una corsa in ritardo è più indietro di dove l'orario la vorrebbe: il
+    // tempo trascorso utile è quello scontato del ritardo.
+    const delaySeconds = delayForLine(variant.line);
     let fromThisVariant = 0;
     for (const [serviceIndex, departureSeconds] of variant.runs) {
       if (runs.length >= limit || fromThisVariant >= MAX_RUNS_PER_VARIANT) break;
@@ -137,7 +143,7 @@ export function scheduledRunsInProgress(
       for (const dayOffset of [0, 86_400]) {
         const date = dayOffset === 0 ? now : yesterday;
         if (!serviceRunsOn(serviceId, calendar, date)) continue;
-        const elapsed = secondsToday + dayOffset - departureSeconds;
+        const elapsed = secondsToday + dayOffset - departureSeconds - delaySeconds;
         const state = stateAtElapsed(variant.anchors, elapsed);
         if (!state) continue;
         runs.push({
@@ -147,6 +153,7 @@ export function scheduledRunsInProgress(
           departureSeconds,
           serviceDayOffsetSeconds: dayOffset,
           speedKmh: Math.round(state.speedKmh),
+          delaySeconds,
         });
         fromThisVariant += 1;
         break;
