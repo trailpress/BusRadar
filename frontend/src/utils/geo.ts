@@ -202,5 +202,17 @@ export function routeProgressAtPoint(path: LatLng[], point: LatLng) {
     traveledBefore += segmentMeters;
   }
 
+  // La stessa base di quaranta metri di `interpolatePathState`, e per la stessa
+  // ragione. Qui mancava: la direzione usciva dal singolo segmento su cui il
+  // mezzo era proiettato, e questa - non l'altra - è quella che finisce nella
+  // freccia sulla mappa, perché lo snap sul percorso ha la precedenza sulla
+  // direzione calcolata durante l'animazione. Correggerne una sola lasciava il
+  // difetto intatto dove si vedeva.
+  if (best) {
+    const behind = pointAtDistance(path, segmentLengths, Math.max(0, best.traveledMeters - BEARING_BASELINE_METERS));
+    const ahead = pointAtDistance(path, segmentLengths, Math.min(totalMeters, best.traveledMeters + BEARING_BASELINE_METERS));
+    if (distanceMeters(behind, ahead) > 1) best.bearing = bearingDegrees(behind, ahead);
+  }
+
   return best;
 }

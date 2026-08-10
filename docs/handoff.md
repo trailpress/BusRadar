@@ -12,12 +12,12 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 
 | | |
 | --- | --- |
-| pull request aperte | **nessuna** |
-| ultimo merge in `main` | PR #32 |
-| ramo `claude/tandem-codex-workflow-v1nntw` | interamente unito, libero |
-| deploy | pubblicato da `main` dopo il merge |
+| pull request aperte | **una**, il turno descritto qui sotto |
+| ultimo merge in `main` | PR #33 |
+| ramo `claude/tandem-codex-workflow-v1nntw` | in uso da questa sessione |
+| deploy | pubblicato da `main` fino a PR #33 compresa |
 
-Non c'è lavoro in sospeso e nessun ramo da evitare. Chi riprende parte da `main` aggiornato con un ramo nuovo del proprio prefisso.
+Chi riprende parte da `main` aggiornato con un ramo nuovo del proprio prefisso, dopo aver controllato se la pull request di cui sopra è stata unita.
 
 ### Cosa è cambiato in questo turno
 
@@ -55,7 +55,9 @@ Soprattutto: **l'età del campione si misura dal timestamp del veicolo con ricad
 
 **Render della flotta.** Da PNG 2048px a WebP 1280px: 74,5 → 1,9 MB, rimossi 115,4 MB di versioni superate.
 
-**Il render della serie 5000 è stato ritirato perché era inventato.** Chi vede quelle vetture ogni giorno lo ha riconosciuto come non realistico. Era nato da una descrizione a parole («frontale squadrato come la 5014») e rifinito due volte — l'alpha, i bordi — senza che nessuno lo confrontasse con una fotografia della serie: **una descrizione plausibile non è una verifica, e tre iterazioni sul file non la sostituiscono**. Ora la scheda mostra il pannello «Render 3D da produrre» con le specifiche della scheda ufficiale M4, che sono verificate. Non rigenerarlo senza una fotografia reale come reference. Lo stesso sospetto vale per gli altri render nati solo da prompt descrittivi.
+**Il render della serie 5000 era stato rigenerato da prompt, e la rigenerazione aveva perso il mezzo vero.** L'immagine giusta era già stata nel repository: una vettura 5014 con matricola, linea 15 sul rullo, marchi TORINO 2006 e STT, interni della cabina. Per rimettere il fondo studio scuro è stata sostituita da una rigenerazione descritta a parole, pulita e senza nessuno di quei dettagli — ed è quella che è stata riconosciuta come inventata. Ora in produzione c'è di nuovo l'immagine della 5014, sul fondo scuro come gli altri render. **Quando un render viene da un'immagine di riferimento, rilavorarlo significa partire da quell'immagine**, non ridescriverla a un generatore: `renderPrompt` della 5000 è vuoto apposta. Lo stesso sospetto vale per gli altri render nati solo da prompt descrittivi.
+
+**Le frecce di direzione si prendono dal progresso lungo il percorso, non dalla riproiezione del punto.** La riproiezione non ha memoria e su una shape che si sovrappone a sé stessa ritrova il mezzo sul passaggio sbagliato, girando la freccia di 180°. Misurato sulle shape vere, le frecce rovesciate passano dal **2,0% allo 0,5%** e il 99° percentile dell'errore da 173° a 72°. La base di 40 metri da sola non bastava: toglieva gli scatti fra un vertice e l'altro, non la coda. La tabella completa è in `project-reference.md` §4.
 
 **La velocità del mezzo serviva solo alla terza stima, ma le sbarrava tutte e tre.** Il cancello a 1,5 km/h stava prima dell'ancoraggio: un mezzo non ancora misurabile perdeva anche la previsione GTT, che è il dato migliore che abbiamo. Ora l'ordine è invertito. Insieme a questo, **fermo e non misurabile sono stati separati**: se una misura recente dice che il mezzo non si è mosso, nessun orario lo spinge avanti — è l'osservazione che vince, ed era questo a far scivolare il marker sempre più avanti del mezzo vero. La scheda distingue i due casi a parole, e `npm run smoke:map --feed-fermo` verifica che li distingua davvero.
 
@@ -67,7 +69,7 @@ Soprattutto: **l'età del campione si misura dal timestamp del veicolo con ricad
 - **Il prompt dei render vive nel catalogo**, non nel workflow. Se un render non va bene si corregge `renderPrompt` in `gttFleetCatalog.ts` e si rigenera; non si ritocca il file, la rigenerazione perderebbe la correzione.
 - **I render stanno entro 400 kB e devono essere referenziati.** `npm run verify:assets` fallisce altrimenti.
 - **`generic-tram` resta senza render di proposito.** Se le matricole che ci finiscono appartengono a una serie reale, si aggiunge la serie in `vehicleFleetRules.ts`.
-- **La serie 5000 resta senza render finché non c'è una fotografia reale.** Rigenerarlo dal prompt riprodurrebbe l'invenzione: il prompt è stato svuotato apposta.
+- **La serie 5000 non si rigenera dal prompt**, che è vuoto apposta: si parte dall'immagine in `public/assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v6.webp`.
 - **Un nuovo layer di mezzi va aggiunto anche a `vehicleLayers`** in `BusMap.tsx`, o non risponde a click e hover.
 - **Il percorso di un render è scritto in due file**: `gttFleetCatalog.ts` e `vehicleFleet.ts`. L'interfaccia legge il secondo. Spostarne uno solo significa dichiarare validato un render che l'app non mostra.
 - **Sostituendo il contenuto di un asset, cambiare anche il nome del file.** `public/` viene servito a URL stabile, senza hash: a parità di nome la cache continua a restituire la versione vecchia.
