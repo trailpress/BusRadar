@@ -65,19 +65,47 @@ page.on('console', (message) => {
 });
 page.on('pageerror', (error) => errors.push(`pageerror: ${String(error).slice(0, 200)}`));
 
-await page.route('**/gtt-realtime/vehicles', (route) =>
+// Il feed vero rinfresca un mezzo ogni ~15 s mentre l'app interroga ogni 6, e
+// manda `speed` sempre a zero. Riprodurre quel disallineamento e' l'unico modo
+// di accorgersi se la velocita' viene ancora ricavata dallo spostamento: con la
+// media avvelenata dagli zeri, la scheda dichiarava "mezzo fermo" su vetture in
+// corsa e la compensazione restava spenta.
+const movingFeed = process.argv.includes('--feed-mobile');
+const startedAt = Date.now();
+
+await page.route('**/gtt-realtime/vehicles', (route) => {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const payload = movingFeed
+    ? vehicles.map((vehicle, index) => {
+        // Un campione nuovo ogni 15 s, e nel frattempo lo stesso identico.
+        const tick = Math.floor((Date.now() - startedAt) / 15000);
+        return {
+          ...vehicle,
+          // ~30 km/h verso est: 125 m ogni quindici secondi.
+          lon: vehicle.lon + tick * 0.0016,
+          speed: 0,
+          timestamp: String(Math.floor(startedAt / 1000) + tick * 15 - 12 - index),
+        };
+      })
+    : vehicles;
   route.fulfill({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify({ status: 'ok', entityCount: vehicles.length, vehiclePositionCount: vehicles.length, header: { timestamp: now }, vehicles }),
-  }),
-);
+    body: JSON.stringify({
+      status: 'ok',
+      entityCount: payload.length,
+      vehiclePositionCount: payload.length,
+      header: { timestamp: nowSeconds },
+      vehicles: payload,
+    }),
+  });
+});
 await page.route('**/gtt-realtime/trips', (route) =>
   route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', tripUpdates: [] }) }),
 );
 
 await page.goto(base, { waitUntil: 'networkidle' });
-await page.waitForTimeout(9000);
+await page.waitForTimeout(movingFeed ? 60000 : 9000);
 
 // Quanto resta bloccato il thread principale: un refresh che macina per secondi
 // si vede come mappa ferma, non come errore.
@@ -104,6 +132,12 @@ await page.waitForTimeout(2500);
 const bodyText = await page.locator('body').innerText();
 const inServizio = bodyText.match(/IN SERVIZIO\s*(\d+)/i);
 
+// Solo i due mezzi tracciati: le corse previste portano una velocita' loro,
+// ricavata dall'orario, e conteggiarle nasconderebbe proprio il difetto.
+for (const vehicle of vehicles) {
+  const row = bodyText.match(new RegExp(`${vehicle.vehicleId}[\\s\\S]{0,120}?(\\d+)\\s*km/h`));
+  console.log(`velocita del mezzo tracciato ${vehicle.vehicleId}:`, row ? `${row[1]} km/h` : 'riga non trovata');
+}
 console.log('mezzi "In servizio" nel DOM:', inServizio ? inServizio[1] : 'sezione non trovata');
 console.log('fotogramma piu lungo durante il polling:', blocked, 'ms');
 const nonTile = errors.filter((error) => !/tile\.openstreetmap|ERR_TUNNEL/.test(error));

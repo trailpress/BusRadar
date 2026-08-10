@@ -176,6 +176,12 @@ Misurato sull'endpoint del proxy il **2026-08-10 alle 15:59 UTC**, 294 mezzi. So
 | `lat`/`lon` | alcuni mezzi a `0,0`, correttamente scartati |
 | `vehicleLabel` | a volte diverso da `vehicleId` (1235 → 16235, 1305 → 19005) e a 5 cifre, fuori da ogni gruppo del catalogo flotta: quei mezzi restano «modello non identificato» finché la serie non è verificata su fonti attendibili |
 
+**Nella media di velocità entrano solo le misure.** È il difetto che teneva spenta la compensazione su gran parte dei mezzi, e che ha reso vana buona parte della taratura precedente: la `speed` del feed è sempre zero, quindi la velocità si ricava dallo spostamento fra due campioni; ma l'app interroga il proxy ogni 6 secondi mentre GTT rinfresca un mezzo ogni 15 circa, e nei cicli senza campione nuovo veniva versato uno zero nella media con peso 0,1. Fra due misure vere passano due o tre cicli, quindi **la media convergeva a una frazione della velocità reale**, il cancello a 1,5 km/h la scartava, e la scheda dichiarava «mezzo fermo o troppo lento» su vetture in servizio.
+
+Zero significa «non lo so», non «sta fermo». Due conseguenze da non rimuovere: il campione di riferimento si sposta **solo quando è servito a misurare** (altrimenti la base di misura viene distrutta prima di raggiungere i 5 secondi necessari), e uno zero **misurato** viene accettato, perché un timestamp che avanza senza movimento è l'osservazione di un mezzo fermo.
+
+`npm run smoke:map --feed-mobile` riproduce proprio quel disallineamento — feed che rinfresca ogni 15 s con `speed` a zero, polling ogni 6 — e verifica che il mezzo tracciato risulti a 30 km/h invece che fermo.
+
 **Il ritardo non dichiarato si somma all'età dichiarata, non la sostituisce.** Con un pavimento, un campione che si dichiara già vecchio di 40 s non riceveva alcuna correzione, come se per lui la tubatura fra misura e lettura non esistesse — e quei campioni nel feed reale ci sono. Nel caso tipico i due modelli coincidono (15+20 = 35, il valore tarato dalla strada), quindi il cambiamento non sposta la mappa di tutti i giorni.
 
 #### Taratura del ritardo non dichiarato

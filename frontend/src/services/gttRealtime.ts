@@ -471,14 +471,21 @@ function feedAgeSeconds(timestamp: string | null) {
 }
 
 function observedSpeed(vehicleId: string, vehicle: GttVehiclePosition) {
-  if (typeof vehicle.lat !== 'number' || typeof vehicle.lon !== 'number') return { speed: 0, source: 'unavailable' as const, bearing: undefined };
+  if (typeof vehicle.lat !== 'number' || typeof vehicle.lon !== 'number') {
+    return { speed: 0, source: 'unavailable' as const, bearing: undefined, recentSpeed: recentSpeeds.get(vehicleId)?.kmh };
+  }
 
+  // GTT manda `speed` a zero su ogni mezzo, sempre: misurato sul feed vivo il
+  // 2026-08-10, 294 vetture su 294. La velocità si ricava quindi solo dallo
+  // spostamento fra due campioni, e tutto quello che segue esiste per non
+  // scambiare "non misurabile" con "fermo".
   const feedSpeed = speedKmh(vehicle.speed);
   const sampleTime = timestampMs(vehicle.timestamp);
   const previous = previousSamples.get(vehicleId);
   let speed = feedSpeed;
   let source: Vehicle['speedSource'] = feedSpeed > 0 ? 'feed' : 'unavailable';
   let observedBearing: number | undefined;
+  let measured = feedSpeed > 0;
 
   if (previous) {
     const elapsedSeconds = Math.max(0, (sampleTime - previous.timestampMs) / 1000);
@@ -488,25 +495,47 @@ function observedSpeed(vehicleId: string, vehicle: GttVehiclePosition) {
     }
     if (elapsedSeconds >= 5 && elapsedSeconds <= 180 && meters < 5000) {
       const calculated = Math.round((meters / elapsedSeconds) * 3.6);
-      if (calculated > 0 && calculated < 90) {
+      // Lo zero misurato viene accettato: un timestamp che avanza senza che il
+      // mezzo si muova è l'osservazione di un mezzo fermo, non l'assenza di
+      // un'osservazione. Prima veniva scartato e finiva indistinguibile dal
+      // secondo caso.
+      if (calculated < 90) {
         speed = calculated;
         source = 'observed';
+        measured = true;
       }
     }
   }
 
-  previousSamples.set(vehicleId, {
-    lat: vehicle.lat,
-    lon: vehicle.lon,
-    timestampMs: sampleTime,
-    speed,
-  });
+  // Il campione di riferimento si sposta solo quando è servito a qualcosa. La
+  // mappa interroga il proxy ogni 6 secondi mentre GTT rinfresca un mezzo ogni
+  // 15 circa: azzerando il riferimento a ogni ciclo, la base di misura veniva
+  // distrutta prima di raggiungere i 5 secondi necessari a misurare.
+  const staleReference = previous && (sampleTime - previous.timestampMs) / 1000 > 180;
+  if (!previous || measured || staleReference) {
+    previousSamples.set(vehicleId, {
+      lat: vehicle.lat,
+      lon: vehicle.lon,
+      timestampMs: sampleTime,
+      speed,
+    });
+  }
+
+  const previousAverage = recentSpeeds.get(vehicleId);
+
+  // **Nella media entrano solo le misure.** Questo era il difetto che teneva
+  // spenta la compensazione: senza questa guardia ogni ciclo privo di misura
+  // versava uno zero nella media con peso 0,1, e fra due misure vere passano
+  // due o tre cicli. La media convergeva a una frazione della velocità reale,
+  // il cancello a 1,5 km/h la scartava, e la scheda dichiarava "mezzo fermo o
+  // troppo lento" su vetture in servizio. Zero significa "non lo so", non
+  // "sta fermo", e i due non vanno confusi.
+  if (!measured) {
+    return { speed, source, bearing: observedBearing, recentSpeed: previousAverage?.kmh };
+  }
 
   const now = Date.now();
-  const previousAverage = recentSpeeds.get(vehicleId);
   const sinceLastSeconds = previousAverage ? Math.max(0, (now - previousAverage.atMs) / 1000) : 0;
-  // A gap longer than the window means the vehicle was not being watched, so
-  // the old average says nothing about it any more.
   // Deliberately symmetric. Letting a slowdown into the average faster than a
   // pickup looks obviously right and measures worse: the average already counts
   // the samples taken while the vehicle stood at its stops, so reacting to a
