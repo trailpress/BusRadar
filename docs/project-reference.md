@@ -151,7 +151,8 @@ Sono i numeri che decidono quanto il movimento appare realistico. Vanno cambiati
 | `MAX_LATENCY_COMPENSATION_SECONDS` | 75 s | quanta età del campione viene recuperata proiettando in avanti |
 | `LATENCY_COMPENSATION_LEAD_SECONDS` | 3 s | mira leggermente avanti, perché il marker raggiunge il bersaglio solo nei secondi successivi |
 | `SPEED_AVERAGE_WINDOW_SECONDS` | 60 s | finestra della media di velocità, allineata al ritardo compensato e pesata sul tempo reale tra i campioni, non sul loro numero. **Simmetrica di proposito**: far entrare più in fretta i rallentamenti conta due volte le soste, che nella media già ci sono |
-| `STOP_DWELL_SECONDS` | 15 s | quanto costa alla proiezione ogni fermata che attraversa. Senza, il mezzo veniva proiettato dritto attraverso la fermata che stava servendo |
+| `STOP_DWELL_SECONDS` | 15 s | quanto costa alla proiezione ogni fermata che attraversa. Senza, il mezzo veniva proiettato dritto attraverso la fermata che stava servendo. **Serve solo di ripiego**: quando il feed annuncia le fermate successive vince l'ancoraggio |
+| `anchoredAdvanceMeters` | — | posiziona il mezzo interpolando fra il campione e la fermata che GTT dice che sta per raggiungere. È la sorgente preferita; la proiezione a velocità resta per le corse senza previsioni |
 | `LATENCY_ADJUST_FRACTION` | 0,35 | quanta della velocità del mezzo la correzione può spendere per cambiare sé stessa. Il marker si muove quindi fra 0,65× e 1,35× la velocità del mezzo: mai all'indietro, mai a scatti |
 | velocità usata per la proiezione | media mobile, non istantanea | proiettare un minuto di percorso con la velocità di un singolo istante faceva oscillare il recupero fra zero e 400 m sullo stesso mezzo, a ogni ripartenza da fermata |
 | `ASSUMED_UNDECLARED_FEED_DELAY_SECONDS` | 35 s | ritardo che il feed GTT **non dichiara**: i campioni arrivano marcati come appena misurati, ma la posizione è di circa un minuto prima. È l'unica costante tarata su un'osservazione dalla strada, non sui dati — vedi la tabella qui sotto |
@@ -182,15 +183,24 @@ Il blocco a 50 s non è un caso limite ma il meccanismo stesso: se la proiezione
 
 **Le tre metriche vanno lette insieme, e nessuna variante vince su tutte.** Chi riduce il sorpasso paga in ritardo: il compromesso è reale e va scelto, non risolto.
 
-| variante | davanti 5% | mediana | punta 99% |
-| --- | --- | --- | --- |
-| nessuna correzione, 25 s | 72 m | 121 m | 13,4 m/s |
-| nessuna correzione, 35 s | 118 m | 79 m | 14,2 m/s |
-| solo fermate a carico | 86 m | 98 m | 18,8 m/s |
-| solo limite alla variazione | 110 m | 87 m | 12,6 m/s |
-| **in uso: limite + fermate, 35 s** | **71 m** | **116 m** | **12,0 m/s** |
+| variante | davanti 5% | mediana | fermo max | punta 99% |
+| --- | --- | --- | --- | --- |
+| nessuna correzione, 25 s | 72 m | 121 m | 200 s | 13,4 m/s |
+| nessuna correzione, 35 s | 118 m | 79 m | 210 s | 14,2 m/s |
+| solo fermate a carico | 86 m | 98 m | 210 s | 18,8 m/s |
+| solo limite alla variazione | 110 m | 87 m | 200 s | 12,6 m/s |
+| limite + fermate, 35 s | 71 m | 116 m | 150 s | 12,0 m/s |
+| **in uso: ancorato alle previsioni, 35 s** | **47 m** | **113 m** | **90 s** | **11,9 m/s** |
+| ancorato, pavimento 45 s | 74 m | 84 m | 130 s | 12,1 m/s |
+| ancorato senza limite alla variazione | 62 m | 70 m | 90 s | 20,5 m/s |
 
-Due letture importano più delle altre. **Le fermate a carico da sole peggiorano gli scatti** (18,8 m/s): accorciano la proiezione a strappi, man mano che una fermata entra o esce dal tratto proiettato, e servono il limite alla variazione per essere utili. E **la configurazione in uso domina il pavimento a 25 s su ogni asse**: stesso sorpasso, meno ritardo, marker più fluido, stalli più corti. È il motivo per cui il pavimento resta a 35 s invece di tornare indietro.
+Tre letture importano più delle altre.
+
+**Le fermate a carico da sole peggiorano gli scatti** (18,8 m/s): accorciano la proiezione a strappi, man mano che una fermata entra o esce dal tratto proiettato, e servono il limite alla variazione per essere utili.
+
+**L'ancoraggio domina tutto il resto su ogni asse insieme**, ed è l'unico cambiamento che modifica il meccanismo invece dell'ampiezza: le altre varianti estrapolano da una posizione vecchia di un minuto, questa interpola fra due istanti noti. Regge bene anche a previsioni sbagliate: portando l'errore da ±20 s a ±40 s il risultato quasi non si muove (46 m / 115 m). L'ancoraggio **non recupera il ritardo non dichiarato**: l'estremo vicino dell'interpolazione resta il campione vecchio creduto giovane, quindi il pavimento serve ancora.
+
+**Il pavimento a 45 s è il passo successivo se il ritardo dà più fastidio del sorpasso**: a parità di sorpasso con quanto c'era prima (74 m contro 71 m) toglie un quarto del ritardo. È una scelta fra due difetti, non un miglioramento gratuito, e va fatta guardando la mappa.
 
 Se le costanti in `gttRealtime.ts` cambiano, vanno riallineate anche nello script: altrimenti il banco misura un algoritmo che non è più quello in produzione.
 
