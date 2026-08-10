@@ -1220,6 +1220,14 @@ function unverifiedScheduledVehicles(observed: Vehicle[]): Vehicle[] {
   );
 
   const label = now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  // Garanzia a valle: due corse della stessa linea non finiscono una sopra
+  // l'altra qualunque cosa dica l'orario. Il generatore assegna ormai ogni
+  // partenza a una variante sola, ma due calendari attivi nello stesso giorno
+  // possono ancora descrivere la stessa corsa due volte, e un ammasso di
+  // pallini identici sulla stessa strada è indistinguibile da un errore.
+  const keptByLine = new Map<string, Array<{ lat: number; lon: number }>>();
+  const MIN_SEPARATION_METERS = 250;
+
   return runs
     .map((run): Vehicle | undefined => {
       const routeVariant = getGtfsRouteVariant(run.routeVariantId);
@@ -1229,6 +1237,11 @@ function unverifiedScheduledVehicles(observed: Vehicle[]): Vehicle[] {
       if (totalMeters <= 0) return undefined;
       const state = interpolatePathState(routeVariant.path, Math.min(0.999999, run.meters / totalMeters));
       if (!state) return undefined;
+
+      const near = keptByLine.get(routeVariant.line) ?? [];
+      if (near.some((kept) => distanceMeters(kept, state.point) < MIN_SEPARATION_METERS)) return undefined;
+      near.push(state.point);
+      keptByLine.set(routeVariant.line, near);
 
       const vehicleType = getGtfsLine(routeVariant.line)?.vehicleType ?? 'bus';
       return {

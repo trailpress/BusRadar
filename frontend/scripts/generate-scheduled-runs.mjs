@@ -147,14 +147,34 @@ function chainRun(stopIds, meters, line, departureSeconds) {
 const variants = [];
 let skippedVariants = 0;
 
-for (const route of network.routes) {
+// Una partenza appartiene a una corsa sola, ma gli orari per fermata non dicono
+// a quale variante: al capolinea si legge solo "la linea 1510 parte alle 8:12".
+// Presa alla lettera, ogni ramo che condivide quel capolinea rivendicava tutte
+// le partenze della linea — su 485 partenze della 1510, 387 finivano a più
+// varianti — e la mappa mostrava cinque corse ammassate in cento metri.
+//
+// Ogni partenza viene quindi assegnata a una variante sola. Quale, i dati non
+// lo dicono: si sceglie il ramo più completo, perché è quello che nel dubbio
+// descrive meglio il percorso. È una convenzione dichiarata, non una verità
+// ricavata, ed è il motivo per cui queste corse restano "non accertate".
+const claimedDepartures = new Map();
+const routesByCompleteness = [...network.routes].sort(
+  (a, b) => b.stopEntries.length - a.stopEntries.length,
+);
+
+for (const route of routesByCompleteness) {
   const stopIds = route.stopEntries.map((entry) => entry.stopId);
   if (stopIds.length < 2) {
     skippedVariants += 1;
     continue;
   }
   const meters = metersAlongShape(route.path, stopIds.map((stopId) => stopById.get(stopId)));
-  const departures = callsAt(stopIds[0], route.line);
+  const departures = callsAt(stopIds[0], route.line).filter((departure) => {
+    const key = `${route.line}|${departure.serviceId}|${departure.seconds}`;
+    if (claimedDepartures.has(key)) return false;
+    claimedDepartures.set(key, route.id);
+    return true;
+  });
   if (departures.length === 0) {
     skippedVariants += 1;
     continue;
