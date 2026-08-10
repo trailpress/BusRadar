@@ -134,7 +134,13 @@ function latencyText(vehicle: Vehicle) {
       : vehicle.latencyCompensationSource === 'orario'
         ? 'orario programmato'
         : 'velocità stimata';
-    return `Recupero ritardo feed: ${vehicle.latencyCompensationMeters} m avanti${seconds != null ? ` · ${seconds} s recuperati` : ''} · ${source}`;
+    const missReason: Record<NonNullable<Vehicle['latencyAnchorMiss']>, string> = {
+      'nessun-aggiornamento': 'nessuna previsione per questo mezzo',
+      'previsioni-senza-orario': 'previsioni senza orario futuro',
+      'fermate-non-riconosciute': 'fermate previste non sul percorso',
+    };
+    const miss = vehicle.latencyAnchorMiss ? ` · previsione non usata: ${missReason[vehicle.latencyAnchorMiss]}` : '';
+    return `Recupero ritardo feed: ${vehicle.latencyCompensationMeters} m avanti${seconds != null ? ` · ${seconds} s recuperati` : ''} · ${source}${miss}`;
   }
   const reason = vehicle.latencyCompensationSkipped;
   return `Recupero ritardo feed: ${reason ? latencySkipReason[reason] : 'non disponibile'}`;
