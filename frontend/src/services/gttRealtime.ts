@@ -122,6 +122,14 @@ const previousSamples = new Map<string, { lat: number; lon: number; timestampMs:
 // sample says how fast the vehicle was going at one instant; projecting a
 // minute of travel needs how fast it has been going.
 const recentSpeeds = new Map<string, { kmh: number; atMs: number }>();
+// L'**ultima misura**, non la media. Servono a due domande diverse: la media
+// dice a che passo il mezzo sta andando, e va bene per proiettarlo in avanti;
+// l'ultima misura dice se adesso si sta muovendo, e a quella la media risponde
+// troppo tardi. Fermo a un semaforo, con la media che scende di un quarto a
+// ogni campione GTT ogni quindici secondi, ci vogliono due minuti perche'
+// scenda sotto la soglia: nel frattempo il marker resta proiettato avanti di un
+// centinaio di metri mentre il mezzo e' fermo.
+const lastMeasuredSpeeds = new Map<string, { kmh: number; atMs: number }>();
 
 // The averaging window has to match the span the projection covers: the
 // question being answered is how far the vehicle went in the last minute, so
@@ -535,6 +543,7 @@ function observedSpeed(vehicleId: string, vehicle: GttVehiclePosition) {
   }
 
   const now = Date.now();
+  lastMeasuredSpeeds.set(vehicleId, { kmh: speed, atMs: now });
   const sinceLastSeconds = previousAverage ? Math.max(0, (now - previousAverage.atMs) / 1000) : 0;
   // Deliberately symmetric. Letting a slowdown into the average faster than a
   // pickup looks obviously right and measures worse: the average already counts
@@ -1115,11 +1124,16 @@ function compensateFeedLatency(
     return { skipped: 'campione-recente' as const };
   }
   // Una misura recente che dice "fermo" è un'osservazione, non la sua assenza.
-  // Se il mezzo non si è mosso nell'ultimo minuto, l'orario che lo vorrebbe
-  // trecento metri più avanti è smentito dai fatti, e i fatti vincono: è così
-  // che il marker finiva per traslare sempre più avanti del mezzo vero.
-  const measuredAverage = recentSpeeds.get(vehicleId);
-  if (measuredAverage && Date.now() - measuredAverage.atMs < 90000 && measuredAverage.kmh < 1.5) {
+  // Se il mezzo non si è mosso, l'orario che lo vorrebbe cento metri più avanti
+  // è smentito dai fatti, e i fatti vincono.
+  //
+  // Qui conta **l'ultima misura, non la media**. La media risponde alla domanda
+  // sbagliata: dice a che passo il mezzo stava andando, e scendendo di un
+  // quarto a ogni campione ci mette due minuti a riconoscere una sosta. Un
+  // mezzo fermo al semaforo restava quindi disegnato un centinaio di metri più
+  // avanti per tutta la durata del rosso.
+  const lastMeasured = lastMeasuredSpeeds.get(vehicleId);
+  if (lastMeasured && Date.now() - lastMeasured.atMs < 90000 && lastMeasured.kmh < 1.5) {
     recordAdvance(vehicleId, 0);
     return { skipped: 'mezzo-fermo' as const };
   }
