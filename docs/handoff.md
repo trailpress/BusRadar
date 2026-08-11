@@ -63,6 +63,8 @@ Soprattutto: **l'età del campione si misura dal timestamp del veicolo con ricad
 
 **Un'opacità che dipende dalla feature costa un layer.** Le corse non accertate erano sbiadite moltiplicando l'interpolazione sullo zoom per uno sconto letto dalla feature: MapLibre rifiuta `['zoom']` dentro una moltiplicazione, quindi la proprietà era **invalida** e la dissolvenza spariva senza che si vedesse altro che un errore in console. Riscritta in forma valida diventava un attributo per feature e portava il fotogramma più lungo **da 17 a 128 ms**. La forma che regge è due layer separati da un filtro, ciascuno con opacità costante.
 
+**Il limite più visibile della mappa non è nel codice: sono le shape GTT.** Fra un vertice e l'altro corrono 48,8 m di mediana e fino a 5,8 km; sulla rotonda di Via Lucio Battisti la linea 17 ha due vertici in 250 m, quindi la linea disegnata taglia la rotonda e il mezzo la taglia con lei. `simplify()` nel generatore non c'entra: non si attiva mai. La riparazione è il map-matching contro OSM nel generatore, che richiede un ambiente con rete verso OSM — da questa sessione è bloccato. **Non arrotondare la spezzata per farla sembrare meglio**: una curva morbida sbagliata è peggio di una spezzata sbagliata. I numeri sono in `project-reference.md` §10.
+
 ### Convenzioni introdotte, da rispettare
 
 - **La funzione di bucket degli orari è duplicata** in `frontend/scripts/stop-schedule.mjs` e `frontend/src/services/stopSchedule.ts`. Se ne cambi una, cambia l'altra: altrimenti una palina chiede il bucket sbagliato e risulta senza corse.
