@@ -182,7 +182,7 @@ function VehicleServiceDisplay({ vehicle }: { vehicle: Vehicle }) {
   // Sulla corsa non accertata il tipo di mezzo è dedotto dalla linea, non
   // osservato: nessuno sa se quel viaggio lo sta facendo un bus o niente.
   const serviceType = vehicle.source === 'scheduled'
-    ? 'Corsa non accertata'
+    ? 'Prevista dall\u2019orario'
     : vehicle.vehicleType === 'tram' ? 'Tram GTT' : 'Bus GTT';
 
   return (
@@ -207,7 +207,12 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
     setDisplayBearing((current) => current + delta);
   }, [vehicle.bearing]);
   const vehicleKind = vehicle.vehicleFleetLabel ?? (vehicle.vehicleType === 'tram' ? 'Tram' : vehicle.vehicleLengthClass === 'articulated-18m' ? 'Bus 18m' : 'Bus');
-  const speedSource = vehicle.speedSource === 'feed' ? 'Feed realtime' : vehicle.speedSource === 'observed' ? 'Calcolata da GPS' : 'Non disponibile';
+  // Su una corsa non accertata la velocità viene dall'orario, non da un mezzo:
+  // dire «non disponibile» accanto a un numero è una contraddizione, e il
+  // numero c'è.
+  const speedSource = vehicle.source === 'scheduled'
+    ? 'Passo dell\u2019orario'
+    : vehicle.speedSource === 'feed' ? 'Feed realtime' : vehicle.speedSource === 'observed' ? 'Calcolata da GPS' : 'Non disponibile';
   const rawVehicleLabel = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? vehicle.realtimeVehicleLabel : undefined;
   const identifierLabel = vehicleIdentifierLabel(vehicle);
   const fleetProfile = vehicleFleetProfile(vehicle.vehicleFleetKey);
@@ -245,7 +250,7 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
         <LineBadge line={vehicle.line} size="lg" />
         <div>
           <strong>{identifierLabel}</strong>
-          <span>Linea {vehicle.routeShortName || vehicle.line} · {vehicleKind}</span>
+          <span>{unverifiedRun ? `Linea ${vehicle.routeShortName || vehicle.line}` : `Linea ${vehicle.routeShortName || vehicle.line} · ${vehicleKind}`}</span>
           {vehicle.isReplacementService ? (
             <span className="vehicle-replacement-note">
               {vehicle.vehicleType === 'bus' ? 'Bus in servizio su linea tranviaria' : 'Tram in servizio su linea bus'}
@@ -267,8 +272,8 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
             <span>{unverifiedRun ? 'Corsa prevista dall\u2019orario' : (officialSpec?.officialName ?? fleetProfile.label)}</span>
           </div>
         )}
-        <em>{vehicleKind}</em>
-        <small>{unverifiedRun ? 'nessun mezzo osservato' : vehicleRenderStatusLabel(vehicle, fleetProfile.assetStatus)}</small>
+        {unverifiedRun ? null : <em>{vehicleKind}</em>}
+        {unverifiedRun ? null : <small>{vehicleRenderStatusLabel(vehicle, fleetProfile.assetStatus)}</small>}
       </div>
       <div className="direction-block">
         <span>
@@ -279,43 +284,48 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
         </span>
         <span>{routeTrackingText(vehicle)} · {latencyText(vehicle)}</span>
       </div>
+      {/* Su una corsa non accertata non c'e' nessun mezzo, quindi non ci sono
+          specifiche: la scheda tecnica diventava una colonna di «n/d» e
+          ripeteva per la terza volta che il mezzo non e' stato osservato. */}
+      {unverifiedRun ? null : (
       <div className={fleetCardClass} aria-label="Specifiche ufficiali del mezzo">
-        <div className="official-fleet-copy">
-          <div className="official-fleet-kicker">
-            <span>{serviceClassLabel(officialSpec)}</span>
-            <em>{unverifiedRun ? 'Nessun mezzo osservato' : showValidatedRender ? 'Render verificato' : 'Fonte PDF ufficiale'}</em>
+          <div className="official-fleet-copy">
+            <div className="official-fleet-kicker">
+              <span>{serviceClassLabel(officialSpec)}</span>
+              <em>{unverifiedRun ? 'Nessun mezzo osservato' : showValidatedRender ? 'Render verificato' : 'Fonte PDF ufficiale'}</em>
+            </div>
+            <strong>{unverifiedRun ? `Corsa programmata linea ${vehicle.line}` : (officialSpec?.officialName ?? fleetProfile.label)}</strong>
+            <p>Serie {officialSpec?.series ?? 'n/d'} · Scheda {officialSpec?.sheet ?? 'n/d'} · PDF p.{officialSpec?.pdfPage ?? 'n/d'}</p>
           </div>
-          <strong>{unverifiedRun ? `Corsa programmata linea ${vehicle.line}` : (officialSpec?.officialName ?? fleetProfile.label)}</strong>
-          <p>Serie {officialSpec?.series ?? 'n/d'} · Scheda {officialSpec?.sheet ?? 'n/d'} · PDF p.{officialSpec?.pdfPage ?? 'n/d'}</p>
+          <dl>
+            <div>
+              <dt>Lunghezza</dt>
+              <dd>{formatMillimeters(officialSpec?.body.lengthMm)}</dd>
+            </div>
+            <div>
+              <dt>Porte</dt>
+              <dd>{officialSpec?.body.doors ?? 'n/d'}</dd>
+            </div>
+            <div>
+              <dt>Trazione</dt>
+              <dd>{tractionLabel(officialSpec)}</dd>
+            </div>
+            <div>
+              <dt>Anno</dt>
+              <dd>{officialSpec?.year ?? 'n/d'}</dd>
+            </div>
+            <div>
+              <dt>Vel. max</dt>
+              <dd>{officialSpec?.maxSpeedKmh ? `${officialSpec.maxSpeedKmh} km/h` : 'n/d'}</dd>
+            </div>
+            <div>
+              <dt>Assi</dt>
+              <dd>{officialSpec?.body.axles ?? 'n/d'}</dd>
+            </div>
+          </dl>
+          <small>{officialSpec?.chassis ?? fleetProfile.label}{officialSpec?.motor ? ` · ${officialSpec.motor}` : ''}</small>
         </div>
-        <dl>
-          <div>
-            <dt>Lunghezza</dt>
-            <dd>{formatMillimeters(officialSpec?.body.lengthMm)}</dd>
-          </div>
-          <div>
-            <dt>Porte</dt>
-            <dd>{officialSpec?.body.doors ?? 'n/d'}</dd>
-          </div>
-          <div>
-            <dt>Trazione</dt>
-            <dd>{tractionLabel(officialSpec)}</dd>
-          </div>
-          <div>
-            <dt>Anno</dt>
-            <dd>{officialSpec?.year ?? 'n/d'}</dd>
-          </div>
-          <div>
-            <dt>Vel. max</dt>
-            <dd>{officialSpec?.maxSpeedKmh ? `${officialSpec.maxSpeedKmh} km/h` : 'n/d'}</dd>
-          </div>
-          <div>
-            <dt>Assi</dt>
-            <dd>{officialSpec?.body.axles ?? 'n/d'}</dd>
-          </div>
-        </dl>
-        <small>{officialSpec?.chassis ?? fleetProfile.label}{officialSpec?.motor ? ` · ${officialSpec.motor}` : ''}</small>
-      </div>
+      )}
       <div className="metric-grid">
         <div>
           <Gauge size={16} />
