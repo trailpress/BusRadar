@@ -83,7 +83,7 @@ const MAX_GAP_TO_FILL_METERS = 250;
 // senza, due prove di fila hanno riletto il lavoro vecchio e riportato numeri
 // identici mentre il codice era cambiato sotto. **Va alzata a ogni modifica di
 // come si chiede o si cuce la strada.**
-const PIPELINE_VERSION = 3;
+const PIPELINE_VERSION = 4;
 
 // Soglie di accettazione, misurate sui vertici originali contro la geometria
 // agganciata. Sono volutamente larghe: servono a scartare la strada sbagliata,
@@ -234,15 +234,22 @@ async function routeChunk(points) {
   // scartata tutta. I `radiuses` tengono l'aggancio vicino alla traccia, cosi'
   // il percorso non si sposta su una parallela.
   const radiuses = points.map(() => SEARCH_RADIUS_METERS).join(';');
+  // `steps=true` costa qualche kilobyte in piu' e restituisce la geometria
+  // divisa per tappe, cioe' una per ogni coppia di vertici della traccia. Senza,
+  // il percorso torna in un pezzo solo e un buco riempito male fa scartare tutto
+  // il blocco: e' successo, 27 tratti scartati su una linea e la rotonda
+  // segnalata rimasta tagliata.
   const url = `${BASE_URL}/route/v1/${PROFILE}/${coordinates}`
-    + `?geometries=geojson&overview=full&continue_straight=true&alternatives=false&steps=false&radiuses=${radiuses}`;
+    + `?geometries=geojson&overview=full&continue_straight=true&alternatives=false&steps=true&radiuses=${radiuses}`;
   const { data, error } = await requestJson(url);
   if (error) return { error };
   if (data?.code !== 'Ok' || !Array.isArray(data.routes) || data.routes.length === 0) {
     return { error: `route: ${data?.code ?? 'risposta senza percorso'}` };
   }
+  const legs = (data.routes[0].legs ?? []).map((leg) => collectGeometry((leg.steps ?? []).map((step) => step.geometry)));
   const matched = collectGeometry([data.routes[0].geometry]);
-  return matched.length >= 2 ? { matched } : { error: 'route: geometria vuota' };
+  if (matched.length < 2) return { error: 'route: geometria vuota' };
+  return { matched, legs };
 }
 
 async function matchChunkOsrm(points) {
@@ -295,13 +302,22 @@ function splitIntoRuns(points) {
 // Il giudizio si da' tratto per tratto, non sulla variante intera: cosi' un
 // tratto sbagliato non porta via la geometria buona di tutto il resto, e un
 // buco lungo non fa scartare le rotonde che stanno altrove.
-function runIsSane(original, matched) {
-  const backward = matched.map((point) => distanceToPath(point, original));
-  const originalLength = pathLength(original);
-  const allowance = Math.max(60, 0.5 * MAX_GAP_TO_FILL_METERS);
-  if (Math.max(...backward) > allowance) return false;
-  return pathLength(matched) <= Math.max(120, originalLength * 2.5);
+// Il giudizio si da' su un buco alla volta: due vertici della traccia e la
+// strada che il servizio dice che li unisce. Cosi' una deviazione sbagliata
+// costa quel buco e non i due chilometri intorno.
+function legIsSane(from, to, geometry) {
+  if (geometry.length < 2) return false;
+  const straight = distanceMeters(from, to);
+  const segment = [from, to];
+  const strayed = Math.max(...geometry.map((point) => distanceToPath(point, segment)));
+  // Una rotonda o una curva stanno decine di metri fuori dalla corda; una
+  // deviazione intorno all'isolato molto di piu'.
+  if (strayed > Math.max(50, straight * 0.75)) return false;
+  return pathLength(geometry) <= Math.max(80, straight * 2.5);
 }
+
+let replacedGaps = 0;
+let keptGaps = 0;
 
 async function matchPath(points) {
   const stitched = [];
@@ -321,15 +337,27 @@ async function matchPath(points) {
     for (let start = 0; start < run.points.length - 1; start += CHUNK_POINTS - CHUNK_OVERLAP) {
       const chunk = run.points.slice(start, start + CHUNK_POINTS);
       if (chunk.length < 2) break;
-      const { matched, error } = await matchChunk(chunk);
+      const { matched, legs, error } = await matchChunk(chunk);
       if (error) {
         problems.push(error);
         append(chunk);
-      } else if (!runIsSane(chunk, matched)) {
-        problems.push('tratto scartato: la strada trovata si allontana troppo');
-        append(chunk);
+      } else if (!Array.isArray(legs) || legs.length !== chunk.length - 1) {
+        // Senza le tappe non si puo' giudicare buco per buco: si torna al
+        // giudizio grosso, che e' meglio di niente ma va detto.
+        problems.push('percorso senza tappe: giudicato in blocco');
+        const strayed = Math.max(...matched.map((point) => distanceToPath(point, chunk)));
+        if (strayed > Math.max(60, 0.5 * MAX_GAP_TO_FILL_METERS)) append(chunk);
+        else append(matched);
       } else {
-        append(matched);
+        for (let i = 0; i < chunk.length - 1; i += 1) {
+          if (legIsSane(chunk[i], chunk[i + 1], legs[i])) {
+            append(legs[i]);
+            replacedGaps += 1;
+          } else {
+            append([chunk[i], chunk[i + 1]]);
+            keptGaps += 1;
+          }
+        }
       }
       if (!FAKE) await sleep(DELAY_MS);
     }
@@ -481,6 +509,7 @@ const sizeMb = (fs.statSync(NETWORK_PATH).size / (1024 * 1024)).toFixed(2);
 
 console.log(`\nAgganciate ${report.matched} varianti su ${routes.length}, ${report.kept} lasciate come erano.`);
 console.log(`Riprese dalla cache senza interrogare il servizio: ${reused}.`);
+console.log(`Buchi riempiti con la strada vera: ${replacedGaps} · lasciati come corda: ${keptGaps}.`);
 console.log(`Vertici: ${before} → ${after} (${(after / before).toFixed(1)}x) · ${NETWORK_PATH} ora pesa ${sizeMb} MB.`);
 if (report.chunkProblems.size > 0) {
   const total = [...report.chunkProblems.values()].reduce((sum, count) => sum + count, 0);
@@ -501,6 +530,8 @@ summary.push(`Varianti considerate: ${routes.length}`);
 summary.push(`Agganciate alla strada: ${report.matched}`);
 summary.push(`Lasciate come erano: ${report.kept}`);
 summary.push(`Riprese dalla cache: ${reused}`);
+summary.push(`Buchi riempiti con la strada vera: ${replacedGaps}`);
+summary.push(`Buchi lasciati come corda: ${keptGaps}`);
 summary.push(`Vertici: ${before} -> ${after} (${(after / before).toFixed(2)}x)`);
 summary.push(`Peso di ${NETWORK_PATH}: ${sizeMb} MB`);
 if (report.chunkProblems.size > 0) {
