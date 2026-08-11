@@ -127,7 +127,11 @@ function estimatedGap(current: Vehicle, peer: Vehicle) {
 function headwayPeer(vehicle: Vehicle, gap: ReturnType<typeof estimatedGap>): VehicleHeadwayPeer {
   return {
     vehicleId: vehicle.vehicleId,
-    label: vehicle.fleetNumber ? `Vettura ${vehicle.fleetNumber}` : `Mezzo ${vehicle.vehicleId}`,
+    // Su una corsa non accertata l'identificativo lo abbiamo costruito noi:
+    // stamparlo qui lo farebbe leggere come la matricola di un mezzo davanti.
+    label: vehicle.source === 'scheduled'
+      ? 'Corsa da orario'
+      : vehicle.fleetNumber ? `Vettura ${vehicle.fleetNumber}` : `Mezzo ${vehicle.vehicleId}`,
     minutes: gap.minutes,
     distanceKm: gap.distanceKm,
   };

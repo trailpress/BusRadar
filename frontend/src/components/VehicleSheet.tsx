@@ -269,7 +269,13 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
         <span className="vehicle-operator-mark" aria-label="Operatore GTT">GTT</span>
         {showDetailImage && detailImage ? (
           <div className="vehicle-render-stage">
-            <img className="vehicle-render" src={detailImage} alt={`Rendering ${vehicleKind}`} />
+            <img
+              className="vehicle-render"
+              src={detailImage}
+              alt={unverifiedRun
+                ? `Tipo di mezzo della linea ${vehicle.routeShortName || vehicle.line}: ${fleetProfile.label}`
+                : `Rendering ${vehicleKind}`}
+            />
           </div>
         ) : (
           <div className="missing-render-panel" aria-label={unverifiedRun ? 'Nessun mezzo osservato' : 'Render 3D non ancora validato'}>
@@ -286,11 +292,17 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
         </small>
       </div>
       <div className="direction-block">
+        {/* L'identificativo di una corsa non accertata lo abbiamo costruito
+            noi per tenerla distinta dalle altre: non e' la matricola di un
+            mezzo ne' un codice che GTT pubblica, e stamparlo qui lo fa
+            sembrare l'uno o l'altro. Della corsa resta vero il percorso. */}
         <span>
-          {vehicleIdentifierKind(vehicle)}: {vehicle.fleetNumber ?? vehicle.vehicleId} · Route GTFS: {vehicle.routeId.replace(/^gtt-/, '')}
-          {rawVehicleLabel ? ` · label GTFS-RT: ${rawVehicleLabel}` : ''}
-          {vehicle.realtimeEntityId && vehicle.realtimeEntityId !== vehicle.vehicleId ? ` · entity: ${vehicle.realtimeEntityId}` : ''}
-          {vehicle.tripId ? ` · trip: ${vehicle.tripId}` : ''}
+          {unverifiedRun
+            ? `Route GTFS: ${vehicle.routeId.replace(/^gtt-/, '')}`
+            : `${vehicleIdentifierKind(vehicle)}: ${vehicle.fleetNumber ?? vehicle.vehicleId} · Route GTFS: ${vehicle.routeId.replace(/^gtt-/, '')}`}
+          {unverifiedRun ? '' : rawVehicleLabel ? ` · label GTFS-RT: ${rawVehicleLabel}` : ''}
+          {!unverifiedRun && vehicle.realtimeEntityId && vehicle.realtimeEntityId !== vehicle.vehicleId ? ` · entity: ${vehicle.realtimeEntityId}` : ''}
+          {!unverifiedRun && vehicle.tripId ? ` · trip: ${vehicle.tripId}` : ''}
         </span>
         <span>{routeTrackingText(vehicle)} · {latencyText(vehicle)}</span>
       </div>

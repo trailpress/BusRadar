@@ -194,6 +194,18 @@ if (emptyFeed) {
   ].filter(([, presente]) => presente).map(([nome]) => nome);
   console.log(`scheda corsa non accertata: ${aperta ? 'aperta' : 'non aperta'}`
     + ` · dichiarazioni non vere: ${bugie.length === 0 ? 'nessuna [ok]' : bugie.join(', ')}`);
+  // L'immagine deve esserci e deve essere accompagnata da cosa rappresenta:
+  // senza quella riga un lettore la prende per il mezzo che sta guardando,
+  // mentre e' solo il tipo di mezzo che quella linea usa.
+  const render = page.locator('.vehicle-sheet img.vehicle-render').first();
+  const src = await render.getAttribute('src').catch(() => null);
+  const didascalia = /tipo di mezzo della linea · nessun mezzo osservato/.test(sheetText);
+  console.log(`render della classe: ${src ? src.split('/').pop() : 'assente'}`
+    + ` · didascalia: ${didascalia ? 'presente [ok]' : 'mancante'}`);
+  if (process.env.SMOKE_SHOT) {
+    await page.screenshot({ path: process.env.SMOKE_SHOT });
+    console.log('schermata salvata in', process.env.SMOKE_SHOT);
+  }
 }
 
 // La riga deve dire due cose diverse sui due mezzi: "fermo, misurato" sul

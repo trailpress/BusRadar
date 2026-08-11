@@ -29,17 +29,23 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
     detailAsset: 'assets/vehicles/detail/generated/tram-serie-8000-hitachi-gtt-render-v3.webp',
     referenceNotes: 'Render v3 riallineato alle foto reali 8000: Hitachi a 5 casse, livrea grigio/blu/giallo e solare spento.',
   },
+  'generic-bus-urban': {
+    label: 'Bus urbano GTT',
+    detailAsset: 'assets/vehicles/detail/generated/generic-gtt-urban-bus-render.webp',
+    referenceNotes: 'Classe di servizio, non una vettura: sulle corse non accertate si mostra il tipo di mezzo che una linea urbana usa.',
+    assetStatus: 'placeholder-render',
+  },
   'generic-bus-interurban': {
     label: 'Bus extraurbano GTT',
     detailAsset: 'assets/vehicles/detail/generated/generic-bus-interurban-gtt-render-v1.webp',
     referenceNotes: 'Classe di servizio, non una vettura: sulle corse non accertate si mostra il tipo di mezzo che una linea extraurbana usa. Dalle schede ufficiali del parco veicoli la famiglia piu\' numerosa e\' l\'Iveco Crossway 12 m, 2 porte, circa 12.000 mm.',
-    assetStatus: 'needs-reference-render',
+    assetStatus: 'placeholder-render',
   },
   'generic-tram-line': {
-    label: 'Tram GTT (tipo di linea)',
+    label: 'Tram GTT',
     detailAsset: 'assets/vehicles/detail/generated/generic-tram-line-gtt-render-v1.webp',
     referenceNotes: 'Classe di servizio, non una vettura: sulle corse non accertate si mostra il tipo di mezzo che una linea tranviaria usa. Dalle schede ufficiali la serie piu\' numerosa e\' la 2800, 20.145 mm a 2 casse.',
-    assetStatus: 'needs-reference-render',
+    assetStatus: 'placeholder-render',
   },
   'generic-tram': {
     label: 'Tram GTT (modello non identificato)',

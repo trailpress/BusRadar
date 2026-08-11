@@ -1545,7 +1545,7 @@ function unverifiedScheduledVehicles(observed: Vehicle[]): Vehicle[] {
           ? ('generic-tram-line' as const)
           : vehicleLiveryForVehicle(`gtt-${routeVariant.routeId}`, routeVariant.line, null) === 'interurban-blue'
             ? ('generic-bus-interurban' as const)
-            : ('generic-bus' as const),
+            : ('generic-bus-urban' as const),
         vehicleFleetLabel: run.delaySeconds
           ? `Corsa non accertata · ritardo linea ${Math.round(run.delaySeconds / 60)} min`
           : 'Corsa non accertata',
