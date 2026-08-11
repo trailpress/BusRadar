@@ -10,6 +10,10 @@
 //
 //   --base-url <url>     servizio OSRM (default: router.project-osrm.org)
 //   --profile <nome>     profilo OSRM, default `driving`
+//   --strategy <nome>    `route` (default) fa passare un percorso stradale per
+//                        i vertici della traccia; `match` usa il map matching,
+//                        che e' fatto per tracce GPS fitte e non tutti i
+//                        servizi lo espongono
 //   --limit <n>          lavora solo sulle prime n varianti (prove)
 //   --line <nome>        solo le varianti di questa linea (prove)
 //   --tolerance <m>      semplificazione dopo l'aggancio, default 3 m
@@ -43,6 +47,7 @@ const CACHE_DIR = arg('cache-dir', '.cache/map-match');
 const NETWORK_PATH = arg('out', 'public/assets/gtfs-network.json');
 const LIMIT = Number(arg('limit', '0'));
 const ONLY_LINE = arg('line', '');
+const STRATEGY = arg('strategy', 'route');
 const FAKE = flag('fake');
 const DRY_RUN = flag('dry-run');
 
@@ -165,25 +170,60 @@ function fakeMatch(points) {
   return dense;
 }
 
-async function matchChunk(points) {
-  if (FAKE) return { matched: fakeMatch(points) };
+function collectGeometry(legs) {
+  const matched = [];
+  for (const geometry of legs) {
+    for (const [lon, lat] of geometry?.coordinates ?? []) {
+      const last = matched[matched.length - 1];
+      if (!last || last.lat !== lat || last.lon !== lon) matched.push({ lat, lon });
+    }
+  }
+  return matched;
+}
+
+// Far passare un percorso stradale per i vertici della traccia. E' piu' rozzo
+// del map matching e piu' robusto: usa `/route`, che ogni servizio OSRM espone,
+// e su una traccia rada - la nostra ha 49 m di mediana fra un vertice e l'altro
+// - il percorso fra due vertici consecutivi e' la strada che li unisce.
+async function routeChunk(points) {
+  const coordinates = points.map((p) => `${p.lon.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
+  const url = `${BASE_URL}/route/v1/${PROFILE}/${coordinates}`
+    + '?geometries=geojson&overview=full&continue_straight=false&alternatives=false&steps=false';
+  const { data, error } = await requestJson(url);
+  if (error) return { error };
+  if (data?.code !== 'Ok' || !Array.isArray(data.routes) || data.routes.length === 0) {
+    return { error: `route: ${data?.code ?? 'risposta senza percorso'}` };
+  }
+  const matched = collectGeometry([data.routes[0].geometry]);
+  return matched.length >= 2 ? { matched } : { error: 'route: geometria vuota' };
+}
+
+async function matchChunkOsrm(points) {
   const coordinates = points.map((p) => `${p.lon.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
   const radiuses = points.map(() => SEARCH_RADIUS_METERS).join(';');
   const url = `${BASE_URL}/match/v1/${PROFILE}/${coordinates}`
     + `?geometries=geojson&overview=full&gaps=ignore&tidy=false&radiuses=${radiuses}`;
   const { data, error } = await requestJson(url);
-  if (error) return { error };
+  if (error) return { error: `match: ${error}` };
   if (data?.code !== 'Ok' || !Array.isArray(data.matchings) || data.matchings.length === 0) {
-    return { error: data?.code ?? 'risposta senza matching' };
+    return { error: `match: ${data?.code ?? 'risposta senza matching'}` };
   }
-  const matched = [];
-  for (const matching of data.matchings) {
-    for (const [lon, lat] of matching.geometry?.coordinates ?? []) {
-      const last = matched[matched.length - 1];
-      if (!last || last.lat !== lat || last.lon !== lon) matched.push({ lat, lon });
-    }
-  }
-  return matched.length >= 2 ? { matched } : { error: 'matching vuoto' };
+  const matched = collectGeometry(data.matchings.map((m) => m.geometry));
+  return matched.length >= 2 ? { matched } : { error: 'match: matching vuoto' };
+}
+
+// Quando la prima strategia non risponde si prova l'altra prima di rinunciare:
+// il tratto senza geometria vera resta la corda di partenza, e vale la pena
+// spendere una richiesta in piu' per evitarlo.
+async function matchChunk(points) {
+  if (FAKE) return { matched: fakeMatch(points) };
+  const first = STRATEGY === 'match' ? matchChunkOsrm : routeChunk;
+  const second = STRATEGY === 'match' ? routeChunk : matchChunkOsrm;
+  const primary = await first(points);
+  if (!primary.error) return primary;
+  const fallback = await second(points);
+  if (!fallback.error) return { ...fallback, note: `ripiego dopo «${primary.error}»` };
+  return { error: `${primary.error} + ${fallback.error}` };
 }
 
 async function matchPath(points) {
@@ -289,7 +329,11 @@ if (DRY_RUN) {
 }
 
 fs.mkdirSync(CACHE_DIR, { recursive: true });
-const report = { matched: 0, kept: 0, failures: [] };
+const report = { matched: 0, kept: 0, failures: [], chunkProblems: new Map() };
+const noteProblem = (message) => {
+  const key = String(message).slice(0, 120);
+  report.chunkProblems.set(key, (report.chunkProblems.get(key) ?? 0) + 1);
+};
 let done = 0;
 
 for (const route of routes) {
@@ -303,6 +347,7 @@ for (const route of routes) {
     matched = { path: stitched, problems };
     fs.writeFileSync(cachePath, JSON.stringify(matched));
   }
+  for (const problem of matched.problems ?? []) noteProblem(problem);
 
   const simplified = simplifyPath(matched.path, TOLERANCE_METERS);
   const verdict = judge(route.path, simplified);
@@ -327,6 +372,15 @@ const sizeMb = (fs.statSync(NETWORK_PATH).size / (1024 * 1024)).toFixed(2);
 
 console.log(`\nAgganciate ${report.matched} varianti su ${routes.length}, ${report.kept} lasciate come erano.`);
 console.log(`Vertici: ${before} → ${after} (${(after / before).toFixed(1)}x) · ${NETWORK_PATH} ora pesa ${sizeMb} MB.`);
+if (report.chunkProblems.size > 0) {
+  const total = [...report.chunkProblems.values()].reduce((sum, count) => sum + count, 0);
+  console.log(`\nTratti che il servizio non ha agganciato: ${total}. Cosa ha risposto:`);
+  [...report.chunkProblems.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .forEach(([message, count]) => console.log(`  ${String(count).padStart(5)} x ${message}`));
+  console.log('  (quei tratti tengono la corda di partenza)');
+}
 if (report.failures.length > 0) {
   console.log(`\nNon agganciate, e il perche' (prime 20 di ${report.failures.length}):`);
   report.failures.slice(0, 20).forEach((line) => console.log(`  - ${line}`));
