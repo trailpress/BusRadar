@@ -130,7 +130,8 @@ jobs:
           # Il resoconto viaggia col ramo: e' quello che si legge per
           # decidere, e cercarlo nei log di Actions significa scorrere l'output
           # di una build. Va tolto prima di unire.
-          git add frontend/public/assets/gtfs-network.json frontend/public/assets/scheduled-runs.json frontend/map-match-report.txt
+          git add frontend/public/assets/gtfs-network.json frontend/public/assets/scheduled-runs.json
+          git add -f frontend/map-match-report.txt
           git commit -m "Map-match the GTT shapes onto the OSM road network"
           git push --set-upstream origin "$branch"
           {
