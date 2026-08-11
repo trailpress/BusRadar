@@ -31,6 +31,7 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'generic-bus-interurban': {
     label: 'Bus extraurbano GTT',
+    detailAsset: 'assets/vehicles/detail/generated/generic-bus-interurban-gtt-render-v1.webp',
     referenceNotes: 'Classe di servizio, non una vettura: sulle corse non accertate si mostra il tipo di mezzo che una linea extraurbana usa. Dalle schede ufficiali del parco veicoli la famiglia piu\' numerosa e\' l\'Iveco Crossway 12 m, 2 porte, circa 12.000 mm.',
     assetStatus: 'needs-reference-render',
   },
