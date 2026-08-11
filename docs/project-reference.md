@@ -244,6 +244,16 @@ Prima che la rete sia caricata vale un ripiego largo quanto il Piemonte, il cui 
 
 Se anche il ritardo mancasse, la scheda lo direbbe («previsioni senza orario né ritardo»): la diagnosi resta leggibile invece di degradare in silenzio.
 
+**Per sapere se il mezzo è fermo adesso conta l'ultima misura, non la media.** Sono due domande diverse: la media dice a che passo sta andando, ed è quella giusta per proiettarlo in avanti; l'ultima misura dice se in questo momento si muove. Usare la media per la seconda domanda dava un ritardo di riconoscimento enorme, perché scende di un quarto a ogni campione GTT — uno ogni quindici secondi:
+
+| velocità prima della sosta | dopo 60 s di sosta la media vale | anticipo disegnato |
+| --- | --- | --- |
+| 30 km/h | 9,5 km/h | **92 m** |
+| 20 km/h | 6,3 km/h | 62 m |
+| 12 km/h | 3,8 km/h | 37 m |
+
+e scende sotto la soglia di 1,5 km/h solo dopo **2,5-2,8 minuti**. È il difetto che si vede stando fermi a un semaforo con il mezzo disegnato cento metri più avanti. Con l'ultima misura la compensazione si spegne al primo campione che mostra lo zero, cioè entro un ciclo di refresh GTT.
+
 **Un mezzo alla fermata non va spinto verso la successiva.** L'ancoraggio interpola fra il campione e la fermata che il mezzo sta per raggiungere. Quando il mezzo *arriva* a quella fermata, la «successiva» diventa quella dopo, e da lì in poi il marker corre verso di essa mentre il mezzo vero sta fermo a caricare: è così che finisce **sempre più avanti di dove si deve fermare**, e peggiora con la sosta, perché fra i due istanti che l'interpolazione usa c'è la sosta e l'interpolazione non sa che esiste. Quando il mezzo è entro 30 m da una fermata e l'orario di ripartenza non è passato, il marker resta lì. La ripartenza si ricostruisce come gli arrivi — orario programmato del passaggio più il ritardo dichiarato — con la sosta aggiunta.
 
 **La velocità del mezzo serve solo alla terza stima, e il cancello sulla velocità la sbarrava a tutte e tre.** Le prime due dicono dove il mezzo *deve* essere adesso, e lo dicono anche di un mezzo che non siamo ancora riusciti a misurare: pretendere una velocità plausibile prima di guardarle spegneva la correzione proprio sui mezzi per cui esiste il dato migliore. Ora l'ordine è invertito — prima le stime, poi la velocità solo se serve a proiettare.
