@@ -82,8 +82,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: frontend/.cache/map-match
-          key: map-match-v2-${{ inputs.profile }}-${{ github.run_id }}
-          restore-keys: map-match-v2-${{ inputs.profile }}-
+          key: map-match-v3-${{ inputs.profile }}-${{ github.run_id }}
+          restore-keys: map-match-v3-${{ inputs.profile }}-
 
       - name: Show the plan
         working-directory: frontend

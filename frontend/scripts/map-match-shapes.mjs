@@ -199,8 +199,15 @@ function collectGeometry(legs) {
 // - il percorso fra due vertici consecutivi e' la strada che li unisce.
 async function routeChunk(points) {
   const coordinates = points.map((p) => `${p.lon.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
+  // `continue_straight=true` vieta l'inversione a U ai punti intermedi. Con
+  // `false` il percorso puo' tornare indietro a ogni vertice per prendere la
+  // corsia giusta, e su novanta vertici quelle inversioni si sommano: la prima
+  // prova e' tornata lunga il doppio della traccia, e il controllo l'ha
+  // scartata tutta. I `radiuses` tengono l'aggancio vicino alla traccia, cosi'
+  // il percorso non si sposta su una parallela.
+  const radiuses = points.map(() => SEARCH_RADIUS_METERS).join(';');
   const url = `${BASE_URL}/route/v1/${PROFILE}/${coordinates}`
-    + '?geometries=geojson&overview=full&continue_straight=false&alternatives=false&steps=false';
+    + `?geometries=geojson&overview=full&continue_straight=true&alternatives=false&steps=false&radiuses=${radiuses}`;
   const { data, error } = await requestJson(url);
   if (error) return { error };
   if (data?.code !== 'Ok' || !Array.isArray(data.routes) || data.routes.length === 0) {
@@ -351,7 +358,9 @@ let done = 0;
 
 for (const route of routes) {
   done += 1;
-  const cachePath = path.join(CACHE_DIR, `${route.shapeId.replace(/[^\w.-]/g, '_')}.json`);
+  // La chiave porta strategia e profilo: cambiando come si chiede la strada,
+  // il risultato di prima non risponde piu' alla stessa domanda.
+  const cachePath = path.join(CACHE_DIR, `${route.shapeId.replace(/[^\w.-]/g, '_')}-${STRATEGY}-${PROFILE}.json`);
   let matched;
   if (!NO_CACHE && fs.existsSync(cachePath)) {
     matched = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
