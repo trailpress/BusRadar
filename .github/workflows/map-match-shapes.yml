@@ -45,6 +45,11 @@ on:
         required: false
         default: ''
         type: string
+      no_cache:
+        description: 'Ignora la cache. Da usare quando si e'' cambiato come la geometria viene costruita: altrimenti la run rilegge il lavoro vecchio e sembra che la modifica non abbia fatto niente'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -101,6 +106,7 @@ jobs:
             --base-url '${{ inputs.base_url }}' --profile '${{ inputs.profile }}' \
             --tolerance '${{ inputs.tolerance }}' --delay '${{ inputs.delay }}' \
             --report map-match-report.txt \
+            ${{ inputs.no_cache && '--no-cache' || '' }} \
             ${{ inputs.line && format('--line {0}', inputs.line) || '' }} \
             ${{ inputs.limit && format('--limit {0}', inputs.limit) || '' }}
 

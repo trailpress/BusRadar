@@ -78,6 +78,13 @@ const SEARCH_RADIUS_METERS = 60;
 // soglia resta la corda: la mappa non migliora li, ma non peggiora nemmeno.
 const MAX_GAP_TO_FILL_METERS = 250;
 
+// Cambiando come si costruisce la geometria, il risultato di prima non risponde
+// piu' alla stessa domanda. Questa versione entra nel nome del file di cache:
+// senza, due prove di fila hanno riletto il lavoro vecchio e riportato numeri
+// identici mentre il codice era cambiato sotto. **Va alzata a ogni modifica di
+// come si chiede o si cuce la strada.**
+const PIPELINE_VERSION = 3;
+
 // Soglie di accettazione, misurate sui vertici originali contro la geometria
 // agganciata. Sono volutamente larghe: servono a scartare la strada sbagliata,
 // non a pretendere la coincidenza.
@@ -438,7 +445,7 @@ for (const route of routes) {
   done += 1;
   // La chiave porta strategia e profilo: cambiando come si chiede la strada,
   // il risultato di prima non risponde piu' alla stessa domanda.
-  const cachePath = path.join(CACHE_DIR, `${route.shapeId.replace(/[^\w.-]/g, '_')}-${STRATEGY}-${PROFILE}.json`);
+  const cachePath = path.join(CACHE_DIR, `${route.shapeId.replace(/[^\w.-]/g, '_')}-v${PIPELINE_VERSION}-${STRATEGY}-${PROFILE}-${MAX_GAP_TO_FILL_METERS}.json`);
   let matched;
   if (!NO_CACHE && fs.existsSync(cachePath)) {
     matched = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
