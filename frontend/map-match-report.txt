@@ -1,0 +1,12 @@
+Varianti considerate: 5
+Agganciate alla strada: 1
+Lasciate come erano: 4
+Riprese dalla cache: 0
+Vertici: 385 -> 475 (1.23x)
+Peso di public/assets/gtfs-network.json: 5.95 MB
+
+Varianti che tengono la shape originale, e perche:
+  - 17U-0-17UDi17RD4 (17): lunghezza incoerente (2.07x)
+  - 17U-0-17UDi17SR06 (17): lunghezza incoerente (2.21x)
+  - 17U-0-17UDi28574 (17): lunghezza incoerente (2.32x)
+  - 17U-1-17UAs17AA01 (17): lunghezza incoerente (1.91x)
