@@ -74,10 +74,24 @@ const SEARCH_RADIUS_METERS = 60;
 // Soglie di accettazione, misurate sui vertici originali contro la geometria
 // agganciata. Sono volutamente larghe: servono a scartare la strada sbagliata,
 // non a pretendere la coincidenza.
+// Il controllo guarda **da tutte e due le parti**. Che i vertici della traccia
+// stiano sulla strada trovata non basta: una deviazione intorno all'isolato li
+// contiene tutti lo stesso. Serve anche che la strada trovata non se ne vada
+// per conto suo, e quello lo dice la distanza dei suoi punti dalla traccia.
 const MAX_P95_DEVIATION_METERS = 35;
 const MAX_DEVIATION_METERS = 150;
-const MIN_LENGTH_RATIO = 0.85;
-const MAX_LENGTH_RATIO = 1.8;
+// Piu' larghe, perche' qui lo scostamento e' il lavoro: la strada vera gira
+// dove la corda tagliava, e su una rotonda o un isolato sono decine di metri.
+const MAX_BACK_P95_METERS = 80;
+const MAX_BACK_DEVIATION_METERS = 400;
+// La lunghezza non e' piu' un criterio stretto, ed e' la correzione a una mia
+// idea sbagliata: la prima versione scartava tutto cio' che superava 1,8x, e
+// sulla linea 17 ha buttato via quattro varianti su cinque perche' il percorso
+// stradale era lungo il doppio. Ma **e' esattamente cosi' che deve essere**: se
+// la traccia taglia rotonde e incroci, la strada vera e' molto piu' lunga.
+// Resta solo come rete contro l'assurdo.
+const MIN_LENGTH_RATIO = 0.9;
+const MAX_LENGTH_RATIO = 3.5;
 
 const R = 6371000;
 const toRad = (value) => (value * Math.PI) / 180;
@@ -272,18 +286,29 @@ async function matchPath(points) {
 }
 
 // Il controllo che decide se pubblicare o no.
+function percentile(values, p) {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
+}
+
 function judge(original, matched) {
   if (matched.length < 2) return { ok: false, reason: 'geometria vuota' };
-  const deviations = original.map((point) => distanceToPath(point, matched)).sort((a, b) => a - b);
-  const p95 = deviations[Math.floor(deviations.length * 0.95)] ?? 0;
-  const worst = deviations[deviations.length - 1] ?? 0;
+  const forward = original.map((point) => distanceToPath(point, matched));
+  const backward = matched.map((point) => distanceToPath(point, original));
+  const p95 = percentile(forward, 0.95);
+  const worst = Math.max(...forward);
+  const backP95 = percentile(backward, 0.95);
+  const backWorst = Math.max(...backward);
   const ratio = pathLength(matched) / Math.max(1, pathLength(original));
-  if (p95 > MAX_P95_DEVIATION_METERS) return { ok: false, reason: `si allontana (p95 ${p95.toFixed(0)} m)`, p95, worst, ratio };
-  if (worst > MAX_DEVIATION_METERS) return { ok: false, reason: `punta fuori strada (max ${worst.toFixed(0)} m)`, p95, worst, ratio };
+  if (p95 > MAX_P95_DEVIATION_METERS) return { ok: false, reason: `la traccia non ci sta sopra (p95 ${p95.toFixed(0)} m)` };
+  if (worst > MAX_DEVIATION_METERS) return { ok: false, reason: `un vertice resta fuori (max ${worst.toFixed(0)} m)` };
+  if (backP95 > MAX_BACK_P95_METERS) return { ok: false, reason: `la strada trovata se ne va (p95 ${backP95.toFixed(0)} m)` };
+  if (backWorst > MAX_BACK_DEVIATION_METERS) return { ok: false, reason: `deviazione lunga (max ${backWorst.toFixed(0)} m)` };
   if (ratio < MIN_LENGTH_RATIO || ratio > MAX_LENGTH_RATIO) {
-    return { ok: false, reason: `lunghezza incoerente (${ratio.toFixed(2)}x)`, p95, worst, ratio };
+    return { ok: false, reason: `lunghezza assurda (${ratio.toFixed(2)}x)` };
   }
-  return { ok: true, p95, worst, ratio };
+  return { ok: true, p95, worst, backP95, ratio };
 }
 
 // Le soglie sopra decidono cosa viene pubblicato, quindi vanno provate su casi
@@ -310,6 +335,14 @@ if (flag('self-check')) {
   const casi = [
     ['la rotonda al posto della corda va accettata', judge(corda, rotonda).ok, true],
     ['una strada parallela a 200 m va scartata', judge(corda, spostata).ok, false],
+    // Il caso che il controllo di sola lunghezza non vedeva: una deviazione
+    // intorno all'isolato contiene i vertici della traccia e non e' la strada.
+    ['una deviazione di 500 m intorno all\'isolato va scartata', judge(corda, [
+      corda[0],
+      { lat: corda[0].lat + 500 / 111320, lon: corda[0].lon },
+      { lat: corda[1].lat + 500 / 111320, lon: corda[1].lon },
+      corda[1],
+    ]).ok, false],
     ['uno scostamento di 12 m va accettato', judge(corda, scostamentoLieve).ok, true],
     ['una geometria vuota va scartata', judge(corda, [corda[0]]).ok, false],
     // La proprieta' vera di Douglas-Peucker: nessun punto scartato si allontana
