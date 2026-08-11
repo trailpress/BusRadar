@@ -1,0 +1,8 @@
+Varianti considerate: 5
+Agganciate alla strada: 5
+Lasciate come erano: 0
+Riprese dalla cache: 0
+Buchi riempiti con la strada vera: 230
+Buchi lasciati come corda: 75
+Vertici: 385 -> 548 (1.42x)
+Peso di public/assets/gtfs-network.json: 5.95 MB
