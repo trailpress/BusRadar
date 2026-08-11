@@ -675,6 +675,9 @@ const ASSUMED_UNDECLARED_FEED_DELAY_SECONDS = 20;
 // arrive. Charging the projection for the stops it crosses keeps it on the near
 // side of them, which is where the vehicle is.
 const STOP_DWELL_SECONDS = 15;
+// Quanto vicino a una fermata un mezzo si considera fermo a quella fermata.
+// Copre la lunghezza di un autobus snodato piu' l'imprecisione del GPS.
+const SERVING_STOP_RADIUS_METERS = 30;
 
 // How much of the vehicle's own speed the correction may spend on changing
 // itself. The marker therefore moves between 0,65x and 1,35x the speed of the
@@ -749,6 +752,28 @@ function declaredDelaySeconds(tripUpdate: GttTripUpdate, stopId?: string) {
   return delays.length > 0 ? delays[Math.floor(delays.length / 2)] : undefined;
 }
 
+// Quando riparte il mezzo dalla fermata che sta servendo. GTT non manda orari
+// assoluti, quindi si ricostruisce come per gli arrivi: orario programmato di
+// quel passaggio piu' il ritardo dichiarato.
+function predictedDepartureMs(
+  routeVariant: GtfsRouteVariant,
+  stop: { stopId: string; meters: number },
+  tripUpdate: GttTripUpdate,
+  now: number,
+) {
+  const announced = tripUpdate.stopTimeUpdates.find((update) => update.stopId === stop.stopId);
+  const absolute = epochSecondsToMs(announced?.departureTime ?? announced?.arrivalTime);
+  if (absolute != null) return absolute + STOP_DWELL_SECONDS * 1000;
+
+  const delay = declaredDelaySeconds(tripUpdate);
+  if (delay == null) return undefined;
+  const passages = scheduledPassagesAtMeters(routeVariant.id, stop.meters, now)
+    .map((atMs) => atMs + delay * 1000 + STOP_DWELL_SECONDS * 1000)
+    .filter((atMs) => atMs > now - 5 * 60 * 1000)
+    .sort((a, b) => a - b);
+  return passages[0];
+}
+
 function anchoredAdvanceMeters(
   routeVariant: GtfsRouteVariant,
   traveledMeters: number,
@@ -759,6 +784,26 @@ function anchoredAdvanceMeters(
   const now = Date.now();
   if (believedSampleAtMs >= now) return { miss: 'previsioni-senza-orario' };
   const byStopId = stopDistancesByStopId(routeVariant);
+
+  // **Un mezzo alla fermata non va spinto verso la successiva.** L'ancoraggio
+  // interpola fra il campione e la fermata che il mezzo sta per raggiungere,
+  // e quando il mezzo e' arrivato a quella fermata la "successiva" diventa
+  // quella dopo: da li' in poi il marker corre verso la fermata dopo mentre il
+  // mezzo vero e' fermo a caricare. E' cosi' che il mezzo finisce sempre piu'
+  // avanti di dove si deve fermare, e peggiora con la sosta, perche' fra i due
+  // istanti che l'interpolazione usa c'e' la sosta, che l'interpolazione non
+  // sa che esiste.
+  //
+  // Finche' l'orario di ripartenza non e' passato, il marker resta li.
+  const servingStop = stopsInOrderAlongRoute(routeVariant).find(
+    (stop) => Math.abs(stop.meters - traveledMeters) <= SERVING_STOP_RADIUS_METERS,
+  );
+  if (servingStop) {
+    const departure = predictedDepartureMs(routeVariant, servingStop, tripUpdate, now);
+    if (departure != null && departure > now) {
+      return { meters: Math.max(0, servingStop.meters - traveledMeters) };
+    }
+  }
 
   let withFutureTime = 0;
   let nearestMeters: number | undefined;
