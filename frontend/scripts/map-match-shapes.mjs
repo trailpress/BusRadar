@@ -462,6 +462,7 @@ if (DRY_RUN) {
 
 fs.mkdirSync(CACHE_DIR, { recursive: true });
 const report = { matched: 0, kept: 0, failures: [], chunkProblems: new Map() };
+let changedRoutes = 0;
 let reused = 0;
 const noteProblem = (message) => {
   const key = String(message).slice(0, 120);
@@ -488,6 +489,8 @@ for (const route of routes) {
 
   const simplified = simplifyPath(matched.path, TOLERANCE_METERS);
   const verdict = judge(route.path, simplified);
+  const changed = simplified.length !== route.path.length;
+  if (verdict.ok && changed) changedRoutes += 1;
   if (verdict.ok) {
     route.path = simplified.map(({ lat, lon }) => ({
       lat: Number(lat.toFixed(6)),
@@ -527,7 +530,8 @@ if (report.failures.length > 0) {
 }
 const summary = [];
 summary.push(`Varianti considerate: ${routes.length}`);
-summary.push(`Agganciate alla strada: ${report.matched}`);
+summary.push(`Accettate dal controllo: ${report.matched}`);
+summary.push(`Con geometria davvero cambiata: ${changedRoutes}`);
 summary.push(`Lasciate come erano: ${report.kept}`);
 summary.push(`Riprese dalla cache: ${reused}`);
 summary.push(`Buchi riempiti con la strada vera: ${replacedGaps}`);
