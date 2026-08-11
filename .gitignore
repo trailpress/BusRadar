@@ -12,3 +12,4 @@ supabase/.temp/
 frontend/public/assets/vehicles/*-source.png
 frontend/public/assets/vehicles/source/
 frontend/.cache/
+frontend/map-match-report.txt

@@ -10,14 +10,28 @@
 //
 //   --base-url <url>     servizio OSRM (default: router.project-osrm.org)
 //   --profile <nome>     profilo OSRM, default `driving`
+//   --strategy <nome>    `route` (default) fa passare un percorso stradale per
+//                        i vertici della traccia; `match` usa il map matching,
+//                        che e' fatto per tracce GPS fitte e non tutti i
+//                        servizi lo espongono
 //   --limit <n>          lavora solo sulle prime n varianti (prove)
 //   --line <nome>        solo le varianti di questa linea (prove)
 //   --tolerance <m>      semplificazione dopo l'aggancio, default 3 m
 //   --delay <ms>         pausa fra due richieste, default 200
-//   --cache-dir <path>   risultati per shape, per riprendere dopo un errore
+//   --cache-dir <path>   risultati per shape, per riprendere dopo un errore.
+//                        **Si scrive solo quando il tratto e' stato agganciato
+//                        davvero**: mettere in cache un fallimento lo rende
+//                        permanente, e la run successiva lo ripubblica senza
+//                        nemmeno provarci - e' successo, con la tappa di
+//                        aggancio durata zero secondi e la geometria identica
+//                        a quella di partenza
+//   --no-cache           ignora la cache anche se c'e'
 //   --out <path>         file da riscrivere, default il network pubblicato
 //   --fake               nessuna rete: il matcher restituisce la traccia
 //                        infittita. Serve a provare la pipeline, non i dati.
+//   --report <path>      scrive il resoconto anche su file. Il workflow lo
+//                        allega al ramo: leggere un rapporto dai log di Actions
+//                        significa scorrere l'output di una build per trovarlo
 //   --dry-run            stampa il piano e si ferma
 //
 // **La geometria agganciata non viene accettata a scatola chiusa.** Per ogni
@@ -43,6 +57,9 @@ const CACHE_DIR = arg('cache-dir', '.cache/map-match');
 const NETWORK_PATH = arg('out', 'public/assets/gtfs-network.json');
 const LIMIT = Number(arg('limit', '0'));
 const ONLY_LINE = arg('line', '');
+const STRATEGY = arg('strategy', 'route');
+const REPORT_PATH = arg('report', '');
+const NO_CACHE = flag('no-cache');
 const FAKE = flag('fake');
 const DRY_RUN = flag('dry-run');
 
@@ -53,14 +70,42 @@ const CHUNK_OVERLAP = 1;
 // Quanto lontano dalla traccia il servizio puo' cercare la strada. Le shape GTT
 // sono schematiche, non tracce GPS: stringere qui produce "NoMatch".
 const SEARCH_RADIUS_METERS = 60;
+// **Si riempiono solo i buchi corti.** Fra due vertici vicini la strada che li
+// unisce e' una sola e la si puo' chiedere; fra due vertici lontani un
+// chilometro le strade sono tante e quale abbia preso il bus non lo dice
+// nessuno - la prima versione le chiedeva comunque, e il percorso finiva a
+// 200-300 m dalla traccia, che e' precisamente il non saperlo. Sopra questa
+// soglia resta la corda: la mappa non migliora li, ma non peggiora nemmeno.
+const MAX_GAP_TO_FILL_METERS = 250;
+
+// Cambiando come si costruisce la geometria, il risultato di prima non risponde
+// piu' alla stessa domanda. Questa versione entra nel nome del file di cache:
+// senza, due prove di fila hanno riletto il lavoro vecchio e riportato numeri
+// identici mentre il codice era cambiato sotto. **Va alzata a ogni modifica di
+// come si chiede o si cuce la strada.**
+const PIPELINE_VERSION = 4;
 
 // Soglie di accettazione, misurate sui vertici originali contro la geometria
 // agganciata. Sono volutamente larghe: servono a scartare la strada sbagliata,
 // non a pretendere la coincidenza.
+// Il controllo guarda **da tutte e due le parti**. Che i vertici della traccia
+// stiano sulla strada trovata non basta: una deviazione intorno all'isolato li
+// contiene tutti lo stesso. Serve anche che la strada trovata non se ne vada
+// per conto suo, e quello lo dice la distanza dei suoi punti dalla traccia.
 const MAX_P95_DEVIATION_METERS = 35;
 const MAX_DEVIATION_METERS = 150;
-const MIN_LENGTH_RATIO = 0.85;
-const MAX_LENGTH_RATIO = 1.8;
+// Piu' larghe, perche' qui lo scostamento e' il lavoro: la strada vera gira
+// dove la corda tagliava, e su una rotonda o un isolato sono decine di metri.
+const MAX_BACK_P95_METERS = 80;
+const MAX_BACK_DEVIATION_METERS = 400;
+// La lunghezza non e' piu' un criterio stretto, ed e' la correzione a una mia
+// idea sbagliata: la prima versione scartava tutto cio' che superava 1,8x, e
+// sulla linea 17 ha buttato via quattro varianti su cinque perche' il percorso
+// stradale era lungo il doppio. Ma **e' esattamente cosi' che deve essere**: se
+// la traccia taglia rotonde e incroci, la strada vera e' molto piu' lunga.
+// Resta solo come rete contro l'assurdo.
+const MIN_LENGTH_RATIO = 0.9;
+const MAX_LENGTH_RATIO = 3.5;
 
 const R = 6371000;
 const toRad = (value) => (value * Math.PI) / 180;
@@ -165,66 +210,185 @@ function fakeMatch(points) {
   return dense;
 }
 
-async function matchChunk(points) {
-  if (FAKE) return { matched: fakeMatch(points) };
+function collectGeometry(legs) {
+  const matched = [];
+  for (const geometry of legs) {
+    for (const [lon, lat] of geometry?.coordinates ?? []) {
+      const last = matched[matched.length - 1];
+      if (!last || last.lat !== lat || last.lon !== lon) matched.push({ lat, lon });
+    }
+  }
+  return matched;
+}
+
+// Far passare un percorso stradale per i vertici della traccia. E' piu' rozzo
+// del map matching e piu' robusto: usa `/route`, che ogni servizio OSRM espone,
+// e su una traccia rada - la nostra ha 49 m di mediana fra un vertice e l'altro
+// - il percorso fra due vertici consecutivi e' la strada che li unisce.
+async function routeChunk(points) {
+  const coordinates = points.map((p) => `${p.lon.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
+  // `continue_straight=true` vieta l'inversione a U ai punti intermedi. Con
+  // `false` il percorso puo' tornare indietro a ogni vertice per prendere la
+  // corsia giusta, e su novanta vertici quelle inversioni si sommano: la prima
+  // prova e' tornata lunga il doppio della traccia, e il controllo l'ha
+  // scartata tutta. I `radiuses` tengono l'aggancio vicino alla traccia, cosi'
+  // il percorso non si sposta su una parallela.
+  const radiuses = points.map(() => SEARCH_RADIUS_METERS).join(';');
+  // `steps=true` costa qualche kilobyte in piu' e restituisce la geometria
+  // divisa per tappe, cioe' una per ogni coppia di vertici della traccia. Senza,
+  // il percorso torna in un pezzo solo e un buco riempito male fa scartare tutto
+  // il blocco: e' successo, 27 tratti scartati su una linea e la rotonda
+  // segnalata rimasta tagliata.
+  const url = `${BASE_URL}/route/v1/${PROFILE}/${coordinates}`
+    + `?geometries=geojson&overview=full&continue_straight=true&alternatives=false&steps=true&radiuses=${radiuses}`;
+  const { data, error } = await requestJson(url);
+  if (error) return { error };
+  if (data?.code !== 'Ok' || !Array.isArray(data.routes) || data.routes.length === 0) {
+    return { error: `route: ${data?.code ?? 'risposta senza percorso'}` };
+  }
+  const legs = (data.routes[0].legs ?? []).map((leg) => collectGeometry((leg.steps ?? []).map((step) => step.geometry)));
+  const matched = collectGeometry([data.routes[0].geometry]);
+  if (matched.length < 2) return { error: 'route: geometria vuota' };
+  return { matched, legs };
+}
+
+async function matchChunkOsrm(points) {
   const coordinates = points.map((p) => `${p.lon.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
   const radiuses = points.map(() => SEARCH_RADIUS_METERS).join(';');
   const url = `${BASE_URL}/match/v1/${PROFILE}/${coordinates}`
     + `?geometries=geojson&overview=full&gaps=ignore&tidy=false&radiuses=${radiuses}`;
   const { data, error } = await requestJson(url);
-  if (error) return { error };
+  if (error) return { error: `match: ${error}` };
   if (data?.code !== 'Ok' || !Array.isArray(data.matchings) || data.matchings.length === 0) {
-    return { error: data?.code ?? 'risposta senza matching' };
+    return { error: `match: ${data?.code ?? 'risposta senza matching'}` };
   }
-  const matched = [];
-  for (const matching of data.matchings) {
-    for (const [lon, lat] of matching.geometry?.coordinates ?? []) {
-      const last = matched[matched.length - 1];
-      if (!last || last.lat !== lat || last.lon !== lon) matched.push({ lat, lon });
+  const matched = collectGeometry(data.matchings.map((m) => m.geometry));
+  return matched.length >= 2 ? { matched } : { error: 'match: matching vuoto' };
+}
+
+// Quando la prima strategia non risponde si prova l'altra prima di rinunciare:
+// il tratto senza geometria vera resta la corda di partenza, e vale la pena
+// spendere una richiesta in piu' per evitarlo.
+async function matchChunk(points) {
+  if (FAKE) return { matched: fakeMatch(points) };
+  const first = STRATEGY === 'match' ? matchChunkOsrm : routeChunk;
+  const second = STRATEGY === 'match' ? routeChunk : matchChunkOsrm;
+  const primary = await first(points);
+  if (!primary.error) return primary;
+  const fallback = await second(points);
+  if (!fallback.error) return { ...fallback, note: `ripiego dopo «${primary.error}»` };
+  return { error: `${primary.error} + ${fallback.error}` };
+}
+
+// La traccia si spezza dove il salto e' troppo lungo per chiedere una strada.
+// Quello che resta sono tratti di vertici vicini, e sono quelli che si
+// agganciano.
+function splitIntoRuns(points) {
+  const runs = [];
+  let current = [points[0]];
+  for (let i = 1; i < points.length; i += 1) {
+    if (distanceMeters(points[i - 1], points[i]) > MAX_GAP_TO_FILL_METERS) {
+      runs.push({ points: current, fill: current.length >= 2 });
+      runs.push({ points: [points[i - 1], points[i]], fill: false });
+      current = [points[i]];
+    } else {
+      current.push(points[i]);
     }
   }
-  return matched.length >= 2 ? { matched } : { error: 'matching vuoto' };
+  runs.push({ points: current, fill: current.length >= 2 });
+  return runs.filter((run) => run.points.length >= 1);
 }
+
+// Il giudizio si da' tratto per tratto, non sulla variante intera: cosi' un
+// tratto sbagliato non porta via la geometria buona di tutto il resto, e un
+// buco lungo non fa scartare le rotonde che stanno altrove.
+// Il giudizio si da' su un buco alla volta: due vertici della traccia e la
+// strada che il servizio dice che li unisce. Cosi' una deviazione sbagliata
+// costa quel buco e non i due chilometri intorno.
+function legIsSane(from, to, geometry) {
+  if (geometry.length < 2) return false;
+  const straight = distanceMeters(from, to);
+  const segment = [from, to];
+  const strayed = Math.max(...geometry.map((point) => distanceToPath(point, segment)));
+  // Una rotonda o una curva stanno decine di metri fuori dalla corda; una
+  // deviazione intorno all'isolato molto di piu'.
+  if (strayed > Math.max(50, straight * 0.75)) return false;
+  return pathLength(geometry) <= Math.max(80, straight * 2.5);
+}
+
+let replacedGaps = 0;
+let keptGaps = 0;
 
 async function matchPath(points) {
   const stitched = [];
   const problems = [];
-  for (let start = 0; start < points.length - 1; start += CHUNK_POINTS - CHUNK_OVERLAP) {
-    const chunk = points.slice(start, start + CHUNK_POINTS);
-    if (chunk.length < 2) break;
-    const { matched, error } = await matchChunk(chunk);
-    if (error) {
-      problems.push(error);
-      // Un tratto che il servizio non aggancia non si butta: si tiene come sta,
-      // cosi' il resto della linea guadagna comunque la geometria vera.
-      for (const point of chunk) {
-        const last = stitched[stitched.length - 1];
-        if (!last || distanceMeters(last, point) > 0.5) stitched.push(point);
-      }
-    } else {
-      for (const point of matched) {
-        const last = stitched[stitched.length - 1];
-        if (!last || distanceMeters(last, point) > 0.5) stitched.push(point);
-      }
+  const append = (list) => {
+    for (const point of list) {
+      const last = stitched[stitched.length - 1];
+      if (!last || distanceMeters(last, point) > 0.5) stitched.push(point);
     }
-    if (!FAKE) await sleep(DELAY_MS);
+  };
+
+  for (const run of splitIntoRuns(points)) {
+    if (!run.fill || run.points.length < 2) {
+      append(run.points);
+      continue;
+    }
+    for (let start = 0; start < run.points.length - 1; start += CHUNK_POINTS - CHUNK_OVERLAP) {
+      const chunk = run.points.slice(start, start + CHUNK_POINTS);
+      if (chunk.length < 2) break;
+      const { matched, legs, error } = await matchChunk(chunk);
+      if (error) {
+        problems.push(error);
+        append(chunk);
+      } else if (!Array.isArray(legs) || legs.length !== chunk.length - 1) {
+        // Senza le tappe non si puo' giudicare buco per buco: si torna al
+        // giudizio grosso, che e' meglio di niente ma va detto.
+        problems.push('percorso senza tappe: giudicato in blocco');
+        const strayed = Math.max(...matched.map((point) => distanceToPath(point, chunk)));
+        if (strayed > Math.max(60, 0.5 * MAX_GAP_TO_FILL_METERS)) append(chunk);
+        else append(matched);
+      } else {
+        for (let i = 0; i < chunk.length - 1; i += 1) {
+          if (legIsSane(chunk[i], chunk[i + 1], legs[i])) {
+            append(legs[i]);
+            replacedGaps += 1;
+          } else {
+            append([chunk[i], chunk[i + 1]]);
+            keptGaps += 1;
+          }
+        }
+      }
+      if (!FAKE) await sleep(DELAY_MS);
+    }
   }
   return { stitched, problems };
 }
 
 // Il controllo che decide se pubblicare o no.
+function percentile(values, p) {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
+}
+
 function judge(original, matched) {
   if (matched.length < 2) return { ok: false, reason: 'geometria vuota' };
-  const deviations = original.map((point) => distanceToPath(point, matched)).sort((a, b) => a - b);
-  const p95 = deviations[Math.floor(deviations.length * 0.95)] ?? 0;
-  const worst = deviations[deviations.length - 1] ?? 0;
+  const forward = original.map((point) => distanceToPath(point, matched));
+  const backward = matched.map((point) => distanceToPath(point, original));
+  const p95 = percentile(forward, 0.95);
+  const worst = Math.max(...forward);
+  const backP95 = percentile(backward, 0.95);
+  const backWorst = Math.max(...backward);
   const ratio = pathLength(matched) / Math.max(1, pathLength(original));
-  if (p95 > MAX_P95_DEVIATION_METERS) return { ok: false, reason: `si allontana (p95 ${p95.toFixed(0)} m)`, p95, worst, ratio };
-  if (worst > MAX_DEVIATION_METERS) return { ok: false, reason: `punta fuori strada (max ${worst.toFixed(0)} m)`, p95, worst, ratio };
+  if (p95 > MAX_P95_DEVIATION_METERS) return { ok: false, reason: `la traccia non ci sta sopra (p95 ${p95.toFixed(0)} m)` };
+  if (worst > MAX_DEVIATION_METERS) return { ok: false, reason: `un vertice resta fuori (max ${worst.toFixed(0)} m)` };
+  if (backP95 > MAX_BACK_P95_METERS) return { ok: false, reason: `la strada trovata se ne va (p95 ${backP95.toFixed(0)} m)` };
+  if (backWorst > MAX_BACK_DEVIATION_METERS) return { ok: false, reason: `deviazione lunga (max ${backWorst.toFixed(0)} m)` };
   if (ratio < MIN_LENGTH_RATIO || ratio > MAX_LENGTH_RATIO) {
-    return { ok: false, reason: `lunghezza incoerente (${ratio.toFixed(2)}x)`, p95, worst, ratio };
+    return { ok: false, reason: `lunghezza assurda (${ratio.toFixed(2)}x)` };
   }
-  return { ok: true, p95, worst, ratio };
+  return { ok: true, p95, worst, backP95, ratio };
 }
 
 // Le soglie sopra decidono cosa viene pubblicato, quindi vanno provate su casi
@@ -251,6 +415,14 @@ if (flag('self-check')) {
   const casi = [
     ['la rotonda al posto della corda va accettata', judge(corda, rotonda).ok, true],
     ['una strada parallela a 200 m va scartata', judge(corda, spostata).ok, false],
+    // Il caso che il controllo di sola lunghezza non vedeva: una deviazione
+    // intorno all'isolato contiene i vertici della traccia e non e' la strada.
+    ['una deviazione di 500 m intorno all\'isolato va scartata', judge(corda, [
+      corda[0],
+      { lat: corda[0].lat + 500 / 111320, lon: corda[0].lon },
+      { lat: corda[1].lat + 500 / 111320, lon: corda[1].lon },
+      corda[1],
+    ]).ok, false],
     ['uno scostamento di 12 m va accettato', judge(corda, scostamentoLieve).ok, true],
     ['una geometria vuota va scartata', judge(corda, [corda[0]]).ok, false],
     // La proprieta' vera di Douglas-Peucker: nessun punto scartato si allontana
@@ -289,23 +461,36 @@ if (DRY_RUN) {
 }
 
 fs.mkdirSync(CACHE_DIR, { recursive: true });
-const report = { matched: 0, kept: 0, failures: [] };
+const report = { matched: 0, kept: 0, failures: [], chunkProblems: new Map() };
+let changedRoutes = 0;
+let reused = 0;
+const noteProblem = (message) => {
+  const key = String(message).slice(0, 120);
+  report.chunkProblems.set(key, (report.chunkProblems.get(key) ?? 0) + 1);
+};
 let done = 0;
 
 for (const route of routes) {
   done += 1;
-  const cachePath = path.join(CACHE_DIR, `${route.shapeId.replace(/[^\w.-]/g, '_')}.json`);
+  // La chiave porta strategia e profilo: cambiando come si chiede la strada,
+  // il risultato di prima non risponde piu' alla stessa domanda.
+  const cachePath = path.join(CACHE_DIR, `${route.shapeId.replace(/[^\w.-]/g, '_')}-v${PIPELINE_VERSION}-${STRATEGY}-${PROFILE}-${MAX_GAP_TO_FILL_METERS}.json`);
   let matched;
-  if (fs.existsSync(cachePath)) {
+  if (!NO_CACHE && fs.existsSync(cachePath)) {
     matched = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+    reused += 1;
   } else {
     const { stitched, problems } = await matchPath(route.path);
     matched = { path: stitched, problems };
-    fs.writeFileSync(cachePath, JSON.stringify(matched));
+    // Solo il lavoro riuscito vale la pena di essere ricordato.
+    if (problems.length === 0) fs.writeFileSync(cachePath, JSON.stringify(matched));
   }
+  for (const problem of matched.problems ?? []) noteProblem(problem);
 
   const simplified = simplifyPath(matched.path, TOLERANCE_METERS);
   const verdict = judge(route.path, simplified);
+  const changed = simplified.length !== route.path.length;
+  if (verdict.ok && changed) changedRoutes += 1;
   if (verdict.ok) {
     route.path = simplified.map(({ lat, lon }) => ({
       lat: Number(lat.toFixed(6)),
@@ -326,10 +511,46 @@ fs.writeFileSync(NETWORK_PATH, JSON.stringify(network));
 const sizeMb = (fs.statSync(NETWORK_PATH).size / (1024 * 1024)).toFixed(2);
 
 console.log(`\nAgganciate ${report.matched} varianti su ${routes.length}, ${report.kept} lasciate come erano.`);
+console.log(`Riprese dalla cache senza interrogare il servizio: ${reused}.`);
+console.log(`Buchi riempiti con la strada vera: ${replacedGaps} · lasciati come corda: ${keptGaps}.`);
 console.log(`Vertici: ${before} → ${after} (${(after / before).toFixed(1)}x) · ${NETWORK_PATH} ora pesa ${sizeMb} MB.`);
+if (report.chunkProblems.size > 0) {
+  const total = [...report.chunkProblems.values()].reduce((sum, count) => sum + count, 0);
+  console.log(`\nTratti che il servizio non ha agganciato: ${total}. Cosa ha risposto:`);
+  [...report.chunkProblems.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .forEach(([message, count]) => console.log(`  ${String(count).padStart(5)} x ${message}`));
+  console.log('  (quei tratti tengono la corda di partenza)');
+}
 if (report.failures.length > 0) {
   console.log(`\nNon agganciate, e il perche' (prime 20 di ${report.failures.length}):`);
   report.failures.slice(0, 20).forEach((line) => console.log(`  - ${line}`));
   console.log('\nQueste tengono la shape GTT originale: la mappa non peggiora, semplicemente non migliora li.');
 }
+const summary = [];
+summary.push(`Varianti considerate: ${routes.length}`);
+summary.push(`Accettate dal controllo: ${report.matched}`);
+summary.push(`Con geometria davvero cambiata: ${changedRoutes}`);
+summary.push(`Lasciate come erano: ${report.kept}`);
+summary.push(`Riprese dalla cache: ${reused}`);
+summary.push(`Buchi riempiti con la strada vera: ${replacedGaps}`);
+summary.push(`Buchi lasciati come corda: ${keptGaps}`);
+summary.push(`Vertici: ${before} -> ${after} (${(after / before).toFixed(2)}x)`);
+summary.push(`Peso di ${NETWORK_PATH}: ${sizeMb} MB`);
+if (report.chunkProblems.size > 0) {
+  summary.push('', 'Tratti rifiutati dal servizio, per messaggio:');
+  [...report.chunkProblems.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([message, count]) => summary.push(`  ${count} x ${message}`));
+}
+if (report.failures.length > 0) {
+  summary.push('', 'Varianti che tengono la shape originale, e perche:');
+  report.failures.forEach((line) => summary.push(`  - ${line}`));
+}
+if (REPORT_PATH) {
+  fs.writeFileSync(REPORT_PATH, `${summary.join('\n')}\n`);
+  console.log(`\nResoconto completo in ${REPORT_PATH}`);
+}
+
 console.log('\nDopo questo va rigenerato il profilo delle corse: npm run gtfs:runs');

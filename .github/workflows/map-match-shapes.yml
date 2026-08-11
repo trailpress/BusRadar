@@ -45,6 +45,11 @@ on:
         required: false
         default: ''
         type: string
+      no_cache:
+        description: 'Ignora la cache. Da usare quando si e'' cambiato come la geometria viene costruita: altrimenti la run rilegge il lavoro vecchio e sembra che la modifica non abbia fatto niente'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -82,8 +87,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: frontend/.cache/map-match
-          key: map-match-${{ inputs.profile }}-${{ github.run_id }}
-          restore-keys: map-match-${{ inputs.profile }}-
+          key: map-match-v3-${{ inputs.profile }}-${{ github.run_id }}
+          restore-keys: map-match-v3-${{ inputs.profile }}-
 
       - name: Show the plan
         working-directory: frontend
@@ -100,6 +105,8 @@ jobs:
           node scripts/map-match-shapes.mjs \
             --base-url '${{ inputs.base_url }}' --profile '${{ inputs.profile }}' \
             --tolerance '${{ inputs.tolerance }}' --delay '${{ inputs.delay }}' \
+            --report map-match-report.txt \
+            ${{ inputs.no_cache && '--no-cache' || '' }} \
             ${{ inputs.line && format('--line {0}', inputs.line) || '' }} \
             ${{ inputs.limit && format('--limit {0}', inputs.limit) || '' }}
 
@@ -126,7 +133,11 @@ jobs:
           git switch -c "$branch"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # Il resoconto viaggia col ramo: e' quello che si legge per
+          # decidere, e cercarlo nei log di Actions significa scorrere l'output
+          # di una build. Va tolto prima di unire.
           git add frontend/public/assets/gtfs-network.json frontend/public/assets/scheduled-runs.json
+          git add -f frontend/map-match-report.txt
           git commit -m "Map-match the GTT shapes onto the OSM road network"
           git push --set-upstream origin "$branch"
           {
