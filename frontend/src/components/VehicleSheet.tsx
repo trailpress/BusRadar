@@ -179,7 +179,11 @@ function formatHeadwayPeer(peer?: VehicleHeadwayPeer) {
 function VehicleServiceDisplay({ vehicle }: { vehicle: Vehicle }) {
   const route = vehicle.routeShortName || vehicle.line;
   const destination = (vehicle.terminalName ?? vehicle.direction).trim() || 'Direzione non disponibile';
-  const serviceType = vehicle.vehicleType === 'tram' ? 'Tram GTT' : 'Bus GTT';
+  // Sulla corsa non accertata il tipo di mezzo è dedotto dalla linea, non
+  // osservato: nessuno sa se quel viaggio lo sta facendo un bus o niente.
+  const serviceType = vehicle.source === 'scheduled'
+    ? 'Corsa non accertata'
+    : vehicle.vehicleType === 'tram' ? 'Tram GTT' : 'Bus GTT';
 
   return (
     <div className="vehicle-service-display" aria-label={`Linea ${route}, direzione ${destination}`}>
@@ -209,8 +213,16 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
   const fleetProfile = vehicleFleetProfile(vehicle.vehicleFleetKey);
   const detailImage = vehicleDetailImage(vehicle);
   const officialSpec = officialSpecForVehicle(vehicle);
-  const showValidatedRender = fleetProfile.assetStatus === 'validated-render';
-  const showDetailImage = Boolean(detailImage) && (showValidatedRender || (vehicle.vehicleFleetKey === 'generic-bus' && vehicle.vehicleType === 'bus'));
+  // Su una corsa non accertata non c'e' nessun mezzo da mostrare. Disegnarne
+  // uno - fosse anche il bus generico - e' l'unica cosa in tutta la scheda che
+  // il lettore prende per un'osservazione, e qui non lo e': la corsa viene
+  // dall'orario. Per la stessa ragione la fascia non puo' dire «render
+  // verificato»: quello che sarebbe verificato e' l'immagine, non che quel
+  // mezzo esista.
+  const unverifiedRun = vehicle.source === 'scheduled';
+  const showValidatedRender = !unverifiedRun && fleetProfile.assetStatus === 'validated-render';
+  const showDetailImage = !unverifiedRun && Boolean(detailImage)
+    && (showValidatedRender || (vehicle.vehicleFleetKey === 'generic-bus' && vehicle.vehicleType === 'bus'));
   const fleetCardClass = ['official-fleet-card', officialSpec ? `official-fleet-card--${officialSpec.traction}` : ''].filter(Boolean).join(' ');
 
   return (
@@ -249,14 +261,14 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
             <img className="vehicle-render" src={detailImage} alt={`Rendering ${vehicleKind}`} />
           </div>
         ) : (
-          <div className="missing-render-panel" aria-label="Render 3D non ancora validato">
+          <div className="missing-render-panel" aria-label={unverifiedRun ? 'Nessun mezzo osservato' : 'Render 3D non ancora validato'}>
             <div className="official-fleet-visual" aria-hidden="true"><i /><b /><span /></div>
-            <strong>{renderAvailabilityText(fleetProfile.assetStatus)}</strong>
-            <span>{officialSpec?.officialName ?? fleetProfile.label}</span>
+            <strong>{unverifiedRun ? 'Nessun mezzo osservato' : renderAvailabilityText(fleetProfile.assetStatus)}</strong>
+            <span>{unverifiedRun ? 'Corsa prevista dall\u2019orario' : (officialSpec?.officialName ?? fleetProfile.label)}</span>
           </div>
         )}
         <em>{vehicleKind}</em>
-        <small>{vehicleRenderStatusLabel(vehicle, fleetProfile.assetStatus)}</small>
+        <small>{unverifiedRun ? 'nessun mezzo osservato' : vehicleRenderStatusLabel(vehicle, fleetProfile.assetStatus)}</small>
       </div>
       <div className="direction-block">
         <span>
@@ -271,9 +283,9 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
         <div className="official-fleet-copy">
           <div className="official-fleet-kicker">
             <span>{serviceClassLabel(officialSpec)}</span>
-            <em>{showValidatedRender ? 'Render verificato' : 'Fonte PDF ufficiale'}</em>
+            <em>{unverifiedRun ? 'Nessun mezzo osservato' : showValidatedRender ? 'Render verificato' : 'Fonte PDF ufficiale'}</em>
           </div>
-          <strong>{officialSpec?.officialName ?? fleetProfile.label}</strong>
+          <strong>{unverifiedRun ? `Corsa programmata linea ${vehicle.line}` : (officialSpec?.officialName ?? fleetProfile.label)}</strong>
           <p>Serie {officialSpec?.series ?? 'n/d'} · Scheda {officialSpec?.sheet ?? 'n/d'} · PDF p.{officialSpec?.pdfPage ?? 'n/d'}</p>
         </div>
         <dl>

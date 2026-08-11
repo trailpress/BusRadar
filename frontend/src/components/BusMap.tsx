@@ -408,6 +408,10 @@ function vehiclesToGeoJson(
   // riproiezione serve ancora per la posizione.
   routeBearings: Map<string, number>,
   zoom: number,
+  // La rotazione della mappa, da togliere alle direzioni geografiche prima di
+  // disegnarle in spazio schermo. Vale zero finché la mappa resta a nord in
+  // alto, ed è quello che tiene la freccia giusta se un giorno non lo fosse.
+  mapBearing: number,
   selectedVehicleId?: string,
   followedVehicleId?: string,
   displayRoutes: GtfsRouteVariant[] = [],
@@ -486,7 +490,8 @@ function vehiclesToGeoJson(
       // da un passaggio all'altro. La riproiezione resta per la posizione, che
       // deve stare sul tracciato disegnato.
       const bearing = routeBearings.get(vehicle.vehicleId) ?? snapped?.bearing ?? vehicle.bearing;
-      const bearingRadians = (bearing * Math.PI) / 180;
+      const screenBearing = bearing - mapBearing;
+      const bearingRadians = (screenBearing * Math.PI) / 180;
       return {
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [displayPosition.lon, displayPosition.lat] },
@@ -499,7 +504,7 @@ function vehiclesToGeoJson(
           routeColor: getLineColor(vehicle.line),
           textColor: routeDisplayTextColor(vehicle.line, vehicle.vehicleType),
           bearing,
-          arrowBearing: bearing,
+          arrowBearing: screenBearing,
           // Carry the arrow around the badge so it always leads the vehicle in
           // the direction of travel. A fixed offset above the badge made a
           // southbound arrow point back at its own badge.
@@ -891,6 +896,16 @@ function installTransitLayers(map: maplibregl.Map) {
       'text-size': ['interpolate', ['linear'], ['zoom'], 7.4, 6.2, 8.8, 7.2, 11, 8.2, 14, 8.8, 18, 7.8, 20, 7],
       'text-offset': ['array', 'number', 2, ['get', 'arrowOffset']],
       'text-rotate': ['get', 'arrowBearing'],
+      // Il glifo è ruotato in spazio schermo, e la rotazione della mappa viene
+      // tolta a monte, in `arrowBearing`. Senza quella sottrazione la freccia
+      // sbagliava esattamente della rotazione della mappa - una direzione
+      // geografica disegnata come se fosse un angolo sullo schermo - mentre le
+      // sagome dei mezzi, allineate alla mappa, restavano giuste: una freccia
+      // a caso accanto a un mezzo orientato bene. L'alternativa, allineare
+      // anche questo layer alla mappa, sposta lo stesso conto dentro il
+      // posizionamento dei simboli, che gira su ottocento marker; farlo mentre
+      // si costruisce il GeoJSON, che viene ricostruito comunque a ogni
+      // fotogramma, non aggiunge lavoro.
       'text-rotation-alignment': 'viewport',
       'text-allow-overlap': true,
       'text-ignore-placement': true,
@@ -1172,6 +1187,11 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
       dragRotate: false,
       pitchWithRotate: false,
     });
+    // `dragRotate: false` toglie la rotazione col mouse, non quella a due dita,
+    // che su un telefono scatta da sola mentre si fa pinch per lo zoom. La
+    // mappa è disegnata a nord in alto - i badge e le etichette non ruotano -
+    // quindi una rotazione accidentale è solo un modo di sfasare tutto.
+    map.touchZoomRotate.disableRotation();
     mapRef.current = map;
 
     map.on('load', () => {
@@ -1382,6 +1402,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
         currentPositionsRef.current,
         currentRouteBearingsRef.current,
         map.getZoom(),
+        map.getBearing(),
         selectedVehicleIdRef.current,
         followedVehicleIdRef.current,
         highlightedRoutes,
@@ -1445,6 +1466,7 @@ export function BusMap({ vehicles, selectedLine, selectedVehicleId, followedVehi
           currentPositionsRef.current,
           currentRouteBearingsRef.current,
           map.getZoom(),
+          map.getBearing(),
           selectedVehicleIdRef.current,
           followedVehicleIdRef.current,
           highlightedRoutesRef.current,
