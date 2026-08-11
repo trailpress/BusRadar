@@ -226,8 +226,14 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
   // mezzo esista.
   const unverifiedRun = vehicle.source === 'scheduled';
   const showValidatedRender = !unverifiedRun && fleetProfile.assetStatus === 'validated-render';
-  const showDetailImage = !unverifiedRun && Boolean(detailImage)
-    && (showValidatedRender || (vehicle.vehicleFleetKey === 'generic-bus' && vehicle.vehicleType === 'bus'));
+  // Su una corsa non accertata l'immagine non e' quella vettura - non c'e' una
+  // vettura - ma il **tipo di mezzo che quella linea usa**, dedotto dalla
+  // classe di servizio e descritto dalle schede ufficiali del parco veicoli.
+  // Va mostrata solo con l'etichetta che dice cos'e', mai da sola.
+  const showDetailImage = Boolean(detailImage)
+    && (unverifiedRun
+      || showValidatedRender
+      || (vehicle.vehicleFleetKey === 'generic-bus' && vehicle.vehicleType === 'bus'));
   const fleetCardClass = ['official-fleet-card', officialSpec ? `official-fleet-card--${officialSpec.traction}` : ''].filter(Boolean).join(' ');
 
   return (
@@ -269,11 +275,15 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
           <div className="missing-render-panel" aria-label={unverifiedRun ? 'Nessun mezzo osservato' : 'Render 3D non ancora validato'}>
             <div className="official-fleet-visual" aria-hidden="true"><i /><b /><span /></div>
             <strong>{unverifiedRun ? 'Nessun mezzo osservato' : renderAvailabilityText(fleetProfile.assetStatus)}</strong>
-            <span>{unverifiedRun ? 'Corsa prevista dall\u2019orario' : (officialSpec?.officialName ?? fleetProfile.label)}</span>
+            <span>{unverifiedRun ? 'Corsa prevista dall\u2019orario, tipo di mezzo non ancora illustrato' : (officialSpec?.officialName ?? fleetProfile.label)}</span>
           </div>
         )}
-        {unverifiedRun ? null : <em>{vehicleKind}</em>}
-        {unverifiedRun ? null : <small>{vehicleRenderStatusLabel(vehicle, fleetProfile.assetStatus)}</small>}
+        <em>{unverifiedRun ? fleetProfile.label : vehicleKind}</em>
+        <small>
+          {unverifiedRun
+            ? 'tipo di mezzo della linea \u00b7 nessun mezzo osservato'
+            : vehicleRenderStatusLabel(vehicle, fleetProfile.assetStatus)}
+        </small>
       </div>
       <div className="direction-block">
         <span>

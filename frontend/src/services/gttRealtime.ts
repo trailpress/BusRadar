@@ -1536,7 +1536,16 @@ function unverifiedScheduledVehicles(observed: Vehicle[]): Vehicle[] {
         routeId: `gtt-${routeVariant.routeId}`,
         routeShortName: routeVariant.line,
         vehicleType,
-        vehicleFleetKey: vehicleType === 'tram' ? ('generic-tram' as const) : ('generic-bus' as const),
+        // Non c'e' nessun mezzo da identificare: quello che si puo' dire e' la
+        // **classe di servizio della linea**, che il progetto sa gia' dedurre
+        // (numero di linea sopra il mille = extraurbana) e per cui le schede
+        // ufficiali del parco veicoli danno le caratteristiche. Nessun
+        // documento pubblico assegna i modelli alle singole linee.
+        vehicleFleetKey: vehicleType === 'tram'
+          ? ('generic-tram' as const)
+          : vehicleLiveryForVehicle(`gtt-${routeVariant.routeId}`, routeVariant.line, null) === 'interurban-blue'
+            ? ('generic-bus-interurban' as const)
+            : ('generic-bus' as const),
         vehicleFleetLabel: run.delaySeconds
           ? `Corsa non accertata · ritardo linea ${Math.round(run.delaySeconds / 60)} min`
           : 'Corsa non accertata',
