@@ -18,7 +18,14 @@
 //   --line <nome>        solo le varianti di questa linea (prove)
 //   --tolerance <m>      semplificazione dopo l'aggancio, default 3 m
 //   --delay <ms>         pausa fra due richieste, default 200
-//   --cache-dir <path>   risultati per shape, per riprendere dopo un errore
+//   --cache-dir <path>   risultati per shape, per riprendere dopo un errore.
+//                        **Si scrive solo quando il tratto e' stato agganciato
+//                        davvero**: mettere in cache un fallimento lo rende
+//                        permanente, e la run successiva lo ripubblica senza
+//                        nemmeno provarci - e' successo, con la tappa di
+//                        aggancio durata zero secondi e la geometria identica
+//                        a quella di partenza
+//   --no-cache           ignora la cache anche se c'e'
 //   --out <path>         file da riscrivere, default il network pubblicato
 //   --fake               nessuna rete: il matcher restituisce la traccia
 //                        infittita. Serve a provare la pipeline, non i dati.
@@ -48,6 +55,7 @@ const NETWORK_PATH = arg('out', 'public/assets/gtfs-network.json');
 const LIMIT = Number(arg('limit', '0'));
 const ONLY_LINE = arg('line', '');
 const STRATEGY = arg('strategy', 'route');
+const NO_CACHE = flag('no-cache');
 const FAKE = flag('fake');
 const DRY_RUN = flag('dry-run');
 
@@ -330,6 +338,7 @@ if (DRY_RUN) {
 
 fs.mkdirSync(CACHE_DIR, { recursive: true });
 const report = { matched: 0, kept: 0, failures: [], chunkProblems: new Map() };
+let reused = 0;
 const noteProblem = (message) => {
   const key = String(message).slice(0, 120);
   report.chunkProblems.set(key, (report.chunkProblems.get(key) ?? 0) + 1);
@@ -340,12 +349,14 @@ for (const route of routes) {
   done += 1;
   const cachePath = path.join(CACHE_DIR, `${route.shapeId.replace(/[^\w.-]/g, '_')}.json`);
   let matched;
-  if (fs.existsSync(cachePath)) {
+  if (!NO_CACHE && fs.existsSync(cachePath)) {
     matched = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+    reused += 1;
   } else {
     const { stitched, problems } = await matchPath(route.path);
     matched = { path: stitched, problems };
-    fs.writeFileSync(cachePath, JSON.stringify(matched));
+    // Solo il lavoro riuscito vale la pena di essere ricordato.
+    if (problems.length === 0) fs.writeFileSync(cachePath, JSON.stringify(matched));
   }
   for (const problem of matched.problems ?? []) noteProblem(problem);
 
@@ -371,6 +382,7 @@ fs.writeFileSync(NETWORK_PATH, JSON.stringify(network));
 const sizeMb = (fs.statSync(NETWORK_PATH).size / (1024 * 1024)).toFixed(2);
 
 console.log(`\nAgganciate ${report.matched} varianti su ${routes.length}, ${report.kept} lasciate come erano.`);
+console.log(`Riprese dalla cache senza interrogare il servizio: ${reused}.`);
 console.log(`Vertici: ${before} → ${after} (${(after / before).toFixed(1)}x) · ${NETWORK_PATH} ora pesa ${sizeMb} MB.`);
 if (report.chunkProblems.size > 0) {
   const total = [...report.chunkProblems.values()].reduce((sum, count) => sum + count, 0);
