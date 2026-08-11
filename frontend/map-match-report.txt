@@ -1,0 +1,13 @@
+Varianti considerate: 5
+Agganciate alla strada: 0
+Lasciate come erano: 5
+Riprese dalla cache: 5
+Vertici: 385 -> 385 (1.00x)
+Peso di public/assets/gtfs-network.json: 5.95 MB
+
+Varianti che tengono la shape originale, e perche:
+  - 17U-0-17UDi17RD4 (17): la strada trovata se ne va (p95 280 m)
+  - 17U-0-17UDi17SR06 (17): la strada trovata se ne va (p95 302 m)
+  - 17U-0-17UDi28574 (17): la strada trovata se ne va (p95 208 m)
+  - 17U-1-17UAs17AA01 (17): la strada trovata se ne va (p95 206 m)
+  - 17U-1-17UAs28573 (17): la strada trovata se ne va (p95 246 m)
