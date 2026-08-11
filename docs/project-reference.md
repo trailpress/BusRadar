@@ -400,6 +400,7 @@ Tutti da `frontend/`.
 | `npm run verify:routes` | integrità delle varianti GTFS e delle direzioni |
 | `npm run gtfs:generate` | rigenera i dataset GTFS statici |
 | `npm run gtfs:runs` | ricostruisce le corse programmate per i mezzi non accertati |
+| `npm run gtfs:match` | aggancia le shape GTT alla rete stradale OSM. **Richiede rete verso un servizio OSRM**: dall'ambiente degli agenti è bloccata, si passa dal workflow `map-match-shapes`. `--self-check` prova le soglie senza rete, `--fake` prova la pipeline |
 | `npm run realtime:spike` | ispeziona il feed GTFS-RT senza passare dalla UI |
 | `npm run simulate:latency` | confronta le tarature della compensazione senza toccare il feed vivo |
 | `npm run smoke:map` | apre l'app con un feed finto e verifica che i mezzi compaiano davvero. Scenari: `--feed-vuoto` (feed che non manda niente), `--feed-mobile` (feed lento con `speed` a zero), `--feed-fermo` (mezzo fermo misurato contro mezzo non misurabile) |
@@ -457,6 +458,8 @@ Da conoscere prima di fidarsi di quello che si legge nel repository.
    Non è un difetto dell'animazione, che segue la shape fedelmente, e **non si ripara nel codice dell'app**: nessuna interpolazione può inventare la strada che i dati non contengono. Arrotondare la spezzata (Chaikin, spline) è peggio che non fare niente, perché una curva morbida sbagliata sembra più autorevole di una spezzata sbagliata. La riparazione vera è il **map-matching contro OSM**, fatto una volta nel generatore: agganciare ogni shape alla rete stradale reale e sostituire la polilinea. Va fatto in un ambiente con rete verso OSM — da qui `overpass-api.de` e `router.project-osrm.org` rispondono 403 sul CONNECT — e va pesato: la geometria vera aumenta il peso di `gtfs-network.json`, che è l'asset che l'utente scarica.
 
    `simplify()` in `generate-gtfs-network.mjs` **non c'entra**: si attiva sopra i 1200 punti per shape e nessuna variante ci arriva (massimo 603 vertici). Quello che è pubblicato è il dato GTT tale e quale.
+
+   Lo strumento per ripararlo esiste ora: `npm run gtfs:match` (workflow `map-match-shapes`). **La geometria agganciata non viene accettata a scatola chiusa**: per ogni variante si misura quanto la strada trovata si discosta dalla traccia GTT, e chi supera le soglie tiene la shape originale ed entra nel rapporto. È la parte che conta, perché una strada sbagliata precisa è peggio di una corda giusta, e `--self-check` la prova su casi noti — una rotonda al posto della corda va accettata, una parallela a 200 m va scartata. **L'ordine dopo una rigenerazione è `gtfs:generate` → `gtfs:match` → `gtfs:runs`**: il profilo delle corse misura i metri lungo il percorso, quindi cambiare la geometria senza rigenerarlo mette le corse non accertate nel punto sbagliato della linea.
 7. **Le paline stanno dove le mette GTT, e non sempre dove le mette OpenStreetMap.** Sono a **6,4 m di mediana** dal tracciato della propria linea (p90 15 m), quindi stanno sulla strada: i pallini neri non sono spostati per un difetto di disegno, non c'è nessun offset nel layer `stops-circle`. Lo scarto che si vede rispetto alle icone di fermata della mappa di sfondo è fra due dataset diversi — GTT e OSM — e lo amplifica il punto 6, perché la linea disegnata accanto alla palina è una corda. L'1,4% delle fermate sta oltre 25 m dalla propria linea, e quelle valgono un controllo a parte.
 
 ---

@@ -15,6 +15,7 @@
     "gtfs:generate": "node scripts/generate-gtfs-network.mjs",
     "gtfs:runs": "node scripts/generate-scheduled-runs.mjs",
     "gtfs:shard": "node --max-old-space-size=6144 scripts/shard-stop-times.mjs",
+    "gtfs:match": "node scripts/map-match-shapes.mjs",
     "deploy": "npm run build && gh-pages -d dist --dotfiles --add"
   },
   "dependencies": {

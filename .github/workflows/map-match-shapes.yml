@@ -1,0 +1,143 @@
+name: Map-match the GTT shapes onto real roads
+
+# Le shape pubblicate da GTT sono schematiche: fra un vertice e l'altro corrono
+# 48,8 m di mediana e fino a 5,8 km, quindi le rotonde vengono tagliate da una
+# corda. Questo workflow aggancia le shape alla rete stradale di OSM tramite un
+# servizio OSRM, che è la sola cosa che manca ai dati: la strada vera.
+#
+# Esiste come workflow perché l'ambiente di sviluppo degli agenti non ha rete
+# verso OSM (403 sul CONNECT), mentre i runner di GitHub sì.
+#
+# Il risultato non viene unito da solo: arriva come ramo da controllare, perché
+# una geometria sbagliata precisa è peggio di una corda giusta e la si giudica
+# guardandola sulla mappa.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Servizio OSRM. Quello pubblico è a uso dimostrativo e va trattato con riguardo: per la rete intera conviene puntare a una propria istanza'
+        required: false
+        default: 'https://router.project-osrm.org'
+        type: string
+      profile:
+        description: 'Profilo OSRM (driving)'
+        required: false
+        default: 'driving'
+        type: string
+      tolerance:
+        description: 'Semplificazione dopo l''aggancio, in metri. Sotto i 3 m il file cresce senza che si veda nulla'
+        required: false
+        default: '3'
+        type: string
+      delay:
+        description: 'Pausa fra due richieste, in millisecondi'
+        required: false
+        default: '250'
+        type: string
+      line:
+        description: 'Solo questa linea, per provare prima di lanciare tutto (per esempio 17)'
+        required: false
+        default: ''
+        type: string
+      limit:
+        description: 'Solo le prime N varianti, per provare'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  match:
+    name: Map-match shapes
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # Le soglie decidono cosa viene pubblicato: si provano prima di spendere
+      # un'ora di richieste.
+      - name: Check the acceptance thresholds
+        working-directory: frontend
+        run: node scripts/map-match-shapes.mjs --self-check
+
+      # Un aggancio già fatto non si rifà: se la run precedente si è fermata a
+      # metà, questa riprende da dove era arrivata.
+      - name: Restore the matching cache
+        uses: actions/cache@v4
+        with:
+          path: frontend/.cache/map-match
+          key: map-match-${{ inputs.profile }}-${{ github.run_id }}
+          restore-keys: map-match-${{ inputs.profile }}-
+
+      - name: Show the plan
+        working-directory: frontend
+        run: |
+          node scripts/map-match-shapes.mjs --dry-run \
+            --base-url '${{ inputs.base_url }}' --profile '${{ inputs.profile }}' \
+            --delay '${{ inputs.delay }}' \
+            ${{ inputs.line && format('--line {0}', inputs.line) || '' }} \
+            ${{ inputs.limit && format('--limit {0}', inputs.limit) || '' }}
+
+      - name: Match the shapes onto the road network
+        working-directory: frontend
+        run: |
+          node scripts/map-match-shapes.mjs \
+            --base-url '${{ inputs.base_url }}' --profile '${{ inputs.profile }}' \
+            --tolerance '${{ inputs.tolerance }}' --delay '${{ inputs.delay }}' \
+            ${{ inputs.line && format('--line {0}', inputs.line) || '' }} \
+            ${{ inputs.limit && format('--limit {0}', inputs.limit) || '' }}
+
+      # Il profilo delle corse programmate misura i metri lungo il percorso: se
+      # cambia la geometria e non si rigenera, le corse non accertate finiscono
+      # nel punto sbagliato della linea.
+      - name: Rebuild the scheduled-run profile
+        working-directory: frontend
+        run: npm run gtfs:runs
+
+      - name: Verify the app still builds
+        working-directory: frontend
+        run: |
+          npm run verify:assets
+          npm run verify:routes
+          npm run build
+
+      - name: Push the result as a branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          branch="claude/map-match-${{ github.run_id }}"
+          git switch -c "$branch"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add frontend/public/assets/gtfs-network.json frontend/public/assets/scheduled-runs.json
+          git commit -m "Map-match the GTT shapes onto the OSM road network"
+          git push --set-upstream origin "$branch"
+          {
+            printf 'Shape agganciate alla rete stradale OSM dal workflow `map-match-shapes`.\n\n'
+            printf '**Da guardare sulla mappa prima di unire**, su una rotonda e su un incrocio complesso: una geometria sbagliata precisa e peggio di una corda giusta. Il rapporto della run elenca le varianti che il controllo ha scartato, e quelle tengono la shape GTT originale.\n\n'
+            printf -- '---\n'
+            printf '_Generated by [Claude Code](https://claude.ai/code)_\n'
+          } > /tmp/map-match-body.md
+          if ! gh pr create --base main --head "$branch" \
+            --title "Map-match the GTT shapes onto the OSM road network" \
+            --body-file /tmp/map-match-body.md; then
+            echo "::warning::Non ho potuto aprire la pull request, ma il ramo e' stato pubblicato."
+            echo "Aprila da qui: https://github.com/${GITHUB_REPOSITORY}/compare/main...${branch}?expand=1"
+          fi
