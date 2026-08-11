@@ -34,6 +34,11 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
     referenceNotes: 'Classe di servizio, non una vettura: sulle corse non accertate si mostra il tipo di mezzo che una linea extraurbana usa. Dalle schede ufficiali del parco veicoli la famiglia piu\' numerosa e\' l\'Iveco Crossway 12 m, 2 porte, circa 12.000 mm.',
     assetStatus: 'needs-reference-render',
   },
+  'generic-tram-line': {
+    label: 'Tram GTT (tipo di linea)',
+    referenceNotes: 'Classe di servizio, non una vettura: sulle corse non accertate si mostra il tipo di mezzo che una linea tranviaria usa. Dalle schede ufficiali la serie piu\' numerosa e\' la 2800, 20.145 mm a 2 casse.',
+    assetStatus: 'needs-reference-render',
+  },
   'generic-tram': {
     label: 'Tram GTT (modello non identificato)',
     referenceNotes: 'Il feed ha classificato il veicolo come tram, ma il suo identificativo non corrisponde a una serie GTT verificata.',

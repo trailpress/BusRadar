@@ -41,7 +41,8 @@ export type VehicleFleetKey =
   | 'generic-bus'
   // La classe di servizio di una linea, per le corse che nessun mezzo sta
   // confermando: non e' una vettura, e' il tipo di mezzo che quella linea usa.
-  | 'generic-bus-interurban';
+  | 'generic-bus-interurban'
+  | 'generic-tram-line';
 
 export type TransitVehicle = {
   vehicleId: string;

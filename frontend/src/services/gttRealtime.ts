@@ -1542,7 +1542,7 @@ function unverifiedScheduledVehicles(observed: Vehicle[]): Vehicle[] {
         // ufficiali del parco veicoli danno le caratteristiche. Nessun
         // documento pubblico assegna i modelli alle singole linee.
         vehicleFleetKey: vehicleType === 'tram'
-          ? ('generic-tram' as const)
+          ? ('generic-tram-line' as const)
           : vehicleLiveryForVehicle(`gtt-${routeVariant.routeId}`, routeVariant.line, null) === 'interurban-blue'
             ? ('generic-bus-interurban' as const)
             : ('generic-bus' as const),
