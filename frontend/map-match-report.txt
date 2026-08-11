@@ -1,0 +1,23 @@
+Varianti considerate: 894
+Accettate dal controllo: 886
+Con geometria davvero cambiata: 873
+Lasciate come erano: 8
+Riprese dalla cache: 0
+Buchi riempiti con la strada vera: 91979
+Buchi lasciati come corda: 13158
+Vertici: 119291 -> 151011 (1.27x)
+Peso di public/assets/gtfs-network.json: 7.11 MB
+
+Tratti rifiutati dal servizio, per messaggio:
+  50 x HTTP 400 + match: HTTP 400
+  2 x route: geometria vuota + match: HTTP 400
+
+Varianti che tengono la shape originale, e perche:
+  - 15U-0-15UDi15R2 (15): la strada trovata se ne va (p95 94 m)
+  - 15U-0-15UDi15RD8 (15): la strada trovata se ne va (p95 84 m)
+  - 2183E-0-2183EDi218304 (2183): la strada trovata se ne va (p95 85 m)
+  - 3105E-1-3105EAs310517 (3105): la strada trovata se ne va (p95 103 m)
+  - M1SU-0-M1SUDi66973 (M1S): la strada trovata se ne va (p95 83 m)
+  - ST1U-0-ST1UDiST1RD4 (STAR 1): la strada trovata se ne va (p95 94 m)
+  - W15U-1-W15UAsW15AA1 (W15): la strada trovata se ne va (p95 94 m)
+  - W15BU-1-W15BUAsW15BA5 (W15B): la strada trovata se ne va (p95 94 m)
