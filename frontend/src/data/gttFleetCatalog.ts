@@ -14,6 +14,10 @@ export type GttFleetCluster = {
   assetStatus: FleetAssetStatus;
   sourceNotes: string;
   renderPrompt: string;
+  // Immagine di riferimento da passare al generatore insieme al prompt, per i
+  // cluster in cui una descrizione a parole non basta a ottenere il mezzo
+  // giusto. Il percorso è relativo a `public/`. Vedi `scripts/fleet-render.mjs`.
+  referenceAsset?: string;
 };
 
 const sharedRenderPrompt =
@@ -379,10 +383,11 @@ export const GTT_FLEET_CATALOG: GttFleetCluster[] = [
     length: '22 m',
     traction: 'electric',
     livery: 'GTT grigio/blu/giallo.',
-    asset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v6.webp',
+    asset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v10.webp',
     assetStatus: 'validated-render',
-    sourceNotes: 'Immagine della vettura 5014 riconosciuta come realistica dall\'utente il 2026-08-10, dopo che la versione rigenerata da prompt era stata riconosciuta come inventata e ritirata. Le due si distinguono a colpo d\'occhio: questa porta i dettagli che solo una vettura vera ha - matricola 5014, linea 15 sul rullo, marchi TORINO 2006 e STT, interni della cabina - mentre quella generata era pulita e senza. **Non rigenerare da prompt**: `renderPrompt` è vuoto di proposito, ed è per questo. Se il file va rilavorato, si parte da questa immagine. Da verificare, se il progetto diventa pubblico: la provenienza dell\'immagine originale, che ha tutta l\'aria di essere una fotografia scontornata.',
-    renderPrompt: '',
+    sourceNotes: 'Render generato dall\'API con l\'immagine della vettura 5014 allegata come riferimento visivo: la rigenerazione descritta solo a parole era gia\' stata provata e aveva prodotto un tram che non esiste. Quell\'immagine, che aveva tutta l\'aria di essere una fotografia scontornata di provenienza ignota, non sta piu\' nel repository. Marchi: GTT sul frontale e sulla fiancata, stemma della Citta\' di Torino; niente matricola e niente numero di linea, perche\' sarebbero l\'identita\' di una vettura e di una corsa precise, che il render non rappresenta. Le scritte hanno richiesto tre generazioni e la lezione e\' che vanno guardate ingrandite: a figura intera una G stilizzata e una S non si distinguono, e il primo giro aveva scritto una parola che sembrava un altro operatore. Confronti verificati sulla scheda ufficiale M4: 22.200 mm, 2 casse, 3 carrelli, 1989-1992, pavimento ribassato.',
+    renderPrompt: `${sharedRenderPrompt} Exact subject: the tram in the reference image, a Turin GTT series 5000 T.P.R. tram, car 5014. Reproduce it faithfully and change nothing about the vehicle itself: the boxy late-1980s cab with its tall one-piece windscreen split by a central pillar and a black destination box above it, the deep blue band that wraps the front below the windscreen and runs along both bodies at waist height with a thin yellow stripe under it, the light grey upper bodywork, the dark grey skirt and bogie covers, two articulated bodies joined by a black bellows, three bogies, the roof ventilation louvres over the rear body, one single-arm pantograph, four double doors with black rubber surrounds, and the square headlight clusters set into the blue front band. Keep the same three-quarter front-left angle. Carry the operator marks the real car wears, and get the letters right. The operator wordmark reads GTT: one single word of three capital letters, G then T then T, joined with no hyphens, no dots and no spaces between them, and the first letter is a capital G with its horizontal bar, never an S. It appears twice: centred in the blue front band between the headlights, and on the side above the yellow stripe just behind the cab. Further back on the side, add the small crest of the city of Turin, the blue shield with the golden bull under a crown, with "CITTA' DI TORINO" beside it. Never write STT, SIT, G-T-T, or any other operator name. Nothing else in writing: no fleet number anywhere, no route number on the destination box, which stays dark and empty, no advertising, no other lettering. Do not modernize the front, do not round the corners, and do not add or remove body sections.`,
+    referenceAsset: 'assets/vehicles/detail/generated/tram-serie-5000-gtt-render-v10.webp',
   },
   {
     key: 'tram-serie-6000',

@@ -19,6 +19,11 @@ on:
         description: 'Fleet cluster key, for example tram-serie-8000 or iveco-citelis-12m'
         required: true
         type: string
+      variant:
+        description: 'Suffisso del file, per esempio v7. Gli asset in public/ sono serviti a URL stabile: rigenerando sotto lo stesso nome la cache continua a servire il render vecchio'
+        required: false
+        default: ''
+        type: string
       promote:
         description: 'Point the catalog at the new file, so the pull request shows the render as the app would use it'
         required: false
@@ -52,7 +57,7 @@ jobs:
 
       - name: Show the prompt this cluster will use
         working-directory: frontend
-        run: node scripts/fleet-render.mjs --cluster '${{ inputs.cluster }}' --dry-run
+        run: node scripts/fleet-render.mjs --cluster '${{ inputs.cluster }}' --dry-run ${{ inputs.variant && format('--variant {0}', inputs.variant) || '' }}
 
       # Only the render path needs an image library, so it is installed here
       # rather than carried by every Verify BusRadar run.
@@ -64,12 +69,12 @@ jobs:
         working-directory: frontend
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: node scripts/fleet-render.mjs --cluster '${{ inputs.cluster }}'
+        run: node scripts/fleet-render.mjs --cluster '${{ inputs.cluster }}' ${{ inputs.variant && format('--variant {0}', inputs.variant) || '' }}
 
       - name: Point the catalog at the new file
         if: ${{ inputs.promote }}
         working-directory: frontend
-        run: node scripts/fleet-render-promote.mjs --cluster '${{ inputs.cluster }}'
+        run: node scripts/fleet-render-promote.mjs --cluster '${{ inputs.cluster }}' ${{ inputs.variant && format('--variant {0}', inputs.variant) || '' }}
 
       - name: Verify the app still builds
         working-directory: frontend

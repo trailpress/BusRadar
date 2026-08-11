@@ -178,6 +178,24 @@ for (const vehicle of vehicles) {
 }
 console.log('mezzi "In servizio" nel DOM:', inServizio ? inServizio[1] : 'sezione non trovata');
 
+// Con il feed vuoto in mappa ci sono solo corse non accertate. La loro scheda
+// non deve dichiarare niente che nessuno ha osservato: non un identificativo
+// «del feed», che il feed non ha mai mandato, e non un render «verificato»,
+// perche' li' non c'e' nessun mezzo da verificare.
+if (emptyFeed) {
+  await page.getByText(/Corsa .* non accertata|Corsa non accertata/).first().click().catch(() => {});
+  await page.waitForTimeout(1500);
+  const sheetText = await page.locator('body').innerText();
+  const aperta = /Dettagli mezzo/.test(sheetText);
+  const bugie = [
+    ['ID feed', /ID feed/.test(sheetText)],
+    ['Render verificato', /Render verificato/i.test(sheetText)],
+    ['Identificativo tecnico GTFS-RT', /Identificativo tecnico GTFS-RT/.test(sheetText)],
+  ].filter(([, presente]) => presente).map(([nome]) => nome);
+  console.log(`scheda corsa non accertata: ${aperta ? 'aperta' : 'non aperta'}`
+    + ` · dichiarazioni non vere: ${bugie.length === 0 ? 'nessuna [ok]' : bugie.join(', ')}`);
+}
+
 // La riga deve dire due cose diverse sui due mezzi: "fermo, misurato" sul
 // primo, "previsione fermata" sul secondo. Se dicesse la stessa cosa su
 // entrambi, o l'osservazione o la previsione starebbe venendo ignorata.

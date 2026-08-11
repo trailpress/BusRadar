@@ -9,6 +9,18 @@
 //
 // Usage:
 //   node scripts/fleet-render.mjs --cluster <fleet-key> [--dry-run] [--out <path>]
+//                                 [--variant <name>] [--reference <path>]
+//
+// Un cluster può portare una `referenceAsset`: in quel caso l'immagine viene
+// mandata all'API insieme al prompt e il modello ridisegna quel mezzo invece di
+// interpretare una descrizione. Serve dove le parole non bastano, ed è il caso
+// della serie 5000: descritta a parole era tornata indietro come un tram che
+// non esiste. `--reference` la sovrascrive, `--reference none` la disattiva.
+//
+// `--variant v7` scrive `<chiave>-gtt-render-v7.webp` invece di
+// `<chiave>-gtt-render.webp`. Gli asset in `public/` sono serviti a URL stabile,
+// senza hash: rigenerando sotto lo stesso nome, browser e CDN continuano a
+// servire il file vecchio e il render nuovo non si vede.
 //
 // Needs OPENAI_API_KEY unless --dry-run is given. The GitHub workflow
 // `generate-fleet-render.yml` is the normal way to run it.
@@ -39,7 +51,21 @@ if (!cluster) {
   process.exit(1);
 }
 
-const outputPath = arg('out') ?? path.join('public/assets/vehicles/detail/generated', `${cluster.key}-gtt-render.webp`);
+const variant = arg('variant');
+const outputPath = arg('out') ?? path.join(
+  'public/assets/vehicles/detail/generated',
+  `${cluster.key}-gtt-render${variant ? `-${variant}` : ''}.webp`,
+);
+
+const referenceArg = arg('reference');
+const referenceAsset = referenceArg === 'none' ? undefined : referenceArg ?? cluster.referenceAsset;
+const referencePath = referenceAsset
+  ? (fs.existsSync(referenceAsset) ? referenceAsset : path.join('public', referenceAsset))
+  : undefined;
+if (referencePath && !fs.existsSync(referencePath)) {
+  console.error(`Reference image not found: ${referencePath}`);
+  process.exit(1);
+}
 
 console.log(`Cluster : ${cluster.key}`);
 console.log(`Label   : ${cluster.label}`);
@@ -47,7 +73,14 @@ console.log(`Fleet   : ${cluster.fleetNumbers.join(', ')}`);
 console.log(`Livery  : ${cluster.livery}`);
 console.log(`Sources : ${cluster.sourceNotes}`);
 console.log(`Output  : ${outputPath}`);
+console.log(`Reference: ${referencePath ?? 'nessuna, solo il prompt'}`);
 console.log(`\nPrompt:\n${cluster.renderPrompt}\n`);
+
+if (!cluster.renderPrompt.trim()) {
+  console.error('Questo cluster ha `renderPrompt` vuoto. È una scelta, non una dimenticanza:');
+  console.error('leggi `sourceNotes` prima di riempirlo.');
+  process.exit(1);
+}
 
 if (dryRun) {
   console.log('Dry run: nothing generated.');
@@ -85,22 +118,51 @@ async function finish(buffer) {
     .toBuffer();
 }
 
-const response = await fetch('https://api.openai.com/v1/images/generations', {
-  method: 'POST',
-  headers: {
-    Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    model: 'gpt-image-2',
-    prompt: cluster.renderPrompt,
-    size: '1536x1024',
-    quality: 'high',
-    background: 'opaque',
-    output_format: 'webp',
-    n: 1,
-  }),
-});
+const MODEL = 'gpt-image-2';
+const SIZE = '1536x1024';
+
+// Con un riferimento si passa dall'endpoint delle modifiche, che accetta
+// l'immagine insieme al prompt: il modello ridisegna quel mezzo invece di
+// interpretare una descrizione. Senza, resta la generazione da solo testo.
+async function requestImage() {
+  if (!referencePath) {
+    return fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        prompt: cluster.renderPrompt,
+        size: SIZE,
+        quality: 'high',
+        background: 'opaque',
+        output_format: 'webp',
+        n: 1,
+      }),
+    });
+  }
+
+  const form = new FormData();
+  form.append('model', MODEL);
+  form.append('prompt', cluster.renderPrompt);
+  form.append('size', SIZE);
+  form.append('quality', 'high');
+  form.append('n', '1');
+  form.append(
+    'image[]',
+    new Blob([fs.readFileSync(referencePath)], { type: 'image/webp' }),
+    path.basename(referencePath),
+  );
+  return fetch('https://api.openai.com/v1/images/edits', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    body: form,
+  });
+}
+
+const response = await requestImage();
 
 if (!response.ok) {
   throw new Error(`OpenAI image generation failed (${response.status}): ${await response.text()}`);
