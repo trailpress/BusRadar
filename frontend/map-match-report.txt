@@ -1,0 +1,9 @@
+Varianti considerate: 5
+Agganciate alla strada: 5
+Lasciate come erano: 0
+Riprese dalla cache: 0
+Vertici: 385 -> 397 (1.03x)
+Peso di public/assets/gtfs-network.json: 5.95 MB
+
+Tratti rifiutati dal servizio, per messaggio:
+  27 x tratto scartato: la strada trovata si allontana troppo
