@@ -37,6 +37,7 @@ export const VEHICLE_FLEET_PROFILES: Record<VehicleFleetKey, VehicleFleetProfile
   },
   'generic-tram-line': {
     label: 'Tram GTT (tipo di linea)',
+    detailAsset: 'assets/vehicles/detail/generated/generic-tram-line-gtt-render-v1.webp',
     referenceNotes: 'Classe di servizio, non una vettura: sulle corse non accertate si mostra il tipo di mezzo che una linea tranviaria usa. Dalle schede ufficiali la serie piu\' numerosa e\' la 2800, 20.145 mm a 2 casse.',
     assetStatus: 'needs-reference-render',
   },
