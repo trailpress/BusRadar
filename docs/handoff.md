@@ -6,18 +6,20 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 
 ---
 
-## Ultimo aggiornamento: 2026-08-10 · sessione Claude Code
+## Ultimo aggiornamento: 2026-08-11 · sessione Claude Code
 
 ### Stato al momento della consegna
 
 | | |
 | --- | --- |
 | pull request aperte | **nessuna** |
-| ultimo merge in `main` | PR #34 |
+| ultimo merge in `main` | PR #38 |
 | ramo `claude/tandem-codex-workflow-v1nntw` | interamente unito, libero |
 | deploy | pubblicato da `main` dopo il merge |
 
-Non c'è lavoro in sospeso e nessun ramo da evitare. Chi riprende parte da `main` aggiornato con un ramo nuovo del proprio prefisso.
+**Un ramo aspetta un giudizio, non un merge automatico: `claude/map-match-31471180628`.** Porta le shape agganciate alla rete stradale OSM — 91.979 buchi riempiti su 105.137, 873 varianti su 894 cambiate, passo mediano fra due vertici da 48,8 a 32,0 m, +198 kB gzip per chi apre l'app. Va guardato **sulla mappa, su una rotonda**, prima di unirlo: una geometria sbagliata precisa è peggio di una corda giusta. Porta anche `frontend/map-match-report.txt`, che **va tolto prima del merge**.
+
+Restano sul repository **nove rami `claude/map-match-*` di prova**, da cancellare: dall'ambiente degli agenti il push di cancellazione è rifiutato.
 
 ### Cosa è cambiato in questo turno
 
@@ -56,6 +58,8 @@ Soprattutto: **l'età del campione si misura dal timestamp del veicolo con ricad
 **Render della flotta.** Da PNG 2048px a WebP 1280px: 74,5 → 1,9 MB, rimossi 115,4 MB di versioni superate.
 
 **Il render della serie 5000 e' stato rifatto dall'API con la foto come riferimento.** La versione precedente era stata rigenerata **descrivendola a parole**, e la descrizione aveva perso il mezzo vero: e' quella che e' stata riconosciuta come inventata. Ora il generatore accetta una `referenceAsset` e allega l'immagine alla richiesta, quindi ridisegna quel tram invece di interpretarne una descrizione. La foto di partenza - probabilmente una fotografia scontornata, provenienza mai risultata da nessuna parte - **non sta piu' nel repository**: il render generato la sostituisce ed e' anche il riferimento per le prossime generazioni. Porta i marchi GTT e lo stemma della Citta' di Torino, senza matricola ne' numero di linea. **Le scritte vanno guardate ingrandite**: a figura intera una G stilizzata e una S non si distinguono, e in un giro il generatore aveva scritto "G-T-T" con i trattini perche' il prompt gliele dettava separate. Sono servite tre generazioni. Si rigenera dal workflow `generate-fleet-render`, che accetta un `variant` per non riscrivere lo stesso nome di file.
+
+**Un mezzo fermo non va disegnato avanti, e ci sono due modi distinti di sbagliarlo.** Al semaforo: la media di velocità scende di un quarto a ogni campione GTT, quindi un mezzo che andava a 30 km/h e si ferma un minuto ha ancora una media di 9,5 km/h e viene proiettato **92 m avanti**; sotto la soglia di fermo ci arriva dopo quasi tre minuti. La media rispondeva alla domanda sbagliata — dice a che passo andava, non se adesso si muove — e alla seconda risponde l'ultima misura, subito. Alla fermata: l'ancoraggio punta alla fermata *successiva* appena il mezzo raggiunge quella che sta servendo, e ci corre verso mentre il mezzo carica; ora il marker resta alla fermata finché l'orario di ripartenza non è passato. **Non rimettere la media al posto dell'ultima misura per decidere se un mezzo è fermo.**
 
 **Le frecce di direzione si prendono dal progresso lungo il percorso, non dalla riproiezione del punto.** La riproiezione non ha memoria e su una shape che si sovrappone a sé stessa ritrova il mezzo sul passaggio sbagliato, girando la freccia di 180°. Misurato sulle shape vere, le frecce rovesciate passano dal **2,0% allo 0,5%** e il 99° percentile dell'errore da 173° a 72°. La base di 40 metri da sola non bastava: toglieva gli scatti fra un vertice e l'altro, non la coda. La tabella completa è in `project-reference.md` §4.
 
