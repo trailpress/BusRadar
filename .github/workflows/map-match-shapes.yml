@@ -100,6 +100,7 @@ jobs:
           node scripts/map-match-shapes.mjs \
             --base-url '${{ inputs.base_url }}' --profile '${{ inputs.profile }}' \
             --tolerance '${{ inputs.tolerance }}' --delay '${{ inputs.delay }}' \
+            --report map-match-report.txt \
             ${{ inputs.line && format('--line {0}', inputs.line) || '' }} \
             ${{ inputs.limit && format('--limit {0}', inputs.limit) || '' }}
 
@@ -126,7 +127,10 @@ jobs:
           git switch -c "$branch"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add frontend/public/assets/gtfs-network.json frontend/public/assets/scheduled-runs.json
+          # Il resoconto viaggia col ramo: e' quello che si legge per
+          # decidere, e cercarlo nei log di Actions significa scorrere l'output
+          # di una build. Va tolto prima di unire.
+          git add frontend/public/assets/gtfs-network.json frontend/public/assets/scheduled-runs.json frontend/map-match-report.txt
           git commit -m "Map-match the GTT shapes onto the OSM road network"
           git push --set-upstream origin "$branch"
           {

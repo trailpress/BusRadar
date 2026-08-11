@@ -29,6 +29,9 @@
 //   --out <path>         file da riscrivere, default il network pubblicato
 //   --fake               nessuna rete: il matcher restituisce la traccia
 //                        infittita. Serve a provare la pipeline, non i dati.
+//   --report <path>      scrive il resoconto anche su file. Il workflow lo
+//                        allega al ramo: leggere un rapporto dai log di Actions
+//                        significa scorrere l'output di una build per trovarlo
 //   --dry-run            stampa il piano e si ferma
 //
 // **La geometria agganciata non viene accettata a scatola chiusa.** Per ogni
@@ -55,6 +58,7 @@ const NETWORK_PATH = arg('out', 'public/assets/gtfs-network.json');
 const LIMIT = Number(arg('limit', '0'));
 const ONLY_LINE = arg('line', '');
 const STRATEGY = arg('strategy', 'route');
+const REPORT_PATH = arg('report', '');
 const NO_CACHE = flag('no-cache');
 const FAKE = flag('fake');
 const DRY_RUN = flag('dry-run');
@@ -398,4 +402,26 @@ if (report.failures.length > 0) {
   report.failures.slice(0, 20).forEach((line) => console.log(`  - ${line}`));
   console.log('\nQueste tengono la shape GTT originale: la mappa non peggiora, semplicemente non migliora li.');
 }
+const summary = [];
+summary.push(`Varianti considerate: ${routes.length}`);
+summary.push(`Agganciate alla strada: ${report.matched}`);
+summary.push(`Lasciate come erano: ${report.kept}`);
+summary.push(`Riprese dalla cache: ${reused}`);
+summary.push(`Vertici: ${before} -> ${after} (${(after / before).toFixed(2)}x)`);
+summary.push(`Peso di ${NETWORK_PATH}: ${sizeMb} MB`);
+if (report.chunkProblems.size > 0) {
+  summary.push('', 'Tratti rifiutati dal servizio, per messaggio:');
+  [...report.chunkProblems.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([message, count]) => summary.push(`  ${count} x ${message}`));
+}
+if (report.failures.length > 0) {
+  summary.push('', 'Varianti che tengono la shape originale, e perche:');
+  report.failures.forEach((line) => summary.push(`  - ${line}`));
+}
+if (REPORT_PATH) {
+  fs.writeFileSync(REPORT_PATH, `${summary.join('\n')}\n`);
+  console.log(`\nResoconto completo in ${REPORT_PATH}`);
+}
+
 console.log('\nDopo questo va rigenerato il profilo delle corse: npm run gtfs:runs');
