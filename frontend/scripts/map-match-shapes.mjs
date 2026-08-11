@@ -70,6 +70,13 @@ const CHUNK_OVERLAP = 1;
 // Quanto lontano dalla traccia il servizio puo' cercare la strada. Le shape GTT
 // sono schematiche, non tracce GPS: stringere qui produce "NoMatch".
 const SEARCH_RADIUS_METERS = 60;
+// **Si riempiono solo i buchi corti.** Fra due vertici vicini la strada che li
+// unisce e' una sola e la si puo' chiedere; fra due vertici lontani un
+// chilometro le strade sono tante e quale abbia preso il bus non lo dice
+// nessuno - la prima versione le chiedeva comunque, e il percorso finiva a
+// 200-300 m dalla traccia, che e' precisamente il non saperlo. Sopra questa
+// soglia resta la corda: la mappa non migliora li, ma non peggiora nemmeno.
+const MAX_GAP_TO_FILL_METERS = 250;
 
 // Soglie di accettazione, misurate sui vertici originali contro la geometria
 // agganciata. Sono volutamente larghe: servono a scartare la strada sbagliata,
@@ -259,28 +266,66 @@ async function matchChunk(points) {
   return { error: `${primary.error} + ${fallback.error}` };
 }
 
+// La traccia si spezza dove il salto e' troppo lungo per chiedere una strada.
+// Quello che resta sono tratti di vertici vicini, e sono quelli che si
+// agganciano.
+function splitIntoRuns(points) {
+  const runs = [];
+  let current = [points[0]];
+  for (let i = 1; i < points.length; i += 1) {
+    if (distanceMeters(points[i - 1], points[i]) > MAX_GAP_TO_FILL_METERS) {
+      runs.push({ points: current, fill: current.length >= 2 });
+      runs.push({ points: [points[i - 1], points[i]], fill: false });
+      current = [points[i]];
+    } else {
+      current.push(points[i]);
+    }
+  }
+  runs.push({ points: current, fill: current.length >= 2 });
+  return runs.filter((run) => run.points.length >= 1);
+}
+
+// Il giudizio si da' tratto per tratto, non sulla variante intera: cosi' un
+// tratto sbagliato non porta via la geometria buona di tutto il resto, e un
+// buco lungo non fa scartare le rotonde che stanno altrove.
+function runIsSane(original, matched) {
+  const backward = matched.map((point) => distanceToPath(point, original));
+  const originalLength = pathLength(original);
+  const allowance = Math.max(60, 0.5 * MAX_GAP_TO_FILL_METERS);
+  if (Math.max(...backward) > allowance) return false;
+  return pathLength(matched) <= Math.max(120, originalLength * 2.5);
+}
+
 async function matchPath(points) {
   const stitched = [];
   const problems = [];
-  for (let start = 0; start < points.length - 1; start += CHUNK_POINTS - CHUNK_OVERLAP) {
-    const chunk = points.slice(start, start + CHUNK_POINTS);
-    if (chunk.length < 2) break;
-    const { matched, error } = await matchChunk(chunk);
-    if (error) {
-      problems.push(error);
-      // Un tratto che il servizio non aggancia non si butta: si tiene come sta,
-      // cosi' il resto della linea guadagna comunque la geometria vera.
-      for (const point of chunk) {
-        const last = stitched[stitched.length - 1];
-        if (!last || distanceMeters(last, point) > 0.5) stitched.push(point);
-      }
-    } else {
-      for (const point of matched) {
-        const last = stitched[stitched.length - 1];
-        if (!last || distanceMeters(last, point) > 0.5) stitched.push(point);
-      }
+  const append = (list) => {
+    for (const point of list) {
+      const last = stitched[stitched.length - 1];
+      if (!last || distanceMeters(last, point) > 0.5) stitched.push(point);
     }
-    if (!FAKE) await sleep(DELAY_MS);
+  };
+
+  for (const run of splitIntoRuns(points)) {
+    if (!run.fill || run.points.length < 2) {
+      append(run.points);
+      continue;
+    }
+    for (let start = 0; start < run.points.length - 1; start += CHUNK_POINTS - CHUNK_OVERLAP) {
+      const chunk = run.points.slice(start, start + CHUNK_POINTS);
+      if (chunk.length < 2) break;
+      const { matched, error } = await matchChunk(chunk);
+      if (error) {
+        problems.push(error);
+        append(chunk);
+      } else if (!runIsSane(chunk, matched)) {
+        problems.push('tratto scartato: la strada trovata si allontana troppo');
+        append(chunk);
+      } else {
+        append(matched);
+      }
+      if (!FAKE) await sleep(DELAY_MS);
+    }
   }
   return { stitched, problems };
 }
