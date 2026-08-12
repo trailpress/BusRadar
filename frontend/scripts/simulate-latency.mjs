@@ -106,7 +106,7 @@ function positionAfterSeconds(fromMeters, seconds, speed, dwellSeconds) {
   return position + remaining * speed;
 }
 
-function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35, anchored, anchoredOnly, raw, scheduledPace, additive, predictionError = 20, seed = 1 }) {
+function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35, cap = 75, anchored, anchoredOnly, raw, scheduledPace, additive, predictionError = 20, seed = 1 }) {
   const { positions, arrivals } = course;
   // Il passo che l'orario programmato attribuisce al tratto: la media della
   // corsa, che è ciò che un orario codifica, non la velocità di un istante.
@@ -138,7 +138,9 @@ function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35
     // additive: il ritardo non dichiarato si somma all'età dichiarata invece di
     // sostituirla. Con `max` un campione già vecchio non riceve alcuna correzione.
     const assumed = additive ? DECLARED_AGE + floor : Math.max(DECLARED_AGE, floor);
-    const seconds = Math.min(assumed + 3, 75) * 0.9;
+    // `cap` replica MAX_LATENCY_COMPENSATION_SECONDS: oltre quella soglia la
+    // correzione non va, per quanto vecchio si creda il campione.
+    const seconds = Math.min(assumed + 3, cap) * 0.9;
     let target = 0;
     // `raw`: il marker sta dove il feed lo ha messo, punto. Nessuna proiezione,
     // nessuna interpolazione. Serve a quantificare cosa si guadagna e cosa si
@@ -164,7 +166,7 @@ function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35
       if (nextStop != null) {
         const remaining = nextStop - reported;
         const expected = scheduledSegmentSeconds * (remaining / SPACING);
-        if (expected > 0) target = remaining * Math.min(1, Math.max(DECLARED_AGE, floor) / expected);
+        if (expected > 0) target = remaining * Math.min(1, assumed / expected);
       }
     }
 
@@ -180,7 +182,12 @@ function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35
       const predicted = trueArrival != null ? trueArrival + (noise() * 2 - 1) * predictionError : undefined;
       // The sample is believed to be `floor` seconds old, not the minute it
       // really is: the anchor inherits that error, and cannot escape it.
-      const believedSampleAt = t - Math.max(DECLARED_AGE, floor);
+      // L'eta' creduta e' la stessa che usa la proiezione: in produzione
+      // l'ancoraggio parte da `Date.now() - effectiveAgeSeconds`, cioe' dalla
+      // somma. Qui restava la vecchia formula, e l'ancoraggio ignorava del
+      // tutto la supposizione additiva - motivo per cui alzarla non muoveva
+      // niente e il tetto sembrava ininfluente.
+      const believedSampleAt = t - assumed;
       if (predicted != null && predicted > t && predicted > believedSampleAt) {
         const share = Math.min(1, Math.max(0, (t - believedSampleAt) / (predicted - believedSampleAt)));
         target = (nextStop - reported) * share;
@@ -265,6 +272,16 @@ const scenarios = [
   ['ancorato, pavimento 45 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 45, anchored: true }],
   ['ancorato, pavimento 50 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 50, anchored: true }],
   ['ancorato, pavimento 60 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 60, anchored: true }],
+  // Candidate dopo la prova dalla strada del 2026-08-12: marker indietro di
+  // almeno 60 s rispetto al mezzo vero e rispetto al sito GTT. Con la
+  // compensazione attuale che copre ~39 s, il ritardo vero del feed risulta
+  // vicino ai 90 s, oltre il tetto di 75 s: alzare la supposizione senza
+  // alzare il tetto non cambia niente, ed e' il primo errore da non fare.
+  ['piu 60 s, tetto 75 (invariato)', { dwellAware: true, rateLimited: true, additive: true, floor: 60, anchored: true, scheduledPace: true }],
+  ['piu 60 s, tetto 110', { dwellAware: true, rateLimited: true, additive: true, floor: 60, cap: 110, anchored: true, scheduledPace: true }],
+  ['piu 80 s, tetto 130', { dwellAware: true, rateLimited: true, additive: true, floor: 80, cap: 130, anchored: true, scheduledPace: true }],
+  ['piu 60 s, tetto 110, freno 0,6', { dwellAware: true, rateLimited: true, additive: true, floor: 60, cap: 110, fraction: 0.6, anchored: true, scheduledPace: true }],
+  ['piu 60 s, tetto 110, senza freno', { dwellAware: true, rateLimited: false, additive: true, floor: 60, cap: 110, anchored: true, scheduledPace: true }],
 ];
 
 console.log('errore = posizione vera meno marker; negativo = marker davanti al mezzo\n');

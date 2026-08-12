@@ -4,6 +4,7 @@ import { recognizedFleetNumber, vehicleFleetKey, vehicleFleetLabel, vehicleLengt
 import { bearingDegrees, distanceMeters, interpolatePathState, routeProgressAtPoint } from '../utils/geo';
 import { fetchStopSchedule, fetchStopScheduleCalendar, isStopScheduleLoaded, peekStopSchedule, requestStopSchedule, type StopScheduleCalendar, type StopScheduleEntry } from './stopSchedule';
 import { loadScheduledRuns, peekScheduledRuns, scheduledPassagesAtMeters, scheduledRunsInProgress } from './scheduledRuns';
+import { undeclaredFeedDelaySeconds } from './latencyTuning';
 
 type GttVehiclePosition = {
   entityId?: string | null;
@@ -622,8 +623,12 @@ function terminalEstimate(
 // and dwells at stops. Advancing the full theoretical distance would routinely
 // overshoot and force the next sample to drag the marker backwards, so keep a
 // confidence margin and hard caps on how far ahead a marker may be projected.
-const MAX_LATENCY_COMPENSATION_SECONDS = 75;
-const MAX_LATENCY_COMPENSATION_METERS = 700;
+// I due tetti non devono legare prima della taratura, o la manopola sopra si
+// muove senza che la mappa cambi: a 90 s di eta' e 30 km/h servono 750 m, che
+// il vecchio tetto di 700 tagliava. Restano tetti veri contro i campioni di
+// cinque minuti che il feed ogni tanto manda.
+const MAX_LATENCY_COMPENSATION_SECONDS = 130;
+const MAX_LATENCY_COMPENSATION_METERS = 1100;
 const LATENCY_COMPENSATION_CONFIDENCE = 0.9;
 // The projection targets the position the vehicle held when the sample was
 // fetched, but the marker only reaches that point over the seconds that follow,
@@ -676,7 +681,12 @@ const LATENCY_COMPENSATION_LEAD_SECONDS = 3;
 // sono, fino a cinque minuti. Nel caso tipico i due modelli coincidono — 15+20
 // è 35, il valore tarato dalla strada — quindi questa è una correzione di forma
 // che non sposta la mappa di tutti i giorni.
-const ASSUMED_UNDECLARED_FEED_DELAY_SECONDS = 20;
+// **Prova dalla strada del 2026-08-12: il marker era indietro di almeno un
+// minuto** rispetto al mezzo vero e anche rispetto al sito GTT, che legge lo
+// stesso feed. Venti secondi coprivano quindi meno di meta' del ritardo reale.
+// Il valore vive ora in `latencyTuning.ts`, regolabile dalla schermata Altro:
+// chi puo' guardare il bus vero puo' cercare la taratura senza un deploy per
+// tentativo, ed e' l'unico modo di misurare un ritardo che il feed nega.
 
 // A city vehicle does not spend the whole delay moving: it opens its doors.
 // Projecting a bus that is serving a stop straight through it put the marker a
@@ -1118,7 +1128,9 @@ function compensateFeedLatency(
   }
   // A sample the feed calls fresh is still assumed to carry the undeclared
   // delay, so the age used here never drops below that floor.
-  const effectiveAgeSeconds = ageSeconds + ASSUMED_UNDECLARED_FEED_DELAY_SECONDS;
+  // Letto a ogni campione, non una volta al caricamento: la manopola nella
+  // schermata Altro deve avere effetto senza ricaricare la pagina.
+  const effectiveAgeSeconds = ageSeconds + undeclaredFeedDelaySeconds();
   if (effectiveAgeSeconds < 4) {
     recordAdvance(vehicleId, 0);
     return { skipped: 'campione-recente' as const };

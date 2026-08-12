@@ -1,5 +1,6 @@
 import { Info, ShieldCheck } from 'lucide-react';
 import { GttRealtimePanel } from '../components/GttRealtimePanel';
+import { FeedDelayTuning } from '../components/FeedDelayTuning';
 
 export function MoreScreen() {
   return (
@@ -24,6 +25,7 @@ export function MoreScreen() {
           <p>BusRadar non rappresenta operatori o enti di trasporto. La struttura e pronta per future integrazioni autorizzate.</p>
         </div>
       </section>
+      <FeedDelayTuning />
       <GttRealtimePanel />
     </main>
   );

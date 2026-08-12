@@ -8,6 +8,7 @@ import { formatDistance } from '../utils/format';
 import { LineBadge } from '../components/LineBadge';
 import { notify } from '../utils/notify';
 import { vehicleIdentifierLabel } from '../utils/vehicleIdentity';
+import { FeedDelayTuning } from '../components/FeedDelayTuning';
 
 const radiusOptions = [
   { label: '500 m', value: 500 },
@@ -25,6 +26,9 @@ type Props = {
   onBack: () => void;
 };
 
+// La taratura del ritardo del feed vive qui perche' e' l'unica schermata
+// dell'app che non sia mappa o elenco. `MoreScreen`, dove starebbe meglio, non
+// e' collegata a nessuna rotta: nessuno la puo' aprire.
 export function RadarScreen({ vehicles, userLocation, hasUserLocation, onLocateUser, onSelectVehicle, onBack }: Props) {
   const [radius, setRadius] = useState(1000);
   const [locating, setLocating] = useState(false);
@@ -121,6 +125,8 @@ export function RadarScreen({ vehicles, userLocation, hasUserLocation, onLocateU
           </button>
         ))}
       </section>
+
+      <FeedDelayTuning />
     </main>
   );
 }
