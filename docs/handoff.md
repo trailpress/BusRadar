@@ -12,14 +12,14 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 
 | | |
 | --- | --- |
-| pull request aperte | **PR #40**, in CI: pulizia della scheda delle corse non accertate e render delle tre classi di servizio |
-| ultimo merge in `main` | PR #38 |
-| ramo `claude/tandem-codex-workflow-v1nntw` | **occupato da PR #40** |
-| deploy | pubblicato da `main`; PR #40 non ancora in produzione |
+| pull request aperte | **nessuna** |
+| ultimo merge in `main` | PR #40 |
+| ramo `claude/tandem-codex-workflow-v1nntw` | interamente unito, libero |
+| deploy | pubblicato da `main` dopo il merge di PR #40 (run verde) |
 
 **Un ramo aspetta un giudizio, non un merge automatico: `claude/map-match-31471180628`.** Porta le shape agganciate alla rete stradale OSM — 91.979 buchi riempiti su 105.137, 873 varianti su 894 cambiate, passo mediano fra due vertici da 48,8 a 32,0 m, +198 kB gzip per chi apre l'app. Va guardato **sulla mappa, su una rotonda**, prima di unirlo: una geometria sbagliata precisa è peggio di una corda giusta. Porta anche `frontend/map-match-report.txt`, che **va tolto prima del merge**.
 
-Restano sul repository **nove rami `claude/map-match-*` di prova**, da cancellare: dall'ambiente degli agenti il push di cancellazione è rifiutato.
+Restano sul repository **nove rami `claude/map-match-*` di prova** e i due rami `claude/render-generic-*` prodotti dal workflow dei render (il loro contenuto è già in `main`), da cancellare: dall'ambiente degli agenti il push di cancellazione è rifiutato.
 
 ### Cosa è cambiato in questo turno
 
