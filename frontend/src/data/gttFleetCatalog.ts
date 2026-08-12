@@ -424,8 +424,34 @@ export const GTT_FLEET_CATALOG: GttFleetCluster[] = [
     traction: 'electric',
     livery: 'n/d',
     assetStatus: 'needs-reference-render',
-    sourceNotes: 'Il feed realtime identifica un tram, ma non fornisce una matricola compatibile con una serie GTT verificata. Il render resta volutamente assente: qui non arriva un modello, arriva l\'assenza di un modello, e disegnare un tram generico significherebbe mostrare un mezzo che non esiste. Prima di produrne uno, verificare se le matricole che finiscono qui appartengono a una serie reale non ancora coperta da vehicleFleetRules, e in quel caso aggiungere la serie invece del render.',
+    sourceNotes: 'Il feed realtime identifica un tram, ma non fornisce una matricola compatibile con una serie GTT verificata. Il render resta volutamente assente: qui non arriva un modello, arriva la mancanza di un modello, e disegnare un tram generico significherebbe mostrare un mezzo che non esiste. Per la classe di servizio di una linea tranviaria - le corse non accertate - esiste `generic-tram-line`, che risponde a una domanda diversa: li nessun mezzo va identificato.',
     renderPrompt: '',
+  },
+  {
+    key: 'generic-tram-line',
+    family: 'tram',
+    label: 'Tram GTT',
+    fleetNumbers: ['classe di servizio'],
+    length: '20 m',
+    traction: 'electric',
+    livery: 'GTT grigio/blu/giallo.',
+    asset: 'assets/vehicles/detail/generated/generic-tram-line-gtt-render-v1.webp',
+    assetStatus: 'placeholder-render',
+    sourceNotes: 'Non e\' una vettura: e\' il tipo di mezzo che una linea tranviaria usa, mostrato sulle corse che nessun mezzo sta confermando. Dalle schede ufficiali del parco veicoli la serie piu\' numerosa e\' la 2800 (70 vetture, 20.145 mm, 2 casse), seguita dalla 5000 (53). Tenuta separata da `generic-tram` di proposito: quella risponde a "che tram e\' questo, che non riconosco" e deve restare senza immagine.',
+    renderPrompt: `${sharedRenderPrompt} Exact subject: a generic Turin GTT tram representing the fleet as a whole, not a specific series: two articulated sections about twenty metres long, three bogies, four doors, one single-arm pantograph, light grey body with the deep blue band and thin yellow stripe of the GTT livery, GTT wordmark on the side. Do not write any fleet number and leave the destination box dark and empty.`,
+  },
+  {
+    key: 'generic-bus-interurban',
+    family: 'bus-extraurban',
+    label: 'Bus extraurbano GTT',
+    fleetNumbers: ['classe di servizio'],
+    length: '12 m',
+    traction: 'diesel',
+    livery: 'Extraurbana GTT blu con fascia chiara.',
+    asset: 'assets/vehicles/detail/generated/generic-bus-interurban-gtt-render-v1.webp',
+    assetStatus: 'placeholder-render',
+    sourceNotes: 'Non e\' una vettura: e\' il tipo di mezzo che una linea extraurbana usa, mostrato sulle corse che nessun mezzo sta confermando. Il prompt viene dalle schede ufficiali del parco veicoli, dove la famiglia piu\' numerosa della classe extraurbana e\' l\'Iveco Crossway 12 m: 50+46 unita\' diesel, 42 CNG, 41 LE, tutte a 2 porte e circa 12.000 mm. Nessun documento pubblico assegna i modelli alle singole linee - verificato online il 2026-08-11 - quindi si dichiara la classe, non la vettura.',
+    renderPrompt: `${sharedRenderPrompt} Exact subject: a generic GTT Torino interurban coach representing the class, not a specific vehicle: Iveco Crossway-style 12 m two-axle intercity bus, only two passenger doors, high floor with luggage bays under the body, deep blue livery with a light grey band along the windows, GTT wordmark on the side. Do not write any fleet number and leave the destination box dark and empty.`,
   },
   {
     key: 'generic-bus',
@@ -439,6 +465,22 @@ export const GTT_FLEET_CATALOG: GttFleetCluster[] = [
     assetStatus: 'validated-render',
     sourceNotes: 'Fallback renderizzato usato solo quando il feed non permette di riconoscere la serie vettura; non rappresenta una famiglia specifica.',
     renderPrompt: `${sharedRenderPrompt} Exact subject: generic modern GTT Torino urban bus, blue and bright lemon-yellow operator livery, no route number, no fleet number, do not present as a specific manufacturer model.`,
+  },
+  {
+    key: 'generic-bus-urban',
+    family: 'bus-urban',
+    label: 'Bus urbano GTT',
+    fleetNumbers: ['classe di servizio'],
+    length: '12 m',
+    traction: 'diesel',
+    livery: 'Urbana GTT blu/giallo.',
+    // Stesso file del fallback: il render e' gia' un bus urbano GTT senza
+    // matricola e senza modello dichiarato, che e' esattamente cio' che questa
+    // chiave deve mostrare. Cambia l'etichetta, non l'immagine.
+    asset: 'assets/vehicles/detail/generated/generic-gtt-urban-bus-render.webp',
+    assetStatus: 'placeholder-render',
+    sourceNotes: 'Non e\' una vettura: e\' il tipo di mezzo che una linea urbana usa, mostrato sulle corse che nessun mezzo sta confermando. Tenuta separata da `generic-bus`, che invece dice "questo mezzo c\'e\', ma non so quale sia": li\' l\'etichetta deve continuare a parlare di identificazione mancata.',
+    renderPrompt: '',
   },
 ];
 

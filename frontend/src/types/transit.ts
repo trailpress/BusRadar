@@ -38,7 +38,12 @@ export type VehicleFleetKey =
   | 'irisbus-arway-15m'
   | 'iveco-mago-granturismo-9m'
   | 'generic-tram'
-  | 'generic-bus';
+  | 'generic-bus'
+  // La classe di servizio di una linea, per le corse che nessun mezzo sta
+  // confermando: non e' una vettura, e' il tipo di mezzo che quella linea usa.
+  | 'generic-bus-urban'
+  | 'generic-bus-interurban'
+  | 'generic-tram-line';
 
 export type TransitVehicle = {
   vehicleId: string;

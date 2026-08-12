@@ -12,10 +12,10 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 
 | | |
 | --- | --- |
-| pull request aperte | **nessuna** |
+| pull request aperte | **PR #40**, in CI: pulizia della scheda delle corse non accertate e render delle tre classi di servizio |
 | ultimo merge in `main` | PR #38 |
-| ramo `claude/tandem-codex-workflow-v1nntw` | interamente unito, libero |
-| deploy | pubblicato da `main` dopo il merge |
+| ramo `claude/tandem-codex-workflow-v1nntw` | **occupato da PR #40** |
+| deploy | pubblicato da `main`; PR #40 non ancora in produzione |
 
 **Un ramo aspetta un giudizio, non un merge automatico: `claude/map-match-31471180628`.** Porta le shape agganciate alla rete stradale OSM — 91.979 buchi riempiti su 105.137, 873 varianti su 894 cambiate, passo mediano fra due vertici da 48,8 a 32,0 m, +198 kB gzip per chi apre l'app. Va guardato **sulla mappa, su una rotonda**, prima di unirlo: una geometria sbagliata precisa è peggio di una corda giusta. Porta anche `frontend/map-match-report.txt`, che **va tolto prima del merge**.
 
@@ -69,12 +69,17 @@ Soprattutto: **l'età del campione si misura dal timestamp del veicolo con ricad
 
 **Il limite più visibile della mappa non è nel codice: sono le shape GTT.** Fra un vertice e l'altro corrono 48,8 m di mediana e fino a 5,8 km; sulla rotonda di Via Lucio Battisti la linea 17 ha due vertici in 250 m, quindi la linea disegnata taglia la rotonda e il mezzo la taglia con lei. `simplify()` nel generatore non c'entra: non si attiva mai. La riparazione è il map-matching contro OSM nel generatore, che richiede un ambiente con rete verso OSM — da questa sessione è bloccato. **Non arrotondare la spezzata per farla sembrare meglio**: una curva morbida sbagliata è peggio di una spezzata sbagliata. I numeri sono in `project-reference.md` §10.
 
+**La scheda di una corsa non accertata mostra la classe di servizio della linea, non un mezzo.** Prima non mostrava niente, e quel vuoto era peggio del problema: la domanda «che mezzo passa» resta legittima anche dove nessun mezzo è stato osservato. Cercato online: **nessun documento pubblico assegna i modelli alle singole linee** (e `www.gtt.to.it` è bloccato dal proxy), quindi la risposta si ferma alla classe, che il progetto sa già dedurre — numero di linea sopra il mille = extraurbana. I prompt sono ricavati dalle schede ufficiali già trascritte in `gttOfficialFleetSpecs.ts`: urbana, extraurbana (Iveco Crossway 12 m, la famiglia più numerosa: 50+46 diesel, 42 CNG, 41 LE, 2 porte) e tranviaria (serie 2800: 70 vetture, 20.145 mm, 2 casse). Tre chiavi separate — `generic-bus-urban`, `generic-bus-interurban`, `generic-tram-line` — e i render sono marcati `placeholder-render`: illustrano una classe, e chiamarli validati dichiarerebbe una verifica che non c'è stata.
+
+**Sulla stessa scheda comparivano due identificativi inventati da noi.** L'id sintetico della corsa (`orario-90U-0-...`) era stampato dove va la matricola, e lo stesso identificativo tornava come mezzo «dietro» nell'intervallo di turno: entrambi si leggono come numeri di vettura reali. Ora della corsa resta il percorso GTFS, e il mezzo vicino è «Corsa da orario». Verificato nel browser su tutte e tre le classi con il feed vuoto; `npm run smoke:map --feed-vuoto` ora controlla render e didascalia.
+
 ### Convenzioni introdotte, da rispettare
 
 - **La funzione di bucket degli orari è duplicata** in `frontend/scripts/stop-schedule.mjs` e `frontend/src/services/stopSchedule.ts`. Se ne cambi una, cambia l'altra: altrimenti una palina chiede il bucket sbagliato e risulta senza corse.
 - **Il prompt dei render vive nel catalogo**, non nel workflow. Se un render non va bene si corregge `renderPrompt` in `gttFleetCatalog.ts` e si rigenera; non si ritocca il file, la rigenerazione perderebbe la correzione.
 - **I render stanno entro 400 kB e devono essere referenziati.** `npm run verify:assets` fallisce altrimenti.
-- **`generic-tram` resta senza render di proposito.** Se le matricole che ci finiscono appartengono a una serie reale, si aggiunge la serie in `vehicleFleetRules.ts`.
+- **`generic-tram` resta senza render di proposito**, e il suo `renderPrompt` è vuoto perché nessuno lo rigeneri per sbaglio. Un tram tracciato di cui non si riconosce la serie non riceve un'immagine: lì arriva l'assenza di un modello, non un modello. Se le matricole che ci finiscono appartengono a una serie reale, si aggiunge la serie in `vehicleFleetRules.ts`. **Da non confondere con `generic-tram-line`**, che risponde a un'altra domanda — che tipo di mezzo usa questa linea — e un'immagine ce l'ha.
+- **Le tre chiavi di classe si usano solo sulle corse non accertate.** Non sono vetture: se una finisce su un mezzo tracciato, la scheda dichiara come classe quello che dovrebbe identificare.
 - **Un cluster con `referenceAsset` si rigenera con quell'immagine allegata**, mai ridescrivendola a parole: è la differenza fra il tram vero e uno inventato. E si rigenera con un `variant` nuovo, o la cache continua a servire il file vecchio.
 - **Un nuovo layer di mezzi va aggiunto anche a `vehicleLayers`** in `BusMap.tsx`, o non risponde a click e hover.
 - **Il percorso di un render è scritto in due file**: `gttFleetCatalog.ts` e `vehicleFleet.ts`. L'interfaccia legge il secondo. Spostarne uno solo significa dichiarare validato un render che l'app non mostra.
