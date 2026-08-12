@@ -155,7 +155,7 @@ Sono i numeri che decidono quanto il movimento appare realistico. Vanno cambiati
 | `anchoredAdvanceMeters` | — | posiziona il mezzo interpolando fra il campione e la fermata che GTT dice che sta per raggiungere. È la sorgente preferita; la proiezione a velocità resta per le corse senza previsioni |
 | `LATENCY_ADJUST_FRACTION` | 0,35 | quanta della velocità del mezzo la correzione può spendere per cambiare sé stessa. Il marker si muove quindi fra 0,65× e 1,35× la velocità del mezzo: mai all'indietro, mai a scatti |
 | velocità usata per la proiezione | media mobile, non istantanea | proiettare un minuto di percorso con la velocità di un singolo istante faceva oscillare il recupero fra zero e 400 m sullo stesso mezzo, a ogni ripartenza da fermata |
-| `ASSUMED_UNDECLARED_FEED_DELAY_SECONDS` | 35 s | ritardo che il feed GTT **non dichiara**: i campioni arrivano marcati come appena misurati, ma la posizione è di circa un minuto prima. È l'unica costante tarata su un'osservazione dalla strada, non sui dati — vedi la tabella qui sotto |
+| `ASSUMED_UNDECLARED_FEED_DELAY_SECONDS` | 20 s, **sommati** all'età dichiarata | ritardo che il feed GTT **non dichiara**: i campioni arrivano marcati come appena misurati, ma la posizione è di prima. Con i 10-30 s dichiarati l'età effettiva risulta di 30-50 s. **È l'unico numero del progetto che nessuno ha misurato**, e ogni riga della taratura gli sta a valle — il protocollo per misurarlo dalla strada è qui sotto |
 | `MAX_LATENCY_COMPENSATION_METERS` | 700 m | tetto assoluto alla proiezione |
 | `LATENCY_COMPENSATION_CONFIDENCE` | 0,90 | margine contro l'overshoot: la stima assume velocità costante, il mezzo invece frena |
 | bonus di permanenza sulla shape | −95 entro 140 m | evita che andata e ritorno si scambino tra un campione e l'altro |
@@ -164,6 +164,25 @@ Sono i numeri che decidono quanto il movimento appare realistico. Vanno cambiati
 | misura recente che dice «fermo» | < 1,5 km/h misurati negli ultimi 90 s | la correzione si spegne del tutto. Una misura è un'osservazione: se il mezzo non si è mosso, l'orario che lo vorrebbe trecento metri più avanti è smentito dai fatti |
 
 La compensazione è limitata anche dalla distanza residua al capolinea: un mezzo non viene mai proiettato oltre la fine della sua corsa.
+
+#### Come misurare il ritardo non dichiarato, dalla strada
+
+Serve un telefono e una fermata. Non serve un cronometro: si misurano **secondi di scarto**, non istanti assoluti.
+
+1. Apri la mappa su una linea che passa dove sei, con il mezzo ancora prima della tua fermata.
+2. Quando il **muso del mezzo vero** ti arriva davanti, guarda subito la mappa e cerca il puntino di quel mezzo.
+3. Segna una cosa sola: **quanti secondi passano prima che il puntino arrivi dove sei tu** — oppure, se il puntino ti ha già superato, quanti secondi erano passati da quando lo aveva fatto. Il secondo caso si segna col segno meno.
+4. Ripeti su **almeno sei passaggi**, possibilmente in condizioni diverse: strada libera, traffico, mezzo appena ripartito da una fermata.
+
+La mediana di quei numeri è la correzione da applicare:
+
+- **puntino in ritardo di N secondi** → la compensazione è troppo corta: `ASSUMED_UNDECLARED_FEED_DELAY_SECONDS` va aumentata di circa N.
+- **puntino in anticipo** → è troppo lunga, va ridotta della stessa quantità.
+- **scarto vicino a zero** → il valore attuale è giusto, e va scritto qui che è stato verificato, con la data.
+
+Perché conta più di ogni altra taratura: `npm run simulate:latency --sensibilita` mostra che con questo numero sbagliato in difetto il marker supera il mezzo **fino al 43% del tempo**, e con lo stesso algoritmo tarato bene scende sotto il 10%. Il sorpasso è l'errore che costa di più — un marker oltre la fermata fa credere di aver perso il mezzo — quindi **in caso di dubbio si sbaglia per eccesso**, non per difetto.
+
+Confronto di riferimento, dallo stesso banco: rinunciare del tutto a stimare e disegnare il campione grezzo costa **circa 70 m di ritardo mediano in più**, a qualunque ritardo reale, e in cambio azzera il sorpasso. È l'alternativa da riprendere in mano se la misura dalla strada risultasse impossibile o troppo variabile.
 
 #### Cosa contiene davvero il feed GTT
 
