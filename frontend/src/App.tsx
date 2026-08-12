@@ -742,6 +742,7 @@ function App() {
             hasUserLocation={hasUserLocation}
             onLocateUser={requestUserLocation}
             onSelectVehicle={trackVehicleFromRadar}
+            onSelectStop={openStop}
             onBack={() => setActiveTab('map')}
           />
         )}
