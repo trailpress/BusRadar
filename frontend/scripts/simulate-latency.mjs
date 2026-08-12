@@ -27,7 +27,13 @@
 // affollata — quando la media recente è alta e il minuto appena trascorso è
 // stato speso fermi.
 
-const FEED_DELAY = 60;
+// Il ritardo non dichiarato del feed: GTT consegna campioni marcati come appena
+// misurati mentre la posizione e' di prima. Non e' mai stato misurato dalla
+// strada - e' la supposizione su cui poggia tutta la tabella - quindi si puo'
+// spostare da riga di comando, `--ritardo 45`, e con `--sensibilita` si legge
+// quanto cambia la risposta al variare di quel numero.
+const delayArgument = process.argv.indexOf('--ritardo');
+let FEED_DELAY = delayArgument > -1 ? Number(process.argv[delayArgument + 1]) : 60;
 // Misurato sul feed vero il 2026-08-10: l'header sta a 15:59:46 e i campioni
 // portano timestamp fra 15:59:16 e 15:59:37. Il feed dichiara quindi 10-30
 // secondi di età, non i 3 che si erano supposti da uno screenshot.
@@ -100,7 +106,7 @@ function positionAfterSeconds(fromMeters, seconds, speed, dwellSeconds) {
   return position + remaining * speed;
 }
 
-function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35, anchored, scheduledPace, additive, predictionError = 20, seed = 1 }) {
+function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35, anchored, anchoredOnly, raw, scheduledPace, additive, predictionError = 20, seed = 1 }) {
   const { positions, arrivals } = course;
   // Il passo che l'orario programmato attribuisce al tratto: la media della
   // corsa, che è ciò che un orario codifica, non la velocità di un istante.
@@ -134,7 +140,13 @@ function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35
     const assumed = additive ? DECLARED_AGE + floor : Math.max(DECLARED_AGE, floor);
     const seconds = Math.min(assumed + 3, 75) * 0.9;
     let target = 0;
-    if (average >= 1.5 / 3.6) {
+    // `raw`: il marker sta dove il feed lo ha messo, punto. Nessuna proiezione,
+    // nessuna interpolazione. Serve a quantificare cosa si guadagna e cosa si
+    // perde rinunciando del tutto a stimare, invece di discuterne.
+    // `anchoredOnly`: si interpola solo fra due istanti dichiarati - il
+    // campione e la previsione di fermata - e dove la previsione manca il
+    // marker resta sul dato grezzo, invece di ripiegare sulla velocita' stimata.
+    if (!raw && !anchoredOnly && average >= 1.5 / 3.6) {
       target = dwellAware
         ? positionAfterSeconds(reported, seconds, average, 15) - reported
         : average * seconds;
@@ -143,7 +155,11 @@ function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35
     // The timetable's pace for this segment, used when the feed announces
     // nothing: the position is still the feed's, only the speed comes from the
     // schedule.
-    if (scheduledPace && !anchored) {
+    // Le tre stime si sovrascrivono nell'ordine in cui `gttRealtime.ts` le
+    // preferisce: la velocita' misurata e' il ripiego, il passo dell'orario la
+    // scavalca, la previsione GTT scavalca entrambe. Prima il banco le teneva
+    // esclusive, e nessuna riga descriveva la catena che gira davvero.
+    if (scheduledPace) {
       const nextStop = stops.find((stop) => stop > reported);
       if (nextStop != null) {
         const remaining = nextStop - reported;
@@ -156,7 +172,7 @@ function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35
     // between it and the next stop the operator says the vehicle will reach.
     // Two known instants with the vehicle between them, rather than one known
     // instant and a guess about the speed it has held since.
-    if (anchored) {
+    if ((anchored || anchoredOnly) && !raw) {
       const nextStop = stops.find((stop) => stop > reported);
       const trueArrival = nextStop != null ? arrivals.get(nextStop) : undefined;
       // The prediction the feed would carry: right to within a few seconds, in
@@ -222,6 +238,11 @@ function summarise(options) {
 }
 
 const scenarios = [
+  // Il fondo del confronto: il feed e basta. Tutto il resto va giudicato
+  // rispetto a questa riga, non rispetto alle altre tarature fra loro.
+  ['grezzo: solo il feed', { raw: true, floor: 35 }],
+  ['solo ancoraggio, niente stima', { anchoredOnly: true, rateLimited: false, floor: 35 }],
+  ['solo ancoraggio, con limite', { anchoredOnly: true, rateLimited: true, floor: 35 }],
   ['nessuna correzione (25 s)', { dwellAware: false, rateLimited: false, fastDrop: false, floor: 25 }],
   ['nessuna correzione (35 s)', { dwellAware: false, rateLimited: false, fastDrop: false, floor: 35 }],
   ['solo fermate a carico', { dwellAware: true, rateLimited: false, fastDrop: false, floor: 35 }],
@@ -231,7 +252,10 @@ const scenarios = [
   ['in uso, pavimento 60 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 60 }],
   ['+ reazione al rallentamento', { dwellAware: true, rateLimited: true, fastDrop: true, floor: 35 }],
   ['passo da orario programmato', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 35, scheduledPace: true }],
-  ['in uso oggi: pavimento 35 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 35 }],
+  ['catena pre-ancoraggio', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 35 }],
+  // ASSUMED_UNDECLARED_FEED_DELAY_SECONDS = 20 in gttRealtime.ts, sommati
+  // ai 15 s dichiarati dal feed: la riga che descrive l'app pubblicata.
+  ['IN PRODUZIONE oggi', { dwellAware: true, rateLimited: true, fastDrop: false, additive: true, floor: 20, anchored: true, scheduledPace: true }],
   ['additivo +20 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 20, additive: true }],
   ['additivo +30 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 30, additive: true }],
   ['additivo +40 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 40, additive: true }],
@@ -264,4 +288,32 @@ for (const [name, options] of scenarios) {
     `${worstStall} s`.padStart(10),
     `${jump99.toFixed(1)} m/s`.padStart(10),
   );
+}
+
+// Quanto pesa la supposizione. Il grezzo paga solo ritardo, la produzione paga
+// ritardo piu' sorpasso: dove le due curve si incrociano dipende interamente da
+// quanto e' vecchio davvero il campione, che nessuno ha misurato.
+if (process.argv.includes('--sensibilita')) {
+  console.log('\nSensibilita al ritardo non dichiarato del feed\n');
+  console.log(
+    'ritardo'.padEnd(10),
+    'grezzo mediana'.padStart(15),
+    'grezzo avanti'.padStart(14),
+    'produz. mediana'.padStart(16),
+    'produz. avanti'.padStart(15),
+    'costo del grezzo'.padStart(17),
+  );
+  for (const delay of [20, 30, 45, 60, 75, 90]) {
+    FEED_DELAY = delay;
+    const grezzo = summarise({ raw: true, floor: 35 });
+    const oggi = summarise({ dwellAware: true, rateLimited: true, additive: true, floor: 20, anchored: true, scheduledPace: true });
+    console.log(
+      `${delay} s`.padEnd(10),
+      `${Math.round(grezzo.median)} m`.padStart(15),
+      `${Math.round(grezzo.aheadShare * 100)} %`.padStart(14),
+      `${Math.round(oggi.median)} m`.padStart(16),
+      `${Math.round(oggi.aheadShare * 100)} %`.padStart(15),
+      `+${Math.round(grezzo.median - oggi.median)} m di ritardo`.padStart(17),
+    );
+  }
 }
