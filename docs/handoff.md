@@ -6,16 +6,16 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 
 ---
 
-## Ultimo aggiornamento: 2026-08-11 · sessione Claude Code
+## Ultimo aggiornamento: 2026-08-12 · sessione Claude Code
 
 ### Stato al momento della consegna
 
 | | |
 | --- | --- |
 | pull request aperte | **nessuna** |
-| ultimo merge in `main` | PR #40 |
+| ultimo merge in `main` | PR #43 |
 | ramo `claude/tandem-codex-workflow-v1nntw` | interamente unito, libero |
-| deploy | pubblicato da `main` dopo il merge di PR #40 (run verde) |
+| deploy | pubblicato da `main` dopo il merge di PR #43 (run verde) |
 
 **Un ramo aspetta un giudizio, non un merge automatico: `claude/map-match-31471180628`.** Porta le shape agganciate alla rete stradale OSM — 91.979 buchi riempiti su 105.137, 873 varianti su 894 cambiate, passo mediano fra due vertici da 48,8 a 32,0 m, +198 kB gzip per chi apre l'app. Va guardato **sulla mappa, su una rotonda**, prima di unirlo: una geometria sbagliata precisa è peggio di una corda giusta. Porta anche `frontend/map-match-report.txt`, che **va tolto prima del merge**.
 
@@ -35,7 +35,7 @@ Soprattutto: **l'età del campione si misura dal timestamp del veicolo con ricad
 
 **La compensazione era spenta su gran parte dei mezzi, e nessuno se ne era accorto.** La `speed` del feed è sempre zero, quindi la velocità si ricava dallo spostamento; ma nei cicli senza campione nuovo veniva versato uno zero nella media, che convergeva a una frazione del vero e faceva scartare il mezzo come «fermo o troppo lento». Gran parte della taratura fatta prima di questa scoperta misurava quindi una correzione che spesso non si attivava. **Non rimettere lo zero nella media**: significa «non lo so», non «sta fermo».
 
-**Il ritardo del feed è ancora in taratura.** GTT consegna campioni marcati come appena misurati mentre la posizione è di circa un minuto prima, quindi il ritardo non si legge dai dati: si stima con `ASSUMED_UNDECLARED_FEED_DELAY_SECONDS` e si verifica guardando la mappa dalla strada. La tabella dei valori già provati è in `project-reference.md` §4, insieme ai risultati del banco di prova.
+**Il ritardo del feed non è più in taratura: è stato misurato.** Ottanta secondi, dalla fermata, il 2026-08-12 — il dettaglio è più sotto. Il protocollo e la tabella dei valori provati restano in `project-reference.md` §4, insieme ai risultati del banco di prova.
 
 **`npm run smoke:map` apre l'app con un feed finto e controlla che i mezzi compaiano.** È l'unico controllo del progetto che esercita l'app in esecuzione: build e verify guardano tipi e dati. Ha già ripagato il costo scoprendo che le corse non accertate venivano calcolate dopo l'uscita anticipata sul feed vuoto, cioè non comparivano proprio nel caso per cui esistono. **Se qualcuno segnala una mappa con i tracciati e nessun mezzo sopra, si parte da qui**: distingue "il feed non manda niente" da "l'abbiamo rotta noi". Playwright non è una dipendenza, si installa al momento.
 
