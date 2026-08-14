@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { officialSpecsForFleetKey, type OfficialGttVehicleSpec } from '../data/gttOfficialFleetSpecs';
 import { vehicleFleetProfile } from '../data/vehicleFleet';
 import type { Vehicle } from '../types';
-import { vehicleIdentifierKind, vehicleIdentifierLabel } from '../utils/vehicleIdentity';
+import { vehicleIdentifierLabel } from '../utils/vehicleIdentity';
 import { LineBadge } from './LineBadge';
 
 type Props = {
@@ -213,7 +213,6 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
   const speedSource = vehicle.source === 'scheduled'
     ? 'Passo dell\u2019orario'
     : vehicle.speedSource === 'feed' ? 'Feed realtime' : vehicle.speedSource === 'observed' ? 'Calcolata da GPS' : 'Non disponibile';
-  const rawVehicleLabel = vehicle.realtimeVehicleLabel && vehicle.realtimeVehicleLabel !== vehicle.vehicleId ? vehicle.realtimeVehicleLabel : undefined;
   const identifierLabel = vehicleIdentifierLabel(vehicle);
   const fleetProfile = vehicleFleetProfile(vehicle.vehicleFleetKey);
   const detailImage = vehicleDetailImage(vehicle);
@@ -237,7 +236,16 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
   const fleetCardClass = ['official-fleet-card', officialSpec ? `official-fleet-card--${officialSpec.traction}` : ''].filter(Boolean).join(' ');
 
   return (
-    <section className="vehicle-sheet" aria-label={`Dettaglio mezzo ${vehicle.vehicleId}`}>
+    <section
+      className="vehicle-sheet"
+      aria-label={`Dettaglio mezzo ${vehicle.vehicleId}`}
+      // Cucitura per i controlli automatici, non per il lettore: `smoke:map`
+      // verifica di qui che un mezzo fermo non venga proiettato in avanti e che
+      // uno non misurabile usi comunque la previsione. Toglierla significa
+      // perdere quel controllo, non solo un attributo.
+      data-latenza={latencyText(vehicle)}
+      data-tracciamento={routeTrackingText(vehicle)}
+    >
       <div className="detail-nav">
         <button
           type="button"
@@ -291,21 +299,22 @@ export function VehicleSheet({ vehicle, headway, onFollow, onToggleFavorite, onR
             : vehicleRenderStatusLabel(vehicle, fleetProfile.assetStatus)}
         </small>
       </div>
-      <div className="direction-block">
-        {/* L'identificativo di una corsa non accertata lo abbiamo costruito
-            noi per tenerla distinta dalle altre: non e' la matricola di un
-            mezzo ne' un codice che GTT pubblica, e stamparlo qui lo fa
-            sembrare l'uno o l'altro. Della corsa resta vero il percorso. */}
-        <span>
-          {unverifiedRun
-            ? `Route GTFS: ${vehicle.routeId.replace(/^gtt-/, '')}`
-            : `${vehicleIdentifierKind(vehicle)}: ${vehicle.fleetNumber ?? vehicle.vehicleId} · Route GTFS: ${vehicle.routeId.replace(/^gtt-/, '')}`}
-          {unverifiedRun ? '' : rawVehicleLabel ? ` · label GTFS-RT: ${rawVehicleLabel}` : ''}
-          {!unverifiedRun && vehicle.realtimeEntityId && vehicle.realtimeEntityId !== vehicle.vehicleId ? ` · entity: ${vehicle.realtimeEntityId}` : ''}
-          {!unverifiedRun && vehicle.tripId ? ` · trip: ${vehicle.tripId}` : ''}
-        </span>
-        <span>{routeTrackingText(vehicle)} · {latencyText(vehicle)}</span>
-      </div>
+      {/* Qui stavano gli identificativi interni del feed - `Route GTFS`,
+          `label GTFS-RT`, `entity`, `trip` - e la telemetria della
+          compensazione: «Recupero ritardo feed: 120 m avanti · 34 s recuperati
+          · previsione non usata: fermate previste non sul percorso». Servivano
+          a chi tarava l'algoritmo, non a chi aspetta il bus, e su una scheda
+          letta alla fermata sono rumore. La telemetria resta leggibile
+          dall'attributo `data-latenza` piu' sotto, che nessuno vede e i
+          controlli automatici usano.
+
+          Di una corsa non accertata resta invece la frase che serve davvero:
+          da che parte cercare il mezzo vero. */}
+      {unverifiedRun ? (
+        <div className="direction-block">
+          <span>{latencyText(vehicle)}</span>
+        </div>
+      ) : null}
       {/* Su una corsa non accertata non c'e' nessun mezzo, quindi non ci sono
           specifiche: la scheda tecnica diventava una colonna di «n/d» e
           ripeteva per la terza volta che il mezzo non e' stato osservato. */}

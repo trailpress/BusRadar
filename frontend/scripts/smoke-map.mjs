@@ -223,9 +223,11 @@ if (stillFeed) {
     await page.waitForTimeout(1200);
     await page.getByText(vehicle.vehicleId, { exact: false }).first().click().catch(() => {});
     await page.waitForTimeout(1500);
-    const sheetText = await page.locator('body').innerText();
-    const line = sheetText.match(/Recupero ritardo feed:[^\n]*/);
-    const testo = line ? line[0] : 'riga non trovata';
+    // La telemetria non si stampa piu' sulla scheda - serviva a chi tarava
+    // l'algoritmo, non a chi aspetta il bus - ma il controllo resta: si legge
+    // dall'attributo `data-latenza`, che il lettore non vede.
+    const testo = await page.locator('.vehicle-sheet').first().getAttribute('data-latenza')
+      ?? 'attributo non trovato';
     const esito = testo.includes(atteso[index]) ? 'ok' : `atteso "${atteso[index]}"`;
     console.log(`mezzo ${vehicle.vehicleId} (${index === 0 ? 'misurato fermo' : 'non misurabile'}): ${testo} [${esito}]`);
     await page.getByRole('button', { name: 'Chiudi dettaglio' }).click().catch(() => {});
