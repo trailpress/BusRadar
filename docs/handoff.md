@@ -6,6 +6,49 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 
 ---
 
+## Ultimo aggiornamento: 2026-08-14 · sessione Claude Code
+
+**La voce del 2026-08-12, più sotto, resta valida: non è ancora stata assorbita.** Questa si aggiunge, non la sostituisce.
+
+### Stato al momento della consegna
+
+| | |
+| --- | --- |
+| pull request aperte | **questa**, dal ramo `claude/deep-link-turni-smart-ebyhub` |
+| ultimo merge in `main` | PR #45 |
+| deploy | nessuno nuovo: questo lavoro non è ancora in `main` |
+
+Resta in attesa di giudizio il ramo `claude/map-match-31471180628`, e restano da cancellare i rami di prova elencati nella voce sotto.
+
+### Cosa è cambiato in questo turno
+
+**BusRadar si può aprire già puntato su un mezzo.** Serve a Turni Smart (`trailpress/turni-smart`, `src/utils/busRadar.js`), che dal chip del turno vettura apre BusRadar in un iframe per far vedere dov'è il mezzo di quel turno. **Quella metà era già in produzione e mandava i parametri da settimane: qui non li leggeva nessuno.** Ora li legge `frontend/src/utils/deepLink.ts`:
+
+| parametro | effetto |
+| --- | --- |
+| `vettura=1234` | una o più matricole separate da virgola, si aggancia quel mezzo |
+| `linea=71` | filtra i mezzi e disegna il percorso |
+| `lat=..&lon=..` | dove inquadrare quando la matricola non c'è |
+| `embed=<testo>` | niente `BottomNav`: siamo dentro il frame di un'altra app |
+
+**Il turno vettura non si può passare, e non è una dimenticanza: nel feed non esiste.** Il GTFS-RT di GTT porta la matricola e la linea, e il `tripId` arriva vuoto — quale vettura stia facendo il turno vettura 6 oggi lo sa chi è in deposito, non una macchina. Chi ha la matricola punta il mezzo, chi non ce l'ha ottiene la linea. **Non aggiungere un parametro `turno`**: prometterebbe qualcosa che nessun dato può mantenere.
+
+**Linea e punto valgono come stato iniziale, la matricola no.** Al primo rendering i mezzi non sono ancora arrivati, quindi la matricola aspetta un `useEffect` su `vehicles` e viene cercata per `fleetNumber` o `vehicleId`, confrontando le matricole senza gli zeri iniziali.
+
+**Quando il mezzo si trova lo si SEGUE, non si apre la sua scheda.** Chi arriva da quell'indirizzo ha chiesto «dov'è», e `selectedVehicleId` coprirebbe la mappa proprio mentre risponde. Si impostano `followedVehicleId`, `mapFocus`, `lineFilter` e `showRouteForLine`, **una volta sola**: la lista delle matricole in attesa si svuota all'aggancio, perché ricentrare la mappa a ogni giro la strapperebbe da sotto le dita di chi la sta usando.
+
+**Dopo cinque giri di feed ci si arrende dicendolo**: «La vettura 1234 non sta trasmettendo». Il silenzio si leggerebbe come «il mezzo non c'è», che è un'altra cosa. Un giro è **una risposta arrivata**, non un tentativo: se il proxy è irraggiungibile il contatore non avanza e l'avviso non compare, perché lì il problema non è la vettura.
+
+**Un `lat`/`lon` fuori scala viene scartato, non riportato al limite.** Correggerlo produrrebbe un punto inventato sul bordo della mappa, che si legge come una posizione vera. Il riquadro è quello largo quanto il Piemonte, che ora sta in `data/gtfsNetwork.ts` accanto a `getGtfsNetworkBounds()` invece che dentro `gttRealtime.ts`: lo usano in due e due copie sarebbero divergute.
+
+### Cosa non è stato verificato
+
+**Il feed vivo, come nella sessione precedente**: `percorsieorari.gtt.to.it` e Supabase rispondono 403 sul CONNECT, quindi **nessuna prova con la matricola di un mezzo che sta girando davvero**. Al suo posto, l'app in esecuzione con `npm run dev` e il feed sostituito da un mezzo finto messo su una variante vera, sulla linea 71 e sulla M1: barra in basso sparita con `embed` e presente senza, mezzo seguito senza aprire la scheda, e con una matricola inventata l'avviso comparso dopo cinque giri. Il lettore dei parametri è stato provato a parte sui casi limite (fuori scala, `0,0`, `lat` senza `lon`, duplicati, tetto a otto matricole). `verify:assets`, `verify:routes`, `build` e `smoke:map` passano.
+
+Chi ha rete aperta: **apri l'indirizzo con la matricola di un mezzo in servizio** e controlla che la mappa lo insegua davvero, e che dentro l'iframe di Turni Smart non compaia nessuna barra.
+
+---
+
 ## Ultimo aggiornamento: 2026-08-12 · sessione Claude Code
 
 ### Stato al momento della consegna

@@ -1,5 +1,5 @@
 import type { Vehicle } from '../types';
-import { getGtfsLine, getGtfsNetworkBounds, getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopsForRoute, loadGtfsNetwork, type GtfsRouteVariant } from '../data/gtfsNetwork';
+import { getGtfsLine, getGtfsNetworkBounds, PIEDMONT_FALLBACK_BOUNDS, getGtfsRouteVariant, getGtfsRoutesForLine, getGtfsRoutesForRouteId, getGtfsStopsForRoute, loadGtfsNetwork, type GtfsRouteVariant } from '../data/gtfsNetwork';
 import { recognizedFleetNumber, vehicleFleetKey, vehicleFleetLabel, vehicleLengthClass, vehicleLiveryForVehicle, vehicleTypeForFleetNumber } from '../data/vehicleFleetRules';
 import { bearingDegrees, distanceMeters, interpolatePathState, routeProgressAtPoint } from '../utils/geo';
 import { fetchStopSchedule, fetchStopScheduleCalendar, isStopScheduleLoaded, peekStopSchedule, requestStopSchedule, type StopScheduleCalendar, type StopScheduleEntry } from './stopSchedule';
@@ -1277,8 +1277,9 @@ function hasNumericCoordinate(vehicle: GttVehiclePosition): vehicle is GttVehicl
 const COVERAGE_MARGIN_DEGREES = 0.15;
 // Used only until the network has loaded. Wide enough to hold the whole of
 // Piedmont, because its job is to reject nonsense - a null island fix, a
-// vehicle reported in another country - and nothing else.
-const PIEDMONT_FALLBACK_BOUNDS = { minLat: 44.0, maxLat: 46.2, minLon: 6.5, maxLon: 9.4 };
+// vehicle reported in another country - and nothing else. It lives next to
+// getGtfsNetworkBounds, in data/gtfsNetwork, because the deep link needs the
+// same box before the network is there and two copies would drift.
 
 function isValidGttCoverageCoordinate(vehicle: GttVehiclePosition) {
   if (!hasNumericCoordinate(vehicle)) return false;

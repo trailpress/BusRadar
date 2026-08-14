@@ -58,6 +58,11 @@ let loaded = false;
 // could be drawn.
 let networkBounds: { minLat: number; maxLat: number; minLon: number; maxLon: number } | undefined;
 
+// Il ripiego finché la rete non è caricata: largo quanto il Piemonte, perché il
+// suo compito è respingere solo le assurdità — una posizione a 0,0, un punto
+// dichiarato in un altro paese — e nulla di più fine.
+export const PIEDMONT_FALLBACK_BOUNDS = { minLat: 44.0, maxLat: 46.2, minLon: 6.5, maxLon: 9.4 };
+
 export function getGtfsNetworkBounds() {
   return networkBounds;
 }

@@ -7,6 +7,7 @@ import { geocodeTransitArea, geocodeTransitSuggestions, type GeocodingResult } f
 import { fetchGttRealtimeVehicles } from './services/gttRealtime';
 import { prefetchStopScheduleCalendar } from './services/stopSchedule';
 import type { LatLng, Stop, TabKey, TransitLine, Vehicle } from './types';
+import { matchesFleetToken, readBusRadarDeepLink } from './utils/deepLink';
 import { distanceMeters } from './utils/geo';
 import { notify } from './utils/notify';
 import { isVehicleFavorite, setVehicleFavorite } from './utils/vehicleFavorites';
@@ -20,6 +21,13 @@ const VehiclesScreen = lazy(() => import('./screens/VehiclesScreen').then((modul
 
 type LineDetailTab = 'details' | 'route' | 'street' | 'stops';
 
+// Quanti giri di feed si aspetta una matricola chiesta dall'indirizzo prima di
+// dire che non sta trasmettendo. Il feed rinfresca un mezzo ogni quindici
+// secondi circa e l'app lo interroga ogni sei: cinque giri sono mezzo minuto,
+// abbastanza perché un mezzo in servizio compaia, poco perché chi guarda resti
+// davanti a una mappa che non risponde.
+const DEEP_LINK_FEED_ROUNDS = 5;
+
 function ScreenLoading() {
   return <div className="screen-loading" role="status">Caricamento schermata...</div>;
 }
@@ -31,8 +39,12 @@ function isIosLikeDevice() {
 
 function App() {
   const { revision: gtfsRevision } = useGtfsNetwork();
+  // L'indirizzo si legge una volta sola, all'avvio: linea e punto valgono già
+  // come stato iniziale, mentre la matricola deve aspettare il feed.
+  const [deepLink] = useState(readBusRadarDeepLink);
   const [activeTab, setActiveTab] = useState<TabKey>('map');
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [feedRounds, setFeedRounds] = useState(0);
   const [search, setSearch] = useState('');
   const [searchMode, setSearchMode] = useState<'filter' | 'place'>('filter');
   const [searchLoading, setSearchLoading] = useState(false);
@@ -46,10 +58,10 @@ function App() {
   const [selectedLine, setSelectedLine] = useState<TransitLine>();
   const [lineDetailInitialTab, setLineDetailInitialTab] = useState<LineDetailTab>('route');
   const [lineDetailInitialRouteKey, setLineDetailInitialRouteKey] = useState<string>();
-  const [lineFilter, setLineFilter] = useState<string>();
-  const [showRouteForLine, setShowRouteForLine] = useState<string>();
+  const [lineFilter, setLineFilter] = useState<string | undefined>(deepLink.line);
+  const [showRouteForLine, setShowRouteForLine] = useState<string | undefined>(deepLink.line);
   const [followedVehicleId, setFollowedVehicleId] = useState<string>();
-  const [mapFocus, setMapFocus] = useState<LatLng>();
+  const [mapFocus, setMapFocus] = useState<LatLng | undefined>(deepLink.focus);
   const [userLocation, setUserLocation] = useState<LatLng>({ lat: 45.0706, lon: 7.6867 });
   const [hasUserLocation, setHasUserLocation] = useState(false);
   const [userLocationAccuracy, setUserLocationAccuracy] = useState<number>();
@@ -61,6 +73,9 @@ function App() {
   const pendingLocationRequestRef = useRef<Promise<LatLng | undefined> | undefined>(undefined);
   const locationSamplesRef = useRef<Array<{ point: LatLng; timestamp: number; accuracy: number }>>([]);
   const lineDetailOpenedAtRef = useRef(0);
+  // Le matricole ancora da trovare nel feed. Si svuota appena una viene agganciata
+  // o appena si rinuncia: da lì in poi la mappa è di chi la sta guardando.
+  const pendingDeepLinkVehiclesRef = useRef(deepLink.fleetNumbers);
 
   const applyUserPosition = useCallback((position: GeolocationPosition) => {
     const timestamp = position.timestamp || Date.now();
@@ -301,6 +316,9 @@ function App() {
           ...vehicle,
           favorite: isVehicleFavorite(vehicle.vehicleId),
         })));
+        // Un giro di feed è una risposta arrivata, non un tentativo: un errore
+        // di rete non consuma l'attesa di una matricola chiesta dall'indirizzo.
+        setFeedRounds((rounds) => rounds + 1);
       }
       refreshTimer = window.setTimeout(loadRealtimeVehicles, snapshot ? 6_000 : 3_000);
     }
@@ -329,6 +347,36 @@ function App() {
     window.addEventListener('busradar:toast', onToast);
     return () => window.removeEventListener('busradar:toast', onToast);
   }, []);
+
+  // La matricola chiesta dall'indirizzo non può essere onorata al primo
+  // rendering: i mezzi non sono ancora arrivati. Si aspetta che il feed la
+  // porti, e quando la porta si SEGUE il mezzo — chi arriva da quell'indirizzo
+  // ha chiesto «dov'è», e la scheda del mezzo coprirebbe la mappa proprio
+  // mentre risponde.
+  useEffect(() => {
+    const pending = pendingDeepLinkVehiclesRef.current;
+    if (!pending.length || feedRounds === 0) return;
+
+    for (const token of pending) {
+      const vehicle = vehicles.find((item) => matchesFleetToken(token, item));
+      if (!vehicle) continue;
+      pendingDeepLinkVehiclesRef.current = [];
+      setFollowedVehicleId(vehicle.vehicleId);
+      setMapFocus({ lat: vehicle.lat, lon: vehicle.lon });
+      setLineFilter(vehicle.line);
+      setShowRouteForLine(vehicle.routeId.replace(/^gtt-/, ''));
+      return;
+    }
+
+    if (feedRounds < DEEP_LINK_FEED_ROUNDS) return;
+    // Il silenzio si leggerebbe come «il mezzo non c'è», che è un'altra cosa.
+    pendingDeepLinkVehiclesRef.current = [];
+    notify(
+      pending.length > 1
+        ? `Le vetture ${pending.join(', ')} non stanno trasmettendo`
+        : `La vettura ${pending[0]} non sta trasmettendo`,
+    );
+  }, [feedRounds, vehicles]);
 
   const selectedVehicle = useMemo(
     () => vehicles.find((vehicle) => vehicle.vehicleId === selectedVehicleId),
@@ -619,13 +667,15 @@ function App() {
           <LineDetailScreen line={selectedLine} vehicles={vehicles} userLocation={userLocation} initialTab={lineDetailInitialTab} initialRouteKey={lineDetailInitialRouteKey} onBack={() => setSelectedLine(undefined)} onSelectVehicle={openVehicle} onSelectStop={openStop} />
         </Suspense>
         {toast && <div className="toast">{toast}</div>}
-        <BottomNav
-          active="lines"
-          onChange={(tab) => {
-            if (performance.now() - lineDetailOpenedAtRef.current < 700) return;
-            handleTabChange(tab);
-          }}
-        />
+        {!deepLink.embed && (
+          <BottomNav
+            active="lines"
+            onChange={(tab) => {
+              if (performance.now() - lineDetailOpenedAtRef.current < 700) return;
+              handleTabChange(tab);
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -780,7 +830,9 @@ function App() {
         </div>
       )}
       {toast && <div className="toast">{toast}</div>}
-      <BottomNav active={activeTab} onChange={handleTabChange} />
+      {/* Dentro il frame di un'altra app la barra in basso è una navigazione che
+          non porta da nessuna parte, e ruba lo spazio della mappa. */}
+      {!deepLink.embed && <BottomNav active={activeTab} onChange={handleTabChange} />}
     </div>
   );
 }
