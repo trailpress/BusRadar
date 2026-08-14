@@ -72,7 +72,7 @@ export function FeedDelayTuning() {
         <p className="feed-delay-note">
           {custom
             ? `Valore tuo, ricordato su questo telefono. Predefinito: ${DEFAULT_UNDECLARED_FEED_DELAY_SECONDS} s.`
-            : `Valore predefinito, non ancora tarato dalla strada.`}
+            : `Valore tarato alla fermata il 12/08/2026. Rifai la prova se i mezzi ti sembrano fuori posto.`}
         </p>
         {custom ? (
           <button

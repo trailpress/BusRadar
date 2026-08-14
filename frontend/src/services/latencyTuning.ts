@@ -14,11 +14,20 @@
 // e in `docs/project-reference.md`, altrimenti resta sul telefono di chi l'ha
 // misurato e nessun altro lo vede.
 
-// Alzato da 20 a 60 il 2026-08-12: dalla strada il marker risultava indietro di
-// almeno un minuto rispetto al mezzo vero **e** rispetto al sito GTT, che legge
-// lo stesso feed. Venti secondi erano una supposizione, questa è
-// un'osservazione - ancora sommaria, ma di segno inequivocabile.
-export const DEFAULT_UNDECLARED_FEED_DELAY_SECONDS = 60;
+// **Misurato dalla strada il 2026-08-12, non più supposto.** Con la manopola a
+// 80 s lo scarto residuo fra il mezzo vero e il suo puntino era di 6-7 secondi,
+// ed è il valore che l'aritmetica prevede per un'età assunta *giusta*: 15 s
+// dichiarati più 80 fanno 95 s creduti, di cui se ne compensano 88,2 per via del
+// margine di confidenza del 10%. I 6-7 secondi che restano sono quel margine,
+// non un errore di stima.
+//
+// Prima di questa misura il valore era 20 s: copriva meno di un quarto del
+// ritardo reale, ed è il motivo per cui i mezzi si vedevano indietro di un
+// minuto abbondante.
+//
+// **Chi lo cambia rifaccia la prova**, non lo deduca: il feed nega di avere un
+// ritardo, quindi nessuna lettura dei dati può confermarlo o smentirlo.
+export const DEFAULT_UNDECLARED_FEED_DELAY_SECONDS = 80;
 
 const STORAGE_KEY = 'busradar.undeclaredFeedDelaySeconds';
 // Oltre i due minuti non è più una latenza da compensare: è un campione da
