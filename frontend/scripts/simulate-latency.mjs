@@ -106,7 +106,7 @@ function positionAfterSeconds(fromMeters, seconds, speed, dwellSeconds) {
   return position + remaining * speed;
 }
 
-function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35, cap = 75, anchored, anchoredOnly, raw, scheduledPace, additive, predictionError = 20, seed = 1 }) {
+function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35, cap = 75, confidence = 0.9, anchored, anchoredOnly, raw, scheduledPace, additive, predictionError = 20, seed = 1 }) {
   const { positions, arrivals } = course;
   // Il passo che l'orario programmato attribuisce al tratto: la media della
   // corsa, che è ciò che un orario codifica, non la velocità di un istante.
@@ -140,7 +140,7 @@ function run(course, { dwellAware, rateLimited, fastDrop, floor, fraction = 0.35
     const assumed = additive ? DECLARED_AGE + floor : Math.max(DECLARED_AGE, floor);
     // `cap` replica MAX_LATENCY_COMPENSATION_SECONDS: oltre quella soglia la
     // correzione non va, per quanto vecchio si creda il campione.
-    const seconds = Math.min(assumed + 3, cap) * 0.9;
+    const seconds = Math.min(assumed + 3, cap) * confidence;
     let target = 0;
     // `raw`: il marker sta dove il feed lo ha messo, punto. Nessuna proiezione,
     // nessuna interpolazione. Serve a quantificare cosa si guadagna e cosa si
@@ -272,6 +272,13 @@ const scenarios = [
   ['ancorato, pavimento 45 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 45, anchored: true }],
   ['ancorato, pavimento 50 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 50, anchored: true }],
   ['ancorato, pavimento 60 s', { dwellAware: true, rateLimited: true, fastDrop: false, floor: 60, anchored: true }],
+  // **Tarato dalla strada il 2026-08-12**: con la manopola a 80 s lo scarto
+  // residuo osservato era di 6-7 secondi, che e' esattamente il margine di
+  // confidenza (95 s creduti, 88,2 compensati). L'eta' assunta e' quindi
+  // giusta; qui si misura se convenga chiudere anche quegli ultimi secondi.
+  ['tarato: +80 s, margine 0,90', { dwellAware: true, rateLimited: true, additive: true, floor: 80, cap: 130, anchored: true, scheduledPace: true }],
+  ['tarato: +80 s, margine 0,95', { dwellAware: true, rateLimited: true, additive: true, floor: 80, cap: 130, confidence: 0.95, anchored: true, scheduledPace: true }],
+  ['tarato: +80 s, nessun margine', { dwellAware: true, rateLimited: true, additive: true, floor: 80, cap: 130, confidence: 1, anchored: true, scheduledPace: true }],
   // Candidate dopo la prova dalla strada del 2026-08-12: marker indietro di
   // almeno 60 s rispetto al mezzo vero e rispetto al sito GTT. Con la
   // compensazione attuale che copre ~39 s, il ritardo vero del feed risulta

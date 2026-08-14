@@ -148,15 +148,15 @@ Sono i numeri che decidono quanto il movimento appare realistico. Vanno cambiati
 
 | costante o soglia | valore | effetto |
 | --- | --- | --- |
-| `MAX_LATENCY_COMPENSATION_SECONDS` | 75 s | quanta età del campione viene recuperata proiettando in avanti |
+| `MAX_LATENCY_COMPENSATION_SECONDS` | 130 s | quanta età del campione viene recuperata proiettando in avanti. **Alzato da 75 il 2026-08-12**: con il ritardo vero a 80 s il vecchio tetto tagliava la correzione prima che la taratura potesse avere effetto |
 | `LATENCY_COMPENSATION_LEAD_SECONDS` | 3 s | mira leggermente avanti, perché il marker raggiunge il bersaglio solo nei secondi successivi |
 | `SPEED_AVERAGE_WINDOW_SECONDS` | 60 s | finestra della media di velocità, allineata al ritardo compensato e pesata sul tempo reale tra i campioni, non sul loro numero. **Simmetrica di proposito**: far entrare più in fretta i rallentamenti conta due volte le soste, che nella media già ci sono |
 | `STOP_DWELL_SECONDS` | 15 s | quanto costa alla proiezione ogni fermata che attraversa. Senza, il mezzo veniva proiettato dritto attraverso la fermata che stava servendo. **Serve solo di ripiego**: quando il feed annuncia le fermate successive vince l'ancoraggio |
 | `anchoredAdvanceMeters` | — | posiziona il mezzo interpolando fra il campione e la fermata che GTT dice che sta per raggiungere. È la sorgente preferita; la proiezione a velocità resta per le corse senza previsioni |
 | `LATENCY_ADJUST_FRACTION` | 0,35 | quanta della velocità del mezzo la correzione può spendere per cambiare sé stessa. Il marker si muove quindi fra 0,65× e 1,35× la velocità del mezzo: mai all'indietro, mai a scatti |
 | velocità usata per la proiezione | media mobile, non istantanea | proiettare un minuto di percorso con la velocità di un singolo istante faceva oscillare il recupero fra zero e 400 m sullo stesso mezzo, a ogni ripartenza da fermata |
-| `ASSUMED_UNDECLARED_FEED_DELAY_SECONDS` | 20 s, **sommati** all'età dichiarata | ritardo che il feed GTT **non dichiara**: i campioni arrivano marcati come appena misurati, ma la posizione è di prima. Con i 10-30 s dichiarati l'età effettiva risulta di 30-50 s. **È l'unico numero del progetto che nessuno ha misurato**, e ogni riga della taratura gli sta a valle — il protocollo per misurarlo dalla strada è qui sotto |
-| `MAX_LATENCY_COMPENSATION_METERS` | 700 m | tetto assoluto alla proiezione |
+| `ASSUMED_UNDECLARED_FEED_DELAY_SECONDS` | **80 s**, sommati all'età dichiarata | ritardo che il feed GTT **non dichiara**: i campioni arrivano marcati come appena misurati, ma la posizione è di prima. Con i 10-30 s dichiarati l'età effettiva risulta di 90-110 s. **Misurato dalla fermata il 2026-08-12** — prima era 20 s, cioè meno di un quarto del vero, ed è la ragione per cui i mezzi si vedevano indietro di un minuto. Regolabile dall'app, schermata Radar |
+| `MAX_LATENCY_COMPENSATION_METERS` | 1100 m | tetto assoluto alla proiezione. **Alzato da 700 il 2026-08-12**: a 90 s di età e 30 km/h servono 750 m |
 | `LATENCY_COMPENSATION_CONFIDENCE` | 0,90 | margine contro l'overshoot: la stima assume velocità costante, il mezzo invece frena |
 | bonus di permanenza sulla shape | −95 entro 140 m | evita che andata e ritorno si scambino tra un campione e l'altro |
 | `snapLimitMeters` | 55 m, 70 m extraurbani | oltre questa distanza il mezzo non è agganciato alla shape |
@@ -179,6 +179,8 @@ La mediana di quei numeri è la correzione da applicare:
 - **puntino in ritardo di N secondi** → la compensazione è troppo corta: `ASSUMED_UNDECLARED_FEED_DELAY_SECONDS` va aumentata di circa N.
 - **puntino in anticipo** → è troppo lunga, va ridotta della stessa quantità.
 - **scarto vicino a zero** → il valore attuale è giusto, e va scritto qui che è stato verificato, con la data.
+
+**Esito della prima misura, 2026-08-12: 80 secondi.** Con la manopola a quel valore lo scarto residuo era di **6-7 secondi**, ed è esattamente ciò che l'aritmetica prevede quando l'età assunta è *giusta*: 15 s dichiarati più 80 fanno 95 s creduti, di cui se ne compensano 88,2 per il margine di confidenza del 10%. Quei 6-7 secondi **sono quel margine**, non un errore di taratura, e stanno dalla parte sicura — il marker resta un poco indietro, mai davanti. Azzerarli (`LATENCY_COMPENSATION_CONFIDENCE` a 1) porterebbe il marker in media 3 s **oltre** il mezzo, cioè nell'errore che costa di più.
 
 Perché conta più di ogni altra taratura: `npm run simulate:latency --sensibilita` mostra che con questo numero sbagliato in difetto il marker supera il mezzo **fino al 43% del tempo**, e con lo stesso algoritmo tarato bene scende sotto il 10%. Il sorpasso è l'errore che costa di più — un marker oltre la fermata fa credere di aver perso il mezzo — quindi **in caso di dubbio si sbaglia per eccesso**, non per difetto.
 
