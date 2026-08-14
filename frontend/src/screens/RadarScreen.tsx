@@ -41,8 +41,7 @@ function plural(count: number, singular: string, plural_: string) {
 }
 
 // La taratura del ritardo del feed vive qui perche' e' l'unica schermata
-// dell'app che non sia mappa o elenco. `MoreScreen`, dove starebbe meglio, non
-// e' collegata a nessuna rotta: nessuno la puo' aprire.
+// dell'app che non sia mappa o elenco.
 export function RadarScreen({ vehicles, userLocation, hasUserLocation, onLocateUser, onSelectVehicle, onSelectStop, onBack }: Props) {
   const { revision: gtfsRevision } = useGtfsNetwork();
   const [radius, setRadius] = useState(1000);
