@@ -75,18 +75,23 @@ function readFocus(rawLat: string | null, rawLon: string | null): LatLng | undef
 }
 
 /**
- * La matricola richiesta contro il mezzo che il feed ha portato. Si guarda
- * anche il `vehicleId` perché per una parte dei mezzi è l'unica identità che il
- * feed dichiara, e chi apre l'indirizzo ha in mano il numero scritto sul mezzo,
- * non la distinzione fra i due campi.
+ * La matricola richiesta contro il mezzo che il feed ha portato.
+ *
+ * Si guardano **tutte le identità che il feed dichiara**, non solo la
+ * `fleetNumber`: quella esiste solo quando il numero è riconosciuto dal
+ * catalogo flotta, e i mezzi la cui serie non è ancora verificata resterebbero
+ * fuori. In più `vehicle.id` e `vehicle.label` a volte non coincidono (1235 e
+ * 16235 sono lo stesso mezzo nel feed), e chi apre l'indirizzo ha in mano il
+ * numero scritto sul mezzo, non la distinzione fra i due campi.
  */
-export function matchesFleetToken(token: string, vehicle: { fleetNumber?: string; vehicleId: string }) {
+export function matchesFleetToken(
+  token: string,
+  vehicle: { fleetNumber?: string; vehicleId: string; realtimeVehicleId?: string; realtimeVehicleLabel?: string },
+) {
   const wanted = normalizeFleetToken(token);
   if (!wanted) return false;
-  return (
-    normalizeFleetToken(vehicle.fleetNumber ?? '') === wanted
-    || normalizeFleetToken(vehicle.vehicleId) === wanted
-  );
+  return [vehicle.fleetNumber, vehicle.vehicleId, vehicle.realtimeVehicleId, vehicle.realtimeVehicleLabel]
+    .some((identity) => identity != null && normalizeFleetToken(identity) === wanted);
 }
 
 export function readBusRadarDeepLink(search = window.location.search): BusRadarDeepLink {

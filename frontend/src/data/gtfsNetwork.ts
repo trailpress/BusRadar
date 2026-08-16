@@ -46,6 +46,7 @@ const routesByRouteId = new Map<string, GtfsRouteVariant[]>();
 const routesByLine = new Map<string, GtfsRouteVariant[]>();
 const routeByVariantId = new Map<string, GtfsRouteVariant>();
 const lineById = new Map<string, GtfsLine>();
+const lineByCodeKey = new Map<string, GtfsLine>();
 const stopById = new Map<string, GtfsStop>();
 const listeners = new Set<() => void>();
 let revision = 0;
@@ -67,11 +68,55 @@ export function getGtfsNetworkBounds() {
   return networkBounds;
 }
 
+/**
+ * Lo stesso numero di linea si scrive in più modi, e chi arriva da fuori non
+ * usa per forza quello del GTFS. Il barrato è `63/` qui e `63B` per chi lo
+ * scrive a mano o lo digita su un turno; una linea notturna è `N04` qui e `N4`
+ * altrove; gli zeri iniziali e gli spazi non contano. La chiave li riduce tutti
+ * alla stessa forma — verificato sulle 223 linee pubblicate: nessuna coppia di
+ * linee diverse ci finisce sopra.
+ *
+ * Il `+` **resta**: `13` e `13+` sono due linee distinte, e fonderle
+ * mostrerebbe i mezzi di un'altra.
+ */
+function lineCodeKey(code: string) {
+  return code
+    .toUpperCase()
+    .replace(/[\s.()]/g, '')
+    .replace(/\/+$/, 'B')
+    .replace(/\d+/g, (digits) => String(Number(digits)));
+}
+
+/**
+ * La linea GTFS a cui corrisponde un codice scritto altrove. Nell'ordine:
+ * l'id esatto, la stessa linea scritta in un altro modo, e infine la linea
+ * madre di una variante di turno — `36 (merc.)` e `M1N` non sono linee del
+ * GTFS, ma i mezzi che le fanno il feed li dichiara sulla 36 e sulla M1.
+ *
+ * L'ultimo passo è una **convenzione dichiarata**, non un dato: si ferma alla
+ * linea madre, e se nemmeno quella esiste restituisce `undefined` invece di
+ * indovinare. Chi chiama deve trattare `undefined` come «non lo so»: filtrare
+ * per un codice che nessun mezzo porta svuota la mappa, e una mappa vuota si
+ * legge come «non sta circolando niente».
+ */
+export function findGtfsLineByCode(code: string | undefined) {
+  const trimmed = code?.trim();
+  if (!trimmed) return undefined;
+  const exact = lineById.get(trimmed);
+  if (exact) return exact;
+  const byKey = lineByCodeKey.get(lineCodeKey(trimmed));
+  if (byKey) return byKey;
+  const parent = trimmed.toUpperCase().replace(/_.*$/, '').replace(/[A-Z]+$/, '');
+  if (!parent || !/\d$/.test(parent)) return undefined;
+  return lineByCodeKey.get(lineCodeKey(parent));
+}
+
 function rebuildIndexes() {
   routesByRouteId.clear();
   routesByLine.clear();
   routeByVariantId.clear();
   lineById.clear();
+  lineByCodeKey.clear();
   stopById.clear();
 
   gtfsNetwork.routes.forEach((route) => {
@@ -79,7 +124,12 @@ function rebuildIndexes() {
     routesByRouteId.set(route.routeId, [...(routesByRouteId.get(route.routeId) ?? []), route]);
     routesByLine.set(route.line, [...(routesByLine.get(route.line) ?? []), route]);
   });
-  gtfsNetwork.lines.forEach((line) => lineById.set(line.id, line));
+  gtfsNetwork.lines.forEach((line) => {
+    lineById.set(line.id, line);
+    // Il primo che occupa la chiave la tiene: l'id esatto viene comunque
+    // provato prima, quindi questa serve solo a chi scrive la linea altrimenti.
+    if (!lineByCodeKey.has(lineCodeKey(line.id))) lineByCodeKey.set(lineCodeKey(line.id), line);
+  });
   gtfsNetwork.stops.forEach((stop) => stopById.set(stop.id, stop));
 
   networkBounds = undefined;

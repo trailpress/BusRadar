@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import type { MapSearchSuggestion } from './components/AppHeader';
-import { getGtfsLine, getGtfsRouteDirectionKey, getGtfsRouteVariant, gtfsNetwork, type GtfsStop } from './data/gtfsNetwork';
+import { findGtfsLineByCode, getGtfsLine, getGtfsRouteDirectionKey, getGtfsRouteVariant, gtfsNetwork, type GtfsStop } from './data/gtfsNetwork';
 import { useGtfsNetwork } from './data/useGtfsNetwork';
 import { geocodeTransitArea, geocodeTransitSuggestions, type GeocodingResult } from './services/geocoding';
 import { fetchGttRealtimeVehicles } from './services/gttRealtime';
@@ -76,6 +76,7 @@ function App() {
   // Le matricole ancora da trovare nel feed. Si svuota appena una viene agganciata
   // o appena si rinuncia: da lì in poi la mappa è di chi la sta guardando.
   const pendingDeepLinkVehiclesRef = useRef(deepLink.fleetNumbers);
+  const deepLinkLineResolvedRef = useRef(!deepLink.line);
 
   const applyUserPosition = useCallback((position: GeolocationPosition) => {
     const timestamp = position.timestamp || Date.now();
@@ -347,6 +348,26 @@ function App() {
     window.addEventListener('busradar:toast', onToast);
     return () => window.removeEventListener('busradar:toast', onToast);
   }, []);
+
+  // La linea chiesta dall'indirizzo vale subito come filtro, ma il codice va
+  // riconosciuto: chi arriva da un turno scrive `63B` dove il GTFS scrive `63/`,
+  // `36 (merc.)` dove il GTFS ha solo la 36, `N4` dove il GTFS ha `N04`. Il
+  // riconoscimento ha bisogno della rete, che al primo rendering non è ancora
+  // caricata, quindi si rifà appena arriva.
+  useEffect(() => {
+    if (deepLinkLineResolvedRef.current || !gtfsNetwork.lines.length) return;
+    deepLinkLineResolvedRef.current = true;
+    const requested = deepLink.line;
+    const line = findGtfsLineByCode(requested);
+    // Solo se nel frattempo non ci ha messo le mani chi guarda.
+    const replace = (current?: string) => (current === requested ? line?.id : current);
+    setLineFilter(replace);
+    setShowRouteForLine(replace);
+    if (line) return;
+    // Filtrare per un codice che nessun mezzo porta lascerebbe una mappa vuota,
+    // e una mappa vuota si legge come «non sta circolando niente».
+    notify(`Linea ${requested} non trovata nel GTFS caricato`);
+  }, [deepLink.line, gtfsRevision]);
 
   // La matricola chiesta dall'indirizzo non può essere onorata al primo
   // rendering: i mezzi non sono ancora arrivati. Si aspetta che il feed la
