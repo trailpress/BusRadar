@@ -14,13 +14,16 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 
 | | |
 | --- | --- |
-| pull request aperte | **questa**, dal ramo `claude/deep-link-turni-smart-ebyhub` |
-| ultimo merge in `main` | PR #45 |
-| deploy | nessuno nuovo: questo lavoro non è ancora in `main` |
+| pull request aperte | **nessuna** |
+| ultimo merge in `main` | PR #46, il lavoro descritto qui sotto |
+| ramo `claude/deep-link-turni-smart-ebyhub` | unito, finito: il seguito parte da un ramo nuovo |
+| deploy | pubblicato da `main` il 2026-08-16 (run verde) |
 
 Resta in attesa di giudizio il ramo `claude/map-match-31471180628`, e restano da cancellare i rami di prova elencati nella voce sotto.
 
 ### Cosa è cambiato in questo turno
+
+Tutto quanto segue è **già in produzione**.
 
 **BusRadar si può aprire già puntato su un mezzo.** Serve a Turni Smart (`trailpress/turni-smart`, `src/utils/busRadar.js`), che dal chip del turno vettura apre BusRadar in un iframe per far vedere dov'è il mezzo di quel turno. **Quella metà era già in produzione e mandava i parametri da settimane: qui non li leggeva nessuno.** Ora li legge `frontend/src/utils/deepLink.ts`:
 
