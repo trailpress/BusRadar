@@ -6,6 +6,57 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 
 ---
 
+## Ultimo aggiornamento: 2026-08-14 · sessione Claude Code
+
+**La voce del 2026-08-12, più sotto, resta valida: non è ancora stata assorbita.** Questa si aggiunge, non la sostituisce.
+
+### Stato al momento della consegna
+
+| | |
+| --- | --- |
+| pull request aperte | **questa**, dal ramo `claude/deep-link-turni-smart-ebyhub` |
+| ultimo merge in `main` | PR #45 |
+| deploy | nessuno nuovo: questo lavoro non è ancora in `main` |
+
+Resta in attesa di giudizio il ramo `claude/map-match-31471180628`, e restano da cancellare i rami di prova elencati nella voce sotto.
+
+### Cosa è cambiato in questo turno
+
+**BusRadar si può aprire già puntato su un mezzo.** Serve a Turni Smart (`trailpress/turni-smart`, `src/utils/busRadar.js`), che dal chip del turno vettura apre BusRadar in un iframe per far vedere dov'è il mezzo di quel turno. **Quella metà era già in produzione e mandava i parametri da settimane: qui non li leggeva nessuno.** Ora li legge `frontend/src/utils/deepLink.ts`:
+
+| parametro | effetto |
+| --- | --- |
+| `vettura=1234` | una o più matricole separate da virgola, si aggancia quel mezzo |
+| `linea=71` | filtra i mezzi e disegna il percorso |
+| `lat=..&lon=..` | dove inquadrare quando la matricola non c'è |
+| `embed=<testo>` | niente `BottomNav`: siamo dentro il frame di un'altra app |
+
+**Il turno vettura non si può passare, e non è una dimenticanza: nel feed non esiste.** Il GTFS-RT di GTT porta la matricola e la linea, e il `tripId` arriva vuoto — quale vettura stia facendo il turno vettura 6 oggi lo sa chi è in deposito, non una macchina. Chi ha la matricola punta il mezzo, chi non ce l'ha ottiene la linea. **Non aggiungere un parametro `turno`**: prometterebbe qualcosa che nessun dato può mantenere.
+
+**Linea e punto valgono come stato iniziale, la matricola no.** Al primo rendering i mezzi non sono ancora arrivati, quindi la matricola aspetta un `useEffect` su `vehicles` e viene cercata per `fleetNumber` o `vehicleId`, confrontando le matricole senza gli zeri iniziali.
+
+**Quando il mezzo si trova lo si SEGUE, non si apre la sua scheda.** Chi arriva da quell'indirizzo ha chiesto «dov'è», e `selectedVehicleId` coprirebbe la mappa proprio mentre risponde. Si impostano `followedVehicleId`, `mapFocus`, `lineFilter` e `showRouteForLine`, **una volta sola**: la lista delle matricole in attesa si svuota all'aggancio, perché ricentrare la mappa a ogni giro la strapperebbe da sotto le dita di chi la sta usando.
+
+**Dopo cinque giri di feed ci si arrende dicendolo**: «La vettura 1234 non sta trasmettendo». Il silenzio si leggerebbe come «il mezzo non c'è», che è un'altra cosa. Un giro è **una risposta arrivata**, non un tentativo: se il proxy è irraggiungibile il contatore non avanza e l'avviso non compare, perché lì il problema non è la vettura.
+
+**Il codice della linea va riconosciuto, non preso alla lettera, o la cosa vale solo per una parte dei turni.** Chi scrive un turno usa la notazione di chi guida: il barrato è `63B`, non `63/` come nel GTFS; la variante merci è `36 (merc.)`, che nel GTFS non esiste; il ramo `M1N` nemmeno. Su ventinove codici del deposito Gerbido **sei non corrispondevano a nessuna linea**, e il filtro restava sul codice così com'era scritto: nessun mezzo lo porta, quindi mappa senza mezzi e senza percorso, in silenzio — proprio nel caso senza matricola, che è la maggioranza dei turni. Ora `findGtfsLineByCode()` in `data/gtfsNetwork.ts` prova nell'ordine l'id esatto, la stessa linea scritta in un altro modo (barrato `/`↔`B`, zeri iniziali, spazi, maiuscole) e infine la **linea madre** di una variante di turno. L'ultimo passo è una convenzione dichiarata, non un dato: `36 (merc.)` e `M1N` non sono linee GTFS, ma i mezzi che le fanno il feed li dichiara sulla 36 e sulla M1.
+
+- **Il `+` non si tocca**: `13` e `13+` sono due linee diverse, fonderle mostrerebbe i mezzi di un'altra. La chiave è stata verificata su tutte le 223 linee, senza nessuna collisione.
+- **Se il codice non si riconosce, il filtro si toglie e lo si dice** («Linea ZZ9 non trovata nel GTFS caricato»): filtrare per un codice che nessun mezzo porta lascia una mappa vuota, e una mappa vuota si legge come «non sta circolando niente».
+- Il riconoscimento ha bisogno della rete GTFS, che al primo rendering non c'è ancora: si rifà quando arriva, e **solo se nel frattempo chi guarda non ha toccato il filtro**.
+
+**La matricola si confronta con tutte le identità che il feed dichiara**, non con la sola `fleetNumber`: quella esiste solo per i mezzi riconosciuti dal catalogo flotta, e le serie non ancora verificate resterebbero fuori. Si guardano anche `vehicleId`, `realtimeVehicleId` e `realtimeVehicleLabel`, perché `vehicle.id` e `vehicle.label` a volte non coincidono (1235 e 16235 sono lo stesso mezzo).
+
+**Un `lat`/`lon` fuori scala viene scartato, non riportato al limite.** Correggerlo produrrebbe un punto inventato sul bordo della mappa, che si legge come una posizione vera. Il riquadro è quello largo quanto il Piemonte, che ora sta in `data/gtfsNetwork.ts` accanto a `getGtfsNetworkBounds()` invece che dentro `gttRealtime.ts`: lo usano in due e due copie sarebbero divergute.
+
+### Cosa non è stato verificato
+
+**Il feed vivo, come nella sessione precedente**: `percorsieorari.gtt.to.it` e Supabase rispondono 403 sul CONNECT, quindi **nessuna prova con la matricola di un mezzo che sta girando davvero**. Al suo posto, l'app in esecuzione con `npm run dev` e il feed sostituito da un mezzo finto messo su una variante vera, sulla linea 71, sulla M1 e sulla 63/: barra in basso sparita con `embed` e presente senza, mezzo seguito senza aprire la scheda, `63B` riconosciuta come la 63/ con le sue due direzioni, codice inventato che toglie il filtro e lo dice, e con una matricola inventata l'avviso comparso dopo cinque giri. A parte, senza browser: il lettore dei parametri sui casi limite (fuori scala, `0,0`, `lat` senza `lon`, duplicati, tetto a otto matricole) e il riconoscimento della linea su **tutte le 223 linee** e su tutti e 29 i codici del deposito Gerbido. `verify:assets`, `verify:routes`, `build` e `smoke:map` passano.
+
+Chi ha rete aperta: **apri l'indirizzo con la matricola di un mezzo in servizio** e controlla che la mappa lo insegua davvero, e che dentro l'iframe di Turni Smart non compaia nessuna barra.
+
+---
+
 ## Ultimo aggiornamento: 2026-08-12 · sessione Claude Code
 
 ### Stato al momento della consegna
