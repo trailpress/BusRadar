@@ -16,7 +16,8 @@
     "gtfs:runs": "node scripts/generate-scheduled-runs.mjs",
     "gtfs:shard": "node --max-old-space-size=6144 scripts/shard-stop-times.mjs",
     "gtfs:match": "node scripts/map-match-shapes.mjs",
-    "deploy": "npm run build && gh-pages -d dist --dotfiles --add"
+    "deploy": "npm run build && gh-pages -d dist --dotfiles --add",
+    "measure:bearing": "node scripts/measure-bearing.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
