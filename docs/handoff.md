@@ -6,6 +6,29 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 
 ---
 
+## Ultimo aggiornamento: 2026-08-20 · sessione Claude Code
+
+**Le voci sotto restano valide: questa si aggiunge, non le sostituisce.**
+
+### Stato al momento della consegna
+
+| | |
+| --- | --- |
+| pull request aperte | nessuna dal mio ramo |
+| ultimo merge in `main` | PR #48 |
+| ramo `claude/tandem-codex-workflow-v1nntw` | interamente unito, libero |
+| deploy | pubblicato da `main` dopo il merge di PR #48 |
+
+### Cosa è cambiato in questo turno
+
+**Alle rotonde il mezzo era orientato attraverso l'aiuola, non lungo la carreggiata.** La direzione si misurava fra il punto 40 m indietro e quello 40 m avanti: una corda di 80 metri, **più larga della rotonda stessa** — una rotonda torinese misura 30-50 m — quindi andava dall'ingresso all'uscita. Ora la base si accorcia dove la strada gira, fino a 9 m, e resta di 40 dove scorre. Nelle curve strette l'errore rispetto alla tangente scende da 14,7° a 3,9° di mediana, il p95 da 56° a 20°, e i casi oltre i 45° dal 9,6% allo 0,1%; sui tratti scorrevoli non peggiora niente. `npm run measure:bearing` rifà il confronto.
+
+Due cose da non semplificare, se qualcuno ci torna sopra: **la curvatura va misurata nel punto, non nel segmento** (un segmento di 200 m che finisce in rotonda è dritto per quasi tutto, e un valore solo per segmento sbaglia proprio l'imbocco), e **la transizione fra base lunga e corta deve restare continua** — con soglie secche la direzione salta esattamente dove la curvatura le attraversa, cioè nel punto che si stava sistemando. La finestra si trova per bisezione: scorrere il percorso a ogni fotogramma è il costo contro cui `geo.ts` mette in guardia.
+
+**Resta aperta la metà della geometria.** La linea continua a tagliare la rotonda perché la shape GTT ha due vertici dove la strada ha una curva, e nessun calcolo può inventare una curva che nel dato non c'è: è esattamente ciò che fa il ramo del map matching, ancora in attesa di giudizio.
+
+---
+
 ## Ultimo aggiornamento: 2026-08-14 · sessione Claude Code
 
 **La voce del 2026-08-12, più sotto, resta valida: non è ancora stata assorbita.** Questa si aggiunge, non la sostituisce.
