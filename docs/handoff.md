@@ -6,6 +6,37 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 
 ---
 
+## Ultimo aggiornamento: 2026-10-21 · sessione Claude Code
+
+**Le voci sotto restano valide: questa si aggiunge, non le sostituisce.**
+
+### Stato al momento della consegna
+
+| | |
+| --- | --- |
+| pull request aperte | **questa**, dal ramo `claude/diagnosi-mappa-vuota`: solo questa nota, nessun codice |
+| ultimo merge in `main` | PR #49, nessun commit nuovo dal 2026-08-20 |
+| deploy | l'ultimo è del 2026-08-20, verde: il codice in produzione non cambia da due mesi |
+
+### Risolto: sulla mappa non compariva nessun mezzo
+
+**Causa: il progetto Supabase `mtuwzlbxhmpnqpaahity` era in pausa.** Il proprietario lo ha ripristinato dalla dashboard il 2026-10-21 e i mezzi sono tornati sulla mappa. Il codice non c'entrava e non è stato toccato.
+
+**Il progetto si fermerà di nuovo.** Supabase mette in pausa i progetti gratuiti inattivi, e questo progetto ha solo due Edge Function, senza database. Il deploy di BusRadar non tocca Supabase. Se la mappa torna a mostrare i tracciati senza nessun mezzo, **il primo controllo è la dashboard Supabase**, non il codice. Poi si apre `https://mtuwzlbxhmpnqpaahity.supabase.co/functions/v1/gtt-realtime/vehicles`:
+
+- progetto in pausa o non disponibile → ripristinarlo dalla dashboard Supabase (era questo il caso);
+- `proxy-error` con un codice HTTP → è cambiato o è giù l'endpoint GTT, oppure GTT blocca le richieste da Supabase;
+- 404 → la funzione va ripubblicata;
+- `status: ok` con molti mezzi → il proxy funziona e la causa è altrove.
+
+**Come si riconosce: tracciati visibili, nessun mezzo e nessuna corsa grigia.** Se la Edge Function `gtt-realtime` risponde con un errore o non risponde, `fetchGttRealtimeVehicles` restituisce `undefined`. Le corse non accertate si calcolano solo dopo una risposta valida, quindi non compaiono nemmeno quelle, e l'app non dice niente. Un feed vuoto ma valido darebbe invece le corse grigie. Prima di scoprire la causa, `smoke:map` alla data del 2026-10-21 aveva escluso un guasto nostro: passa in tutti e tre i modi, come `verify:assets`, `verify:routes` e `build`.
+
+**Verificato da chi ha segnalato il problema, non da questa sessione**, che non raggiunge né GTT né Supabase (403 sul CONNECT).
+
+**Lavoro proposto, non ancora fatto:** quando il proxy fallisce, l'app dovrebbe dirlo («dati in tempo reale non raggiungibili») invece di lasciare la mappa vuota in silenzio. Questa volta il silenzio ha trasformato un progetto in pausa in un guasto apparente dell'app.
+
+---
+
 ## Ultimo aggiornamento: 2026-08-20 · sessione Claude Code
 
 **Le voci sotto restano valide: questa si aggiunge, non le sostituisce.**
