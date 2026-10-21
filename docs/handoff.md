@@ -18,20 +18,22 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 | ultimo merge in `main` | PR #49, nessun commit nuovo dal 2026-08-20 |
 | deploy | l'ultimo è del 2026-08-20, verde: il codice in produzione non cambia da due mesi |
 
-### Segnalazione aperta: sulla mappa non compare nessun mezzo
+### Risolto: sulla mappa non compariva nessun mezzo
 
-**Il codice non è la causa.** La build di `main` gira con `smoke:map` alla data del 2026-10-21 e passa in tutti e tre i modi: con il feed finto i mezzi compaiono, a feed vuoto compaiono le corse non accertate, i mezzi fermi sono trattati come tali. Passano anche `verify:assets`, `verify:routes` e `build`. Il GTFS resta valido fino al 20261231.
+**Causa: il progetto Supabase `mtuwzlbxhmpnqpaahity` era in pausa.** Il proprietario lo ha ripristinato dalla dashboard il 2026-10-21 e i mezzi sono tornati sulla mappa. Il codice non c'entrava e non è stato toccato.
 
-**Una mappa senza nemmeno le corse grigie indica il proxy, non il feed vuoto.** Se la Edge Function `gtt-realtime` risponde con un errore o non risponde, `fetchGttRealtimeVehicles` restituisce `undefined`. In quel caso le corse non accertate non si calcolano, perché si calcolano solo dopo una risposta valida, e l'app non dice niente. Un feed vuoto ma valido darebbe invece le corse grigie.
+**Il progetto si fermerà di nuovo.** Supabase mette in pausa i progetti gratuiti inattivi, e questo progetto ha solo due Edge Function, senza database. Il deploy di BusRadar non tocca Supabase. Se la mappa torna a mostrare i tracciati senza nessun mezzo, **il primo controllo è la dashboard Supabase**, non il codice. Poi si apre `https://mtuwzlbxhmpnqpaahity.supabase.co/functions/v1/gtt-realtime/vehicles`:
 
-**Non verificato: anche da qui la rete è chiusa.** GTT, Supabase e `trailpress.github.io` rispondono 403 sul CONNECT. Il primo controllo da fare con rete aperta è `https://mtuwzlbxhmpnqpaahity.supabase.co/functions/v1/gtt-realtime/vehicles`:
-
-- progetto in pausa o non disponibile → ripristinarlo dalla dashboard Supabase (ipotesi più probabile, non confermata);
+- progetto in pausa o non disponibile → ripristinarlo dalla dashboard Supabase (era questo il caso);
 - `proxy-error` con un codice HTTP → è cambiato o è giù l'endpoint GTT, oppure GTT blocca le richieste da Supabase;
 - 404 → la funzione va ripubblicata;
 - `status: ok` con molti mezzi → il proxy funziona e la causa è altrove.
 
-**Lavoro proposto, non ancora fatto:** quando il proxy fallisce, l'app dovrebbe dirlo («dati in tempo reale non raggiungibili») invece di lasciare la mappa vuota in silenzio.
+**Come si riconosce: tracciati visibili, nessun mezzo e nessuna corsa grigia.** Se la Edge Function `gtt-realtime` risponde con un errore o non risponde, `fetchGttRealtimeVehicles` restituisce `undefined`. Le corse non accertate si calcolano solo dopo una risposta valida, quindi non compaiono nemmeno quelle, e l'app non dice niente. Un feed vuoto ma valido darebbe invece le corse grigie. Prima di scoprire la causa, `smoke:map` alla data del 2026-10-21 aveva escluso un guasto nostro: passa in tutti e tre i modi, come `verify:assets`, `verify:routes` e `build`.
+
+**Verificato da chi ha segnalato il problema, non da questa sessione**, che non raggiunge né GTT né Supabase (403 sul CONNECT).
+
+**Lavoro proposto, non ancora fatto:** quando il proxy fallisce, l'app dovrebbe dirlo («dati in tempo reale non raggiungibili») invece di lasciare la mappa vuota in silenzio. Questa volta il silenzio ha trasformato un progetto in pausa in un guasto apparente dell'app.
 
 ---
 
