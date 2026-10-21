@@ -6,6 +6,35 @@ Chi la scrive la aggiorna alla fine del proprio turno: si sostituisce la voce pr
 
 ---
 
+## Ultimo aggiornamento: 2026-10-21 · sessione Claude Code
+
+**Le voci sotto restano valide: questa si aggiunge, non le sostituisce.**
+
+### Stato al momento della consegna
+
+| | |
+| --- | --- |
+| pull request aperte | **questa**, dal ramo `claude/diagnosi-mappa-vuota`: solo questa nota, nessun codice |
+| ultimo merge in `main` | PR #49, nessun commit nuovo dal 2026-08-20 |
+| deploy | l'ultimo è del 2026-08-20, verde: il codice in produzione non cambia da due mesi |
+
+### Segnalazione aperta: sulla mappa non compare nessun mezzo
+
+**Il codice non è la causa.** La build di `main` gira con `smoke:map` alla data del 2026-10-21 e passa in tutti e tre i modi: con il feed finto i mezzi compaiono, a feed vuoto compaiono le corse non accertate, i mezzi fermi sono trattati come tali. Passano anche `verify:assets`, `verify:routes` e `build`. Il GTFS resta valido fino al 20261231.
+
+**Una mappa senza nemmeno le corse grigie indica il proxy, non il feed vuoto.** Se la Edge Function `gtt-realtime` risponde con un errore o non risponde, `fetchGttRealtimeVehicles` restituisce `undefined`. In quel caso le corse non accertate non si calcolano, perché si calcolano solo dopo una risposta valida, e l'app non dice niente. Un feed vuoto ma valido darebbe invece le corse grigie.
+
+**Non verificato: anche da qui la rete è chiusa.** GTT, Supabase e `trailpress.github.io` rispondono 403 sul CONNECT. Il primo controllo da fare con rete aperta è `https://mtuwzlbxhmpnqpaahity.supabase.co/functions/v1/gtt-realtime/vehicles`:
+
+- progetto in pausa o non disponibile → ripristinarlo dalla dashboard Supabase (ipotesi più probabile, non confermata);
+- `proxy-error` con un codice HTTP → è cambiato o è giù l'endpoint GTT, oppure GTT blocca le richieste da Supabase;
+- 404 → la funzione va ripubblicata;
+- `status: ok` con molti mezzi → il proxy funziona e la causa è altrove.
+
+**Lavoro proposto, non ancora fatto:** quando il proxy fallisce, l'app dovrebbe dirlo («dati in tempo reale non raggiungibili») invece di lasciare la mappa vuota in silenzio.
+
+---
+
 ## Ultimo aggiornamento: 2026-08-20 · sessione Claude Code
 
 **Le voci sotto restano valide: questa si aggiunge, non le sostituisce.**
